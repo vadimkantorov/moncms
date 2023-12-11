@@ -13,3 +13,8 @@
 - https://www.blocknotejs.org/
 - https://jawher.me/moving-from-jekyll-to-pelican/
 - https://github.com/Darginec05/Yopta-Editor
+
+- https://www.letsreact.org/how-to-create-a-react-app-without-npm/?utm_content=cmp-true
+- https://medium.com/@chrislewisdev/react-without-npm-babel-or-webpack-1e9a6049714
+- https://bernieslearnings.com/react-without-npm/?utm_content=cmp-true
+- https://kentcdodds.com/blog/super-simple-start-to-react
