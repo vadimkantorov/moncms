@@ -1,5 +1,6 @@
 - https://editorjs.io/
 - https://lexical.dev/
+- https://tiptap.dev
 - https://smikic.com/posts/editorjs-markdown-parser.html
 - https://github.com/factly/dega/issues/454
 - https://github.com/Sunnysit/markdown-blocks-editor/tree/staging
