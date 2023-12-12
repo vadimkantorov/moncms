@@ -1,38 +1,40 @@
 <!DOCTYPE html>
 <html charset="utf-8">
     <head>
-        <link href="https://cdn.quilljs.com/1.0.0/quill.snow.css" rel="stylesheet" />
-        <script src="https://cdn.quilljs.com/1.0.0/quill.js"></script>
+        <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon" />
+
+        <link href="https://cdn.quilljs.com/latest/quill.snow.css" rel="stylesheet" />
+        <script src="https://cdn.quilljs.com/latest/quill.js"></script>
         
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quilljs-markdown@latest/dist/quilljs-markdown-common-style.css" />
         <script src="https://cdn.jsdelivr.net/npm/quilljs-markdown@latest/dist/quilljs-markdown.js"></script>
+        
+        <style>.monospace{font-family: monospace}</style>
     </head>
     <body onload="onload()">
         <form>
             <fieldset>
-                <legend>Type in a link to a GitHub .md file</legend>
+                <legend class="monospace">Type in a link to a GitHub .md file</legend>
 
-                <label  for="github_url">GitHub URL:</label>
+                <label  for="github_url" class="monospace">GitHub&nbsp;&nbsp;&nbsp;URL:</label>
                 <input name="github_url" id="github_url" type="text" value="https://github.com/vadimkantorov/moncms/blob/master/README.md" />
                 <br />
                 
-                <label  for="public_url">Public URL:</label>
-                <input name="public_url" id="public_url" type="text" />
-                <br />
-                
-                <label  for="github_username">GitHub username:</label>
-                <input name="github_username" id="github_username" type="text" />
-                <br />
-                
-                <label  for="github_token">GitHub password or token:</label>
+                <label  for="github_token" class="monospace">GitHub token:</label>
                 <input name="github_token" id="github_token" type="text" value="" />
                 <br />
                 
-                <textarea id="log" rows="3" cols="80" readonly></textarea>
+                <label  for="public_url" class="monospace">Public&nbsp;&nbsp;&nbsp;URL:</label>
+                <input name="public_url" id="public_url" type="text" />
+                <br />
+                
+                <textarea id="log" rows="3" cols="80" class="monospace" readonly></textarea>
                 <br />
 
                 <button onclick="onclick_open(); return false;">Open</button>
                 <button onclick="onclick_save(); return false;">Save</button>
+                <input name="github_save" id="github_save" type="checkbox"></input>
+                <label  for="github_save">Save token in cookies</label>
             </fieldset>
         </form>
         <div id="editor"></div>
@@ -40,7 +42,7 @@
         <script>
 
         const editor = new Quill('#editor', { theme: 'snow' });
-        //const editor_markdown = new QuillMarkdown(editor)
+        const editor_markdown = new QuillMarkdown(editor)
 
         let retrieved_contents = {};
 
@@ -150,7 +152,7 @@
         function onload()
         {
             const query_string = new URLSearchParams(window.location.search);
-            for(const k of ['public_url', 'github_url', 'github_username', 'github_token'])
+            for(const k of ['public_url', 'github_url', 'github_token'])
                 document.getElementById(k).value = query_string.get(k);
 
             if(document.getElementById('github_url').value || document.getElementById('public_url').value)
@@ -165,6 +167,8 @@
             //TODO: autofocus on text or URL
             //TODO: autoload token/password
             //TODO: set search to github_url. what to do with password?
+            //TODO: support creating a new file
+            //TODO: when closing with changes, prevent?
         }
         
         function log(text, reset = true)
