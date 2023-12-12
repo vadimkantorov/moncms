@@ -1,4 +1,4 @@
-Hello my world!
+Hello your world!
 
 - https://editorjs.io/
 - https://lexical.dev/
