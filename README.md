@@ -21,3 +21,5 @@ Hello your world!
 - https://medium.com/@chrislewisdev/react-without-npm-babel-or-webpack-1e9a6049714
 - https://bernieslearnings.com/react-without-npm/?utm_content=cmp-true
 - https://kentcdodds.com/blog/super-simple-start-to-react
+
+- https://medium.com/codex/ditching-markdown-editors-for-quill-bbd314d546b7
