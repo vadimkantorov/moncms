@@ -11,7 +11,7 @@
         
         <style>.monospace{font-family: monospace}</style>
     </head>
-    <body onload="onload()">
+    <body onload="onload_body()">
         <form>
             <fieldset>
                 <legend class="monospace">Type in a link to a GitHub .md file</legend>
@@ -33,14 +33,18 @@
 
                 <button onclick="onclick_open(); return false;">Open</button>
                 <button onclick="onclick_save(); return false;">Save</button>
-                <input name="github_save" id="github_save" type="checkbox"></input>
-                <label  for="github_save">Save token in cookies</label>
+                <input name="github_cache" id="github_cache" type="checkbox" onchange="onchange_github_cache(); return false;"></input>
+                <label  for="github_cache">Cache token</label>
             </fieldset>
         </form>
         <div id="editor"></div>
 
         <script>
-
+        
+        const public_url = document.getElementById('public_url');
+        const github_url = document.getElementById('github_url');
+        const github_token = document.getElementById('github_token');
+        const github_cache = document.getElementById('github_cache');
         const editor = new Quill('#editor', { theme: 'snow' });
         const editor_markdown = new QuillMarkdown(editor)
 
@@ -59,11 +63,11 @@
             */
         }
 
-        function github_api_prepare_params(github_url, github_token)
+        function github_api_prepare_params(github_url, github_token = '')
         {
             // https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28
             const m = github_url.replace('https://raw.githubusercontent.com', 'https://github.com').match(/https:\/\/github.com\/(.+)\/(.+)\/blob\/(.+?)\/(.+[.]md)/i);
-            const prep = {headers : {}, error : '', contents_api_url : ''};
+            const prep = {headers : {}, error : '', contents_api_url : '', github_repo_url : ''};
             if(!github_url)
             {
                 prep.error = 'no github_url provided';
@@ -77,7 +81,7 @@
             }
             
             const [, github_repo_username, github_repo_name, github_repo_tag, github_repo_path] = m;
-            
+            prep.github_repo_url = `https://github.com/${github_repo_username}/${github_repo_name}`;
             prep.contents_api_url = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_path}`; 
             prep.headers = {
                 Authorization : 'Bearer ' + github_token, // 'Basic ' + btoa(auth_token) 
@@ -89,12 +93,16 @@
             return prep;
         }
 
-        async function onclick_open()
+        async function onclick_open(autoopen = false)
         {
-            //TODO: do not re-open if previous succeeded and text not changed
-            //TODO: cache github_token in cookies if successful open
+            let prep = github_api_prepare_params(github_url.value, github_token.value);
+            
+            if(!github_token.value && github_cache.checked)
+            {
+                github_token.value = cache_load(prep.github_repo_url);
+                prep = github_api_prepare_params(github_url.value, github_token.value); 
+            }
 
-            const prep = github_api_prepare_params(document.getElementById('github_url').value, document.getElementById('github_token').value);
             if(prep.error != '')
             {
                 retrieved_contents = {};
@@ -112,6 +120,12 @@
             }
 
             log(`GET ok ${resp.status}`);
+
+            if(github_token.value && github_cache.checked && !autoopen)
+            {
+                cache_save(prep.github_repo_url, github_token.value);
+                log('put in cache for ' + prep.github_repo_url, false);
+            }
             
             retrieved_contents = res;
             const text = res.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(atob(res.content), m => m.codePointAt(0))) : res.content;
@@ -119,11 +133,39 @@
             
             console.log('open', res);
         }
+
+        function storage_load(key)
+        {
+            return localStorage.getItem("moncms_" + key);
+        }
+        
+        function storage_save(key, value)
+        {
+            if(value)
+                localStorage.setItem("moncms_" + key, value);
+            else
+                localStorage.removeItem("moncms_" + key);
+        }
+
+        function cookie_load(key)
+        {
+            return (document.cookie.split(';').filter(k_v => k_v.split('=')[0] == key)[0] || '').split('=')[1];
+        }
+
+        function cookie_save(key, value)
+        {
+            if(value)
+                document.cookie = document.cookie ? (document.cookie + ';' + key + '=' + value) : (key + '=' + value);
+            else
+                document.cookie = document.cookie.split(';').filter(k_v => k_v.split('=')[0] != key).join(';'); 
+        }
+
+        [cache_load, cache_save] = [storage_load, storage_save];
+        //[cache_load, cache_save] = [cookie_load, cookie_save];
         
         async function onclick_save()
         {
-            // TODO: check if content has changed to not push without changes
-            const prep = github_api_prepare_params(document.getElementById('github_url').value, document.getElementById('github_token').value);
+            const prep = github_api_prepare_params(github_url.value, github_token.value);
             if(prep.error != '')
                 return log(prep.error);
 
@@ -149,14 +191,51 @@
             console.log('save', res);
         }
 
-        function onload()
+        function onchange_github_cache()
         {
-            const query_string = new URLSearchParams(window.location.search);
-            for(const k of ['public_url', 'github_url', 'github_token'])
-                document.getElementById(k).value = query_string.get(k);
+            if(!github_cache.checked)
+            {
+                const prep = github_api_prepare_params(github_url.value);
+                if(prep.github_repo_url)
+                {
+                    cache_save(prep.github_repo_url, null);
+                    log('purged cache for ' + prep.github_repo_url, false);
+                }
+            }
+        }
 
-            if(document.getElementById('github_url').value || document.getElementById('public_url').value)
-                onclick_open();
+        function onload_body()
+        {
+            let autoopen = false;
+            
+            if(window.location.search)
+            {
+                const query_string = new URLSearchParams(window.location.search);
+                for(const k of ['public_url', 'github_url', 'github_token'])
+                    document.getElementById(k).value = query_string.get(k);
+
+                if(query_string.has('github_cache'))
+                    github_cache.checked = ['1', 'true'].includes(query_string.get('github_cache'));
+
+                autoopen = query_string.has('github_url');
+            }
+
+            if(!github_token.value)
+            {
+                const prep = github_api_prepare_params(github_url.value);
+                if(prep.github_repo_url)
+                {
+                    github_token.value = cache_load(prep.github_repo_url);
+                    if(github_token.value)
+                    {
+                        github_cache.checked = true;
+                        autoopen = true;
+                    }
+                }
+            }
+
+            if(autoopen && (github_url.value || public_url.value))
+                onclick_open(true);
             else
                 log('Log:');
 
@@ -165,7 +244,6 @@
             //TODO: add Enter onkeypress to trigger open
             //TODO: Ctrl+Z with loaded text, focused on text leads to deletion of text
             //TODO: autofocus on text or URL
-            //TODO: autoload token/password
             //TODO: set search to github_url. what to do with password?
             //TODO: support creating a new file
             //TODO: when closing with changes, prevent?
