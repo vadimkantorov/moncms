@@ -101,6 +101,7 @@
             {
                 github_token.value = cache_load(prep.github_repo_url);
                 prep = github_api_prepare_params(github_url.value, github_token.value); 
+                log('got from cache for ' + prep.github_repo_url, false);
             }
 
             if(prep.error != '')
@@ -119,7 +120,7 @@
                 return log(`error ${resp.status}, [${res.message}]`);
             }
 
-            log(`GET ok ${resp.status}`);
+            log(`GET ok ${resp.status}`, false);
 
             if(github_token.value && github_cache.checked && !autoopen)
             {
@@ -228,6 +229,7 @@
                     github_token.value = cache_load(prep.github_repo_url);
                     if(github_token.value)
                     {
+                        log('got from cache for ' + prep.github_repo_url, false);
                         github_cache.checked = true;
                         autoopen = true;
                     }
