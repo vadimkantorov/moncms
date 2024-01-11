@@ -1,5 +1,9 @@
-Hello your world!
+```shell
+open http://localhost:8000
+python3 -m http.server
+```
 
+# References
 - https://editorjs.io/
 - https://lexical.dev/
 - https://tiptap.dev
