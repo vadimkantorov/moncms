@@ -3,11 +3,13 @@
     <head>
         <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon" />
 
-        <link href="https://cdn.quilljs.com/latest/quill.snow.css" rel="stylesheet" />
+        <!--<link href="https://cdn.quilljs.com/latest/quill.snow.css" rel="stylesheet" />
         <script src="https://cdn.quilljs.com/latest/quill.js"></script>
-        
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quilljs-markdown@latest/dist/quilljs-markdown-common-style.css" />
-        <script src="https://cdn.jsdelivr.net/npm/quilljs-markdown@latest/dist/quilljs-markdown.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/quilljs-markdown@latest/dist/quilljs-markdown.js"></script>-->
+
+        <link rel="stylesheet" href="/assets/main.css">
+        <script type="module" crossorigin src="/assets/main.js" id="lexicalplaygroundonlyeditor" onload="onload_editor()"></script>
         
         <style>.monospace{font-family: monospace}</style>
     </head>
@@ -40,15 +42,52 @@
         <div id="editor"></div>
 
         <script>
-        
         const public_url = document.getElementById('public_url');
         const github_url = document.getElementById('github_url');
         const github_token = document.getElementById('github_token');
         const github_cache = document.getElementById('github_cache');
-        const editor = new Quill('#editor', { theme: 'snow' });
-        const editor_markdown = new QuillMarkdown(editor)
-
         let retrieved_contents = {};
+
+        function storage_load(key)
+        {
+            return localStorage.getItem("moncms_" + key);
+        }
+        
+        function storage_save(key, value)
+        {
+            if(value)
+                localStorage.setItem("moncms_" + key, value);
+            else
+                localStorage.removeItem("moncms_" + key);
+        }
+
+        function cookie_load(key)
+        {
+            return (document.cookie.split(';').filter(k_v => k_v.split('=')[0] == key)[0] || '').split('=')[1];
+        }
+
+        function cookie_save(key, value)
+        {
+            if(value)
+                document.cookie = document.cookie ? (document.cookie + ';' + key + '=' + value) : (key + '=' + value);
+            else
+                document.cookie = document.cookie.split(';').filter(k_v => k_v.split('=')[0] != key).join(';'); 
+        }
+        
+        var cache_load = storage_load, cache_save = storage_save;
+
+        async function onload_editor()
+        {
+            const editor = await window.LexicalMarkdownEditor('#editor');
+            window.editor_getText = () => editor.getMarkdown();
+            window.editor_setText = md => editor.setMarkdown(md);
+
+            //const editor = window.LexicalMarkdownEditor('#editor');
+            //const editor = new Quill('#editor', { theme: 'snow' });
+            //const editor_markdown = new QuillMarkdown(editor)
+            //const  = () => editor.getText();
+            //const editor_setText = text => editor.setText(text);
+        }
 
         function github_api_format_error(resp_status, res_message)
         {
@@ -117,7 +156,7 @@
             if(!res.content)
             {
                 retrieved_contents = {};
-                editor.setText('');
+                window.editor_setText('');
                 return log(`error ${resp.status}, [${res.message}]`);
             }
 
@@ -131,39 +170,10 @@
             
             retrieved_contents = res;
             const text = res.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(atob(res.content), m => m.codePointAt(0))) : res.content;
-            editor.setText(text);
+            window.editor_setText(text);
             
             console.log('open', res);
         }
-
-        function storage_load(key)
-        {
-            return localStorage.getItem("moncms_" + key);
-        }
-        
-        function storage_save(key, value)
-        {
-            if(value)
-                localStorage.setItem("moncms_" + key, value);
-            else
-                localStorage.removeItem("moncms_" + key);
-        }
-
-        function cookie_load(key)
-        {
-            return (document.cookie.split(';').filter(k_v => k_v.split('=')[0] == key)[0] || '').split('=')[1];
-        }
-
-        function cookie_save(key, value)
-        {
-            if(value)
-                document.cookie = document.cookie ? (document.cookie + ';' + key + '=' + value) : (key + '=' + value);
-            else
-                document.cookie = document.cookie.split(';').filter(k_v => k_v.split('=')[0] != key).join(';'); 
-        }
-
-        [cache_load, cache_save] = [storage_load, storage_save];
-        //[cache_load, cache_save] = [cookie_load, cookie_save];
         
         async function onclick_save()
         {
@@ -171,7 +181,7 @@
             if(prep.error != '')
                 return log(prep.error);
 
-            const text = editor.getText();
+            const text = await editor_getText();
             const base64 = btoa(String.fromCodePoint(...(new TextEncoder().encode(text))));
             if(retrieved_contents.encoding == 'base64' && retrieved_contents.contents == base64)
                 return log('no changes', false);
