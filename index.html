@@ -111,9 +111,10 @@
         {
             if(!window.editor_setText)
             {
-                window.editor = await window.LexicalMarkdownEditor('#editor');
+                const editor = await window.LexicalMarkdownEditor('#editor');
                 window.editor_getText = () => editor.getMarkdown();
                 window.editor_setText = md => editor.setMarkdown(md);
+                window.lexical_editor = editor;
             }
         }
 
