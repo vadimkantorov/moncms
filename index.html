@@ -9,7 +9,11 @@
 
         <script src="assets/main.js" id="lexicalplaygroundonlyeditor"></script>
         
-        <style>.monospace{font-family: monospace} .editor-shell{max-width:100%!important}</style>
+        <style>
+        .monospace { font-family: monospace }
+        .editor-shell { max-width: 100%!important }
+        .editor-scroller { overflow: hidden!important }
+        </style>
     </head>
 
     <body onload="onload_body()"> 
@@ -41,6 +45,19 @@
         <div id="editor"></div>
 
         <script>
+
+        //TODO: extract github url from public url meta
+        //TODO: extract current published timestamp file sha, and commit sha
+        //TODO: add Enter onkeypress to trigger open
+        //TODO: Ctrl+Z with loaded text, focused on text leads to deletion of text
+        //TODO: autofocus on text or URL
+        //TODO: set search to github_url. what to do with password?
+        //TODO: support creating a new file
+        //TODO: when closing with changes, prevent?
+        //TODO: autoopen by default always?
+        //TODO: version without cookies by default?
+        //TODO: reset retrieved_contents on a new failed attempt
+        
         const public_url = document.getElementById('public_url');
         const github_url = document.getElementById('github_url');
         const github_token = document.getElementById('github_token');
@@ -264,18 +281,6 @@
                 onclick_open(true);
             else
                 moncmslog('Log:');
-
-            //TODO: extract github url from public url meta
-            //TODO: extract current published timestamp file sha, and commit sha
-            //TODO: add Enter onkeypress to trigger open
-            //TODO: Ctrl+Z with loaded text, focused on text leads to deletion of text
-            //TODO: autofocus on text or URL
-            //TODO: set search to github_url. what to do with password?
-            //TODO: support creating a new file
-            //TODO: when closing with changes, prevent?
-            //TODO: autoopen by default always?
-            //TODO: version without cookies by default?
-            //TODO: reset retrieved_contents on a new failed attempt
         }
         
 
