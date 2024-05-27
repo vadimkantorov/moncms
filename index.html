@@ -1,22 +1,18 @@
 <!DOCTYPE html>
 <html charset="utf-8">
     <head>
+        <meta charset="utf-8">
         <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon" />
 
-        <!--<link href="https://cdn.quilljs.com/latest/quill.snow.css" rel="stylesheet" />
-        <script src="https://cdn.quilljs.com/latest/quill.js"></script>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quilljs-markdown@latest/dist/quilljs-markdown-common-style.css" />
-        <script src="https://cdn.jsdelivr.net/npm/quilljs-markdown@latest/dist/quilljs-markdown.js"></script>-->
-
         <link rel="stylesheet" href="assets/main.css">
-        <script type="module" crossorigin src="assets/main.js" id="lexicalplaygroundonlyeditor" onload="onload_editor()"></script>
+        <script src="assets/main.js" id="lexicalplaygroundonlyeditor" type="module" crossorigin onload="onload_editor()"></script>
+
+        <!--<script src="assets/main.js" id="lexicalplaygroundonlyeditor"></script> -->
         
-        <style>
-        .monospace{font-family: monospace}
-        .editor-shell{max-width:100%!important}
-        </style>
+        <style>.monospace{font-family: monospace} .editor-shell{max-width:100%!important}</style>
     </head>
-    <body onload="onload_body()">
+
+    <body onload="onload_body()"> 
         <form>
             <fieldset>
                 <legend class="monospace">Type in a link to a GitHub .md file</legend>
@@ -49,7 +45,22 @@
         const github_url = document.getElementById('github_url');
         const github_token = document.getElementById('github_token');
         const github_cache = document.getElementById('github_cache');
+        const textarea = document.getElementById('log');
+
         let retrieved_contents = {};
+        
+        function moncmslog(text, reset = true)
+        {
+            if(reset)
+            {
+                textarea.value = text + '\n';
+            }
+            else
+            {
+                textarea.value += text + '\n';
+                textarea.scrollTop = textarea.scrollHeight;
+            }
+        }
 
         function storage_load(key)
         {
@@ -81,15 +92,12 @@
 
         async function onload_editor()
         {
-            const editor = await window.LexicalMarkdownEditor('#editor');
-            window.editor_getText = () => editor.getMarkdown();
-            window.editor_setText = md => editor.setMarkdown(md);
-
-            //const editor = window.LexicalMarkdownEditor('#editor');
-            //const editor = new Quill('#editor', { theme: 'snow' });
-            //const editor_markdown = new QuillMarkdown(editor)
-            //const  = () => editor.getText();
-            //const editor_setText = text => editor.setText(text);
+            if(!window.editor_setText)
+            {
+                const editor = await window.LexicalMarkdownEditor('#editor');
+                window.editor_getText = () => editor.getMarkdown();
+                window.editor_setText = md => editor.setMarkdown(md);
+            }
         }
 
         function github_api_format_error(resp_status, res_message)
@@ -144,36 +152,36 @@
             {
                 github_token.value = cache_load(prep.github_repo_url);
                 prep = github_api_prepare_params(github_url.value, github_token.value); 
-                log('got from cache for ' + prep.github_repo_url, false);
+                moncmslog('got from cache for ' + prep.github_repo_url, false);
             }
 
             if(prep.error != '')
             {
                 retrieved_contents = {};
-                return log(prep.error);
+                return moncmslog(prep.error);
             }
 
             const resp = await fetch(prep.contents_api_url, { method: 'GET', headers: prep.headers });
             const res = await resp.json();
-
+            
             if(!res.content)
             {
                 retrieved_contents = {};
-                window.editor_setText('');
-                return log(`error ${resp.status}, [${res.message}]`);
+                if(window.editor_setText) window.editor_setText('');
+                return moncmslog(`error ${resp.status}, [${res.message}]`);
             }
 
-            log(`GET ok ${resp.status}`, false);
+            moncmslog(`GET ok ${resp.status}`, false);
 
             if(github_token.value && github_cache.checked && !autoopen)
             {
                 cache_save(prep.github_repo_url, github_token.value);
-                log('put in cache for ' + prep.github_repo_url, false);
+                moncmslog('put in cache for ' + prep.github_repo_url, false);
             }
             
             retrieved_contents = res;
             const text = res.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(atob(res.content), m => m.codePointAt(0))) : res.content;
-            window.editor_setText(text);
+            if(window.editor_setText) window.editor_setText(text);
             
             console.log('open', res);
         }
@@ -182,12 +190,12 @@
         {
             const prep = github_api_prepare_params(github_url.value, github_token.value);
             if(prep.error != '')
-                return log(prep.error);
+                return moncmslog(prep.error);
 
             const text = await editor_getText();
             const base64 = btoa(String.fromCodePoint(...(new TextEncoder().encode(text))));
             if(retrieved_contents.encoding == 'base64' && retrieved_contents.contents == base64)
-                return log('no changes', false);
+                return moncmslog('no changes', false);
            
             const req = {
                 path : retrieved_contents.path,
@@ -199,7 +207,7 @@
             const resp = await fetch(prep.contents_api_url, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
             const res = await resp.json();
 
-            log(`PUT ok ${resp.status}`, false);
+            moncmslog(`PUT ok ${resp.status}`, false);
             retrieved_contents = {encoding: 'base64', contents : base64, sha: res.content.sha, path: res.content.path};
 
 
@@ -214,13 +222,15 @@
                 if(prep.github_repo_url)
                 {
                     cache_save(prep.github_repo_url, null);
-                    log('purged cache for ' + prep.github_repo_url, false);
+                    moncmslog('purged cache for ' + prep.github_repo_url, false);
                 }
             }
         }
 
-        function onload_body()
+        async function onload_body()
         {
+            await onload_editor();
+
             let autoopen = false;
             
             if(window.location.search)
@@ -243,7 +253,7 @@
                     github_token.value = cache_load(prep.github_repo_url);
                     if(github_token.value)
                     {
-                        log('got from cache for ' + prep.github_repo_url, false);
+                        moncmslog('got from cache for ' + prep.github_repo_url, false);
                         github_cache.checked = true;
                         autoopen = true;
                     }
@@ -253,7 +263,7 @@
             if(autoopen && (github_url.value || public_url.value))
                 onclick_open(true);
             else
-                log('Log:');
+                moncmslog('Log:');
 
             //TODO: extract github url from public url meta
             //TODO: extract current published timestamp file sha, and commit sha
@@ -268,19 +278,6 @@
             //TODO: reset retrieved_contents on a new failed attempt
         }
         
-        function log(text, reset = true)
-        {
-            const textarea = document.getElementById('log');
-            if(reset)
-            {
-                textarea.value = text + '\n';
-            }
-            else
-            {
-                textarea.value += text + '\n';
-                textarea.scrollTop = textarea.scrollHeight;
-            }
-        }
 
         </script>
     </body>
