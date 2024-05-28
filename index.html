@@ -6,13 +6,14 @@
 
         <!--<link rel="stylesheet" href="assets/main.css">-->
         <!--<script src="assets/main.js" id="lexicalplaygroundonlyeditor" type="module" crossorigin onload="onload_editor()"></script>-->
-
         <script src="assets/main.js" id="lexicalplaygroundonlyeditor"></script>
         
         <style>
         .monospace { font-family: monospace }
         .editor-shell { max-width: 100%!important }
         .editor-scroller { overflow: hidden!important }
+
+        #github_url, #github_token, #file_name, #log { width: 100%; /*padding-right: 0!important; margin-right: 0!important; border-right-width: 0!important*/ }
         </style>
     </head>
 
@@ -21,25 +22,22 @@
             <fieldset>
                 <legend class="monospace">Type in a link to a GitHub .md file</legend>
 
-                <label  for="github_url" class="monospace">GitHub&nbsp;&nbsp;&nbsp;URL:</label>
-                <input name="github_url" id="github_url" type="text" value="https://github.com/vadimkantorov/moncms/blob/master/README.md" />
+                <input placeholder="GitHub / public URL:" id="github_url" type="text" value="https://github.com/vadimkantorov/moncms/blob/master/README.md" />
                 <br />
                 
-                <label  for="github_token" class="monospace">GitHub token:</label>
-                <input name="github_token" id="github_token" type="text" value="" />
+                <input placeholder="GitHub token:" id="github_token" type="text" value="" />
                 <br />
                 
-                <label  for="public_url" class="monospace">Public&nbsp;&nbsp;&nbsp;URL:</label>
-                <input name="public_url" id="public_url" type="text" />
+                <input placeholder="File name:" id="file_name" type="text" value="" />
                 <br />
                 
-                <textarea id="log" rows="3" cols="80" class="monospace" readonly></textarea>
+                <textarea placeholder="Log:" id="log" rows="3" cols="80" class="monospace" readonly></textarea>
                 <br />
 
                 <button onclick="onclick_open(); return false;">Open</button>
                 <button onclick="onclick_save(); return false;">Save</button>
-                <input name="github_cache" id="github_cache" type="checkbox" onchange="onchange_github_cache(); return false;"></input>
-                <label  for="github_cache">Cache token</label>
+                
+                <input name="github_cache" id="github_cache" type="checkbox" onchange="onchange_github_cache(); return false;" /><label  for="github_cache">Cache token</label>
             </fieldset>
         </form>
         <div id="editor"></div>
@@ -58,11 +56,11 @@
         //TODO: version without cookies by default?
         //TODO: reset retrieved_contents on a new failed attempt
         
-        const public_url = document.getElementById('public_url');
         const github_url = document.getElementById('github_url');
         const github_token = document.getElementById('github_token');
         const github_cache = document.getElementById('github_cache');
         const textarea = document.getElementById('log');
+        const file_name = document.getElementById('file_name');
 
         let retrieved_contents = {};
         
@@ -164,6 +162,14 @@
 
         async function onclick_open(autoopen = false)
         {
+            if(!github_url.value)
+            {
+                file_name.value = '';
+                if(window.editor_setText) window.editor_setText('');
+                moncmslog('clear', true);
+                return;
+            }
+
             let prep = github_api_prepare_params(github_url.value, github_token.value);
             
             if(!github_token.value && github_cache.checked)
@@ -186,6 +192,7 @@
             {
                 retrieved_contents = {};
                 if(window.editor_setText) window.editor_setText('');
+                file_name.value = '';
                 return moncmslog(`error ${resp.status}, [${res.message}]`);
             }
 
@@ -200,6 +207,7 @@
             retrieved_contents = res;
             const text = res.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(atob(res.content), m => m.codePointAt(0))) : res.content;
             if(window.editor_setText) window.editor_setText(text);
+            file_name.value = github_url.value.slice(github_url.value.lastIndexOf('/') + 1);
             
             console.log('open', res);
         }
@@ -254,7 +262,7 @@
             if(window.location.search)
             {
                 const query_string = new URLSearchParams(window.location.search);
-                for(const k of ['public_url', 'github_url', 'github_token'])
+                for(const k of ['github_url', 'github_token'])
                     document.getElementById(k).value = query_string.get(k);
 
                 if(query_string.has('github_cache'))
@@ -278,10 +286,10 @@
                 }
             }
 
-            if(autoopen && (github_url.value || public_url.value))
+            if(autoopen && (github_url.value))
                 onclick_open(true);
-            else
-                moncmslog('Log:');
+            //else
+            //    moncmslog('Log:');
         }
         
 
