@@ -6,6 +6,7 @@
 
         <!--<link rel="stylesheet" href="assets/main.css">-->
         <!--<script src="assets/main.js" id="lexicalplaygroundonlyeditor" type="module" crossorigin onload="onload_editor()"></script>-->
+        
         <script src="assets/main.js" id="lexicalplaygroundonlyeditor"></script>
         
         <style>
@@ -13,7 +14,8 @@
         .editor-shell { max-width: 100%!important }
         .editor-scroller { overflow: hidden!important }
 
-        #github_url, #github_token, #file_name, #log { width: 100%; /*padding-right: 0!important; margin-right: 0!important; border-right-width: 0!important*/ }
+        #github_url, #github_token, #file_name, #log, #files { width: 100%; /*padding-right: 0!important; margin-right: 0!important; border-right-width: 0!important*/ }
+        #files { height: 200px }
         </style>
     </head>
 
@@ -32,6 +34,12 @@
                 <br />
                 
                 <textarea placeholder="Log:" id="log" rows="3" cols="80" class="monospace" readonly></textarea>
+                <br />
+
+                <select id="files" size="50">
+                    <option disabled>Files:</option>
+                    <option selected>README.md</option>
+                </select>
                 <br />
 
                 <button onclick="onclick_open(); return false;">Open</button>
@@ -107,7 +115,7 @@
 
         async function onload_editor()
         {
-            if(!window.editor_setText)
+            if(!window.editor_setText && window.LexicalMarkdownEditor)
             {
                 const editor = await window.LexicalMarkdownEditor('#editor');
                 window.editor_getText = () => editor.getMarkdown();

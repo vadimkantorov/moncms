@@ -1,7 +1,4 @@
-```javascript
-open http://localhost:8000
-python3 -m http.server
-```
+https://vadimkantorov.github.io/moncms/?github_url=https://github.com/vadimkantorov/moncms/blob/master/README.md
 
 # Foo
 
