@@ -14,8 +14,8 @@
         .editor-shell { max-width: 100%!important }
         .editor-scroller { overflow: hidden!important }
 
-        #github_url, #github_token, #file_name, #log, #files { width: 100%; /*padding-right: 0!important; margin-right: 0!important; border-right-width: 0!important*/ }
-        #files { height: 200px }
+        #github_url, #github_token, #file_name, #log, #file_tree { width: 100%; /*padding-right: 0!important; margin-right: 0!important; border-right-width: 0!important*/ }
+        #file_tree { height: 100px }
         </style>
     </head>
 
@@ -24,21 +24,20 @@
             <fieldset>
                 <legend class="monospace">Type in a link to a GitHub .md file</legend>
 
-                <input placeholder="GitHub / public URL:" id="github_url" type="text" value="https://github.com/vadimkantorov/moncms/blob/master/README.md" />
+                <input placeholder="GitHub / public URL:" id="github_url" type="text" value="https://github.com/vadimkantorov/moncms/blob/master/README.md"  onkeypress="onkeypress_enter(event)" />
                 <br />
                 
-                <input placeholder="GitHub token:" id="github_token" type="text" value="" />
+                <input placeholder="GitHub token:" id="github_token" type="text" value="" onkeypress="onkeypress_enter(event)" />
                 <br />
                 
-                <input placeholder="File name:" id="file_name" type="text" value="" />
+                <input placeholder="File name:" id="file_name" type="text" value="" readonly />
                 <br />
                 
-                <textarea placeholder="Log:" id="log" rows="3" cols="80" class="monospace" readonly></textarea>
+                <textarea placeholder="Log:" id="log" rows="2" cols="80" class="monospace" readonly></textarea>
                 <br />
 
-                <select id="files" size="50">
+                <select id="file_tree" size="10">
                     <option disabled>Files:</option>
-                    <option selected>README.md</option>
                 </select>
                 <br />
 
@@ -70,7 +69,7 @@
         const textarea = document.getElementById('log');
         const file_name = document.getElementById('file_name');
 
-        let retrieved_contents = {};
+        let retrieved_contents = {}, retrieved_parent_contents = [];
         
         function moncmslog(text, reset = true)
         {
@@ -120,7 +119,7 @@
                 const editor = await window.LexicalMarkdownEditor('#editor');
                 window.editor_getText = () => editor.getMarkdown();
                 window.editor_setText = md => editor.setMarkdown(md);
-                window.lexical_editor = editor;
+                //window.lexical_editor = editor;
             }
         }
 
@@ -155,8 +154,10 @@
             }
             
             const [, github_repo_username, github_repo_name, github_repo_tag, github_repo_path] = m;
+            const github_repo_parent_path = github_repo_path.includes('/') ? github_repo_path.slice(0, github_repo_path.lastIndexOf('/')) : '';
             prep.github_repo_url = `https://github.com/${github_repo_username}/${github_repo_name}`;
             prep.contents_api_url = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_path}`; 
+            prep.contents_api_parent_url = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_parent_path}`;
             prep.headers = {
                 'Accept': 'application/vnd.github+json',
                 'If-None-Match' : '',
@@ -190,21 +191,33 @@
             if(prep.error != '')
             {
                 retrieved_contents = {};
+                retrieved_parent_contents = [];
+                if(window.editor_setText) window.editor_setText('');
+                file_name.value = '';
+                for(let i = file_tree.options.length - 1; i >= 1; i--)
+                    file_tree.options.remove(i);
                 return moncmslog(prep.error);
             }
 
-            const resp = await fetch(prep.contents_api_url, { method: 'GET', headers: prep.headers });
-            const res = await resp.json();
+            console.log(prep);
+
+            const resp1 = await fetch(prep.contents_api_url, { method: 'GET', headers: prep.headers });
+            const res1 = await resp1.json();
             
-            if(!res.content)
+            const resp2 = await fetch(prep.contents_api_parent_url, { method: 'GET', headers: prep.headers });
+            const res2 = await resp2.json();
+            
+            if(!res1.content || !res2)
             {
                 retrieved_contents = {};
+                retrieved_parent_contents = [];
                 if(window.editor_setText) window.editor_setText('');
                 file_name.value = '';
-                return moncmslog(`error ${resp.status}, [${res.message}]`);
+                for(let i = file_tree.options.length - 1; i >= 1; i--)
+                    file_tree.options.remove(i);
+                return moncmslog(`error ${resp1.status}, [${res1.message}] | ${resp2.status}, [${JSON.stringify(res2)}] `);
             }
-
-            moncmslog(`GET ok ${resp.status}`, false);
+            moncmslog(`GET ok ${resp1.status} | ${resp2.status}`, false);
 
             if(github_token.value && github_cache.checked && !autoopen)
             {
@@ -212,12 +225,31 @@
                 moncmslog('put in cache for ' + prep.github_repo_url, false);
             }
             
-            retrieved_contents = res;
-            const text = res.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(atob(res.content), m => m.codePointAt(0))) : res.content;
+            retrieved_contents = res1;
+            retrieved_parent_contents = res2;
+            const text = res1.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(atob(res1.content), m => m.codePointAt(0))) : res1.content;
             if(window.editor_setText) window.editor_setText(text);
             file_name.value = github_url.value.slice(github_url.value.lastIndexOf('/') + 1);
             
-            console.log('open', res);
+            let i = 1, j = file_tree.length - 1;
+            for(; i < res2.length; i++)
+            {
+                let option = file_tree.options[i];
+                if(option == null)
+                {
+                    option = document.createElement('option');
+                    file_tree.options.add(option);
+                }
+                option.text = res2[i - 1].name;
+                option.selected = option.text == file_name.value;
+                option.value = option.title = res2[i - 1].path;
+                option.dataset.type = res2[i - 1].type;
+                option.disabled = true;
+            }
+            for(; j >= i; j--)
+                file_tree.options.remove(j);
+            
+            console.log('open', res1, res2);
         }
         
         async function onclick_save()
@@ -261,6 +293,15 @@
             }
         }
 
+        function onkeypress_enter(event)
+        {
+            if (event.key === 'Enter')
+            {
+                event.preventDefault();
+                onclick_open();
+            }
+        }
+
         async function onload_body()
         {
             await onload_editor();
@@ -296,8 +337,8 @@
 
             if(autoopen && (github_url.value))
                 onclick_open(true);
-            //else
-            //    moncmslog('Log:');
+            else
+                github_url.focus();
         }
         
 
