@@ -125,15 +125,13 @@
 
         function github_api_format_error(resp_status, res_message)
         {
-            /*          
-            200	OK
-            201	Created
-            404	Resource not found
-            409	Conflict
-            422	Validation failed, or the endpoint has been spammed.
-            401 Unauthorized
-            403 "message": "API rate limit exceeded for 84.110.59.167. (But here's the good news: Authenticated requests get a higher rate limit. Check out the documentation for more details.)", "documentation_url": "https://docs.github.com/rest/overview/resources-in-the-rest-api#rate-limiting"
-            */
+            //200 OK
+            //201 Created
+            //404 Resource not found
+            //409 Conflict
+            //422 Validation failed, or the endpoint has been spammed.
+            //401 Unauthorized
+            //403 "message": "API rate limit exceeded for 84.110.59.167. (But here's the good news: Authenticated requests get a higher rate limit. Check out the documentation for more details.)", "documentation_url": "https://docs.github.com/rest/overview/resources-in-the-rest-api#rate-limiting"
         }
 
         function github_api_prepare_params(github_url, github_token = '')
@@ -170,18 +168,25 @@
             return prep;
         }
 
+        function clear()
+        {
+            retrieved_contents = {};
+            retrieved_parent_contents = [];
+            if(window.editor_setText) window.editor_setText('');
+            file_name.value = file_name.title = '';
+            for(let i = file_tree.options.length - 1; i >= 1; i--)
+                file_tree.options.remove(i);
+        }
+
         async function onclick_open(autoopen = false)
         {
             if(!github_url.value)
             {
-                file_name.value = '';
-                if(window.editor_setText) window.editor_setText('');
-                moncmslog('clear', true);
-                return;
+                clear();
+                return moncmslog('clear', true);
             }
 
             let prep = github_api_prepare_params(github_url.value, github_token.value);
-            
             if(!github_token.value && github_cache.checked)
             {
                 github_token.value = cache_load(prep.github_repo_url);
@@ -191,12 +196,7 @@
 
             if(prep.error != '')
             {
-                retrieved_contents = {};
-                retrieved_parent_contents = [];
-                if(window.editor_setText) window.editor_setText('');
-                file_name.value = file_name.title = '';
-                for(let i = file_tree.options.length - 1; i >= 1; i--)
-                    file_tree.options.remove(i);
+                clear();
                 return moncmslog(prep.error);
             }
 
@@ -210,12 +210,7 @@
             
             if(!res1.content || !res2)
             {
-                retrieved_contents = {};
-                retrieved_parent_contents = [];
-                if(window.editor_setText) window.editor_setText('');
-                file_name.value = file_name.title = '';
-                for(let i = file_tree.options.length - 1; i >= 1; i--)
-                    file_tree.options.remove(i);
+                clear();
                 return moncmslog(`error ${resp1.status}, [${res1.message}] | ${resp2.status}, [${JSON.stringify(res2)}] `);
             }
             moncmslog(`GET ok ${resp1.status} | ${resp2.status}`, false);
