@@ -156,6 +156,7 @@
             const [, github_repo_username, github_repo_name, github_repo_tag, github_repo_path] = m;
             const github_repo_parent_path = github_repo_path.includes('/') ? github_repo_path.slice(0, github_repo_path.lastIndexOf('/')) : '';
             prep.github_repo_url = `https://github.com/${github_repo_username}/${github_repo_name}`;
+            prep.github_repo_path = github_repo_path;
             prep.contents_api_url = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_path}`; 
             prep.contents_api_parent_url = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_parent_path}`;
             prep.headers = {
@@ -193,7 +194,7 @@
                 retrieved_contents = {};
                 retrieved_parent_contents = [];
                 if(window.editor_setText) window.editor_setText('');
-                file_name.value = '';
+                file_name.value = file_name.title = '';
                 for(let i = file_tree.options.length - 1; i >= 1; i--)
                     file_tree.options.remove(i);
                 return moncmslog(prep.error);
@@ -212,7 +213,7 @@
                 retrieved_contents = {};
                 retrieved_parent_contents = [];
                 if(window.editor_setText) window.editor_setText('');
-                file_name.value = '';
+                file_name.value = file_name.title = '';
                 for(let i = file_tree.options.length - 1; i >= 1; i--)
                     file_tree.options.remove(i);
                 return moncmslog(`error ${resp1.status}, [${res1.message}] | ${resp2.status}, [${JSON.stringify(res2)}] `);
@@ -230,6 +231,7 @@
             const text = res1.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(atob(res1.content), m => m.codePointAt(0))) : res1.content;
             if(window.editor_setText) window.editor_setText(text);
             file_name.value = github_url.value.slice(github_url.value.lastIndexOf('/') + 1);
+            file_name.title = prep.github_repo_path;
             
             let i = 1, j = file_tree.length - 1;
             for(; i < res2.length; i++)
