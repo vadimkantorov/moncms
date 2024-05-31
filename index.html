@@ -223,7 +223,7 @@
             const resp2 = await fetch(prep.contents_api_parent_url, { method: 'GET', headers: prep.headers });
             const res2 = await resp2.json();
             
-            if(!res1.content || !res2)
+            if(resp1.status != 200 || resp2.status != 200)
             {
                 clear();
                 return moncmslog(`error ${resp1.status}, [${res1.message}] | ${resp2.status}, [${JSON.stringify(res2)}] `);
@@ -235,12 +235,14 @@
                 cache_save(prep.github_repo_url, github_token.value);
                 moncmslog('put in cache for ' + prep.github_repo_url, false);
             }
+
+            const is_dir = res1.contents === undefined;
             
             retrieved_contents = res1;
             retrieved_parent_contents = res2;
-            const text = res1.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(atob(res1.content), m => m.codePointAt(0))) : res1.content;
+            const text = res1.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(atob(res1.content), m => m.codePointAt(0))) : (res1.content || '');
             if(window.editor_setText) window.editor_setText(text);
-            file_name.value = github_url.value.slice(github_url.value.lastIndexOf('/') + 1);
+            file_name.value = is_dir ? '' : github_url.value.slice(github_url.value.lastIndexOf('/') + 1);
             file_name.title = prep.github_repo_path;
             
             let i = 1, j = file_tree.length - 1;
