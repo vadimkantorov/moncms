@@ -24,10 +24,10 @@
             <fieldset>
                 <legend class="monospace">Type in a link to a GitHub .md file</legend>
 
-                <input placeholder="GitHub / public URL:" id="github_url" type="text" value="https://github.com/vadimkantorov/moncms/blob/master/README.md"  onkeypress="onkeypress_enter(event)" />
+                <input placeholder="GitHub / public URL:" id="github_url" type="text" value="https://github.com/vadimkantorov/moncms/blob/master/README.md"  onkeypress="onkeypress_enter_url(event)" />
                 <br />
                 
-                <input placeholder="GitHub token:" id="github_token" type="text" value="" onkeypress="onkeypress_enter(event)" />
+                <input placeholder="GitHub token:" id="github_token" type="text" value="" onkeypress="onkeypress_enter_url(event)" />
                 <br />
                 
                 <input placeholder="File name:" id="file_name" type="text" value="" readonly />
@@ -36,7 +36,7 @@
                 <textarea placeholder="Log:" id="log" rows="2" cols="80" class="monospace" readonly></textarea>
                 <br />
 
-                <select id="file_tree" size="10">
+                <select id="file_tree" size="10" onkeypress="onkeypress_enter_file_tree(event)">
                     <option disabled>Files:</option>
                 </select>
                 <br />
@@ -136,23 +136,38 @@
 
         function github_api_prepare_params(github_url, github_token = '')
         {
-            // https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28
-            const m = github_url.replace('https://raw.githubusercontent.com', 'https://github.com').match(/https:\/\/github.com\/(.+)\/(.+)\/blob\/(.+?)\/(.+[.]md)/i);
-            const prep = {headers : {}, error : '', contents_api_url : '', github_repo_url : ''};
+            const prep = {headers : {}, error : '', contents_api_url : '', contents_api_parent_url : '', github_repo_url : ''};
             if(!github_url)
             {
                 prep.error = 'no github_url provided';
                 return prep;
             }
-            if(!m)
+            
+            // https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28
+            const github_url_normalized = github_url.replace('https://raw.githubusercontent.com', 'https://github.com');
+            
+            let github_repo_username = '', github_repo_name = '', github_repo_tag = '', github_repo_path = '';
+
+            const m1 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/blob\/(.+?)\/(.+[.]md)/i);
+            const m2 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/blob\/(.+?)\/(.+[.])/i);
+            const m4 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/blob\/(.+)/i);
+            const m3 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)/i);
+            
+            if(m1)
+                [, github_repo_username, github_repo_name, github_repo_tag, github_repo_path] = m1;
+            else if(m2)
+                [, github_repo_username, github_repo_name, github_repo_tag, github_repo_path] = m2;
+            else if(m3)
+                [, github_repo_username, github_repo_name, github_repo_tag] = m3;
+            else if(m4)
+                [, github_repo_username, github_repo_name] = m4;
+            else
             {
                 prep.error = 'github_url could not be matched';
                 return prep;
-                
             }
             
-            const [, github_repo_username, github_repo_name, github_repo_tag, github_repo_path] = m;
-            const github_repo_parent_path = github_repo_path.includes('/') ? github_repo_path.slice(0, github_repo_path.lastIndexOf('/')) : '';
+            const github_repo_parent_path = !github_repo_path ? '' : github_repo_path.includes('/') ? github_repo_path.slice(0, github_repo_path.lastIndexOf('/')) : '';
             prep.github_repo_url = `https://github.com/${github_repo_username}/${github_repo_name}`;
             prep.github_repo_path = github_repo_path;
             prep.contents_api_url = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_path}`; 
@@ -241,7 +256,7 @@
                 option.selected = option.text == file_name.value;
                 option.value = option.title = res2[i - 1].path;
                 option.dataset.type = res2[i - 1].type;
-                option.disabled = true;
+                //option.disabled = true;
             }
             for(; j >= i; j--)
                 file_tree.options.remove(j);
@@ -290,12 +305,20 @@
             }
         }
 
-        function onkeypress_enter(event)
+        function onkeypress_enter_url(event)
         {
-            if (event.key === 'Enter')
+            if (event.code === 'Enter')
             {
                 event.preventDefault();
                 onclick_open();
+            }
+        }
+
+        function onkeypress_enter_file_tree(event)
+        {
+            if (event.code === 'Space')
+            {
+                console.log(event, file_tree.selectedIndex)
             }
         }
 
