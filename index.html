@@ -150,8 +150,8 @@
 
             const m1 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/blob\/(.+?)\/(.+[.]md)/i);
             const m2 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/blob\/(.+?)\/(.+[.])/i);
-            const m4 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/blob\/(.+)/i);
-            const m3 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)/i);
+            const m3 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/blob\/(.+)/i);
+            const m4 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)/i);
             
             if(m1)
                 [, github_repo_username, github_repo_name, github_repo_tag, github_repo_path] = m1;
