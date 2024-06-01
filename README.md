@@ -1,5 +1,6 @@
 - https://vadimkantorov.github.io/moncms/?url=https://github.com/vadimkantorov/moncms/blob/gh-pages/README.md
 - https://vadimkantorov.github.io/moncms/?url=https://github.com/vadimkantorov/moncms/tree/gh-pages
+- https://vadimkantorov.github.io/moncms/?url=https://github.com/vadimkantorov/moncms/tree/gh-pages/assets
 - https://vadimkantorov.github.io/moncms/?url=https://github.com/vadimkantorov/moncms
 
 Test:
