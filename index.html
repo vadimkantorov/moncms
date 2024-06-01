@@ -44,7 +44,7 @@
                 <button onclick="onclick_open(); return false;">Open</button>
                 <button onclick="onclick_save(); return false;">Save</button>
                 
-                <input name="html_token_cache" id="html_token_cache" type="checkbox" onchange="onchange_token_cache(); return false;" /><label for="html_token_cache">Cache token</label>
+                <input name="html_tokencache" id="html_tokencache" type="checkbox" onchange="onchange_tokencache(); return false;" /><label for="html_tokencache">Cache token</label>
             </fieldset>
         </form>
         <div id="editor"></div>
@@ -65,7 +65,7 @@
         
         const html_url = document.getElementById('html_url');
         const html_token = document.getElementById('html_token');
-        const html_token_cache = document.getElementById('html_token_cache');
+        const html_tokencache = document.getElementById('html_tokencache');
         const html_textarea = document.getElementById('html_log');
         const html_file_name = document.getElementById('html_file_name');
 
@@ -204,9 +204,9 @@
                 html_file_tree.options.remove(i);
         }
         
-        function onchange_token_cache()
+        function onchange_tokencache()
         {
-            if(!html_token_cache.checked)
+            if(!html_tokencache.checked)
             {
                 const prep = github_api_prepare_params(html_url.value);
                 if(prep.github_repo_url)
@@ -288,7 +288,7 @@
             }
 
             let prep = github_api_prepare_params(html_url.value, html_token.value);
-            if(!html_token.value && html_token_cache.checked)
+            if(!html_token.value && html_tokencache.checked)
             {
                 html_token.value = cache_load(prep.github_repo_url);
                 prep = github_api_prepare_params(html_url.value, html_token.value); 
@@ -316,7 +316,7 @@
             }
             moncms_log(`GET ok ${resp_file.status} | ${resp_dir.status}`, false);
 
-            if(html_token.value && html_token_cache.checked && !autoopen)
+            if(html_token.value && html_tokencache.checked && !autoopen)
             {
                 cache_save(prep.github_repo_url, html_token.value);
                 moncms_log('put in cache for ' + prep.github_repo_url, false);
@@ -373,10 +373,10 @@
                 for(const k of ['url', 'token'])
                     document.getElementById('html_' + k).value = query_string.get(k);
 
-                if(query_string.has('token_cache'))
-                    html_token_cache.checked = ['1', 'true'].includes(query_string.get('token_cache'));
+                if(query_string.has('tokencache'))
+                    html_tokencache.checked = ['1', 'true'].includes(query_string.get('tokencache'));
 
-                autoopen = query_string.has('github_url');
+                autoopen = query_string.has('url');
             }
 
             if(!html_token.value)
@@ -388,7 +388,7 @@
                     if(html_token.value)
                     {
                         moncms_log('got from cache for ' + prep.github_repo_url, false);
-                        html_token_cache.checked = true;
+                        html_tokencache.checked = true;
                         autoopen = true;
                     }
                 }
