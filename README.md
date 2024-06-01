@@ -1,6 +1,10 @@
-- https://vadimkantorov.github.io/moncms/?github_url=https://github.com/vadimkantorov/moncms/blob/master/README.md
-- https://vadimkantorov.github.io/moncms/?github_url=https://github.com/vadimkantorov/moncms/blob/master
-- https://vadimkantorov.github.io/moncms/?github_url=https://github.com/vadimkantorov/moncms
+- https://vadimkantorov.github.io/moncms/?url=https://github.com/vadimkantorov/moncms/blob/master/README.md
+- https://vadimkantorov.github.io/moncms/?url=https://github.com/vadimkantorov/moncms/blob/master
+- https://vadimkantorov.github.io/moncms/?url=https://github.com/vadimkantorov/moncms
+
+Test:
+- https://vadimkantorov.github.io/moncms/?https://github.com/vadimkantorov/moncms
+- https://vadimkantorov.github.io/moncms/?/https://github.com/vadimkantorov/moncms
 
 # Foo
 
