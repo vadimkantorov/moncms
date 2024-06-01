@@ -1,5 +1,5 @@
-- https://vadimkantorov.github.io/moncms/?url=https://github.com/vadimkantorov/moncms/blob/master/README.md
-- https://vadimkantorov.github.io/moncms/?url=https://github.com/vadimkantorov/moncms/blob/master
+- https://vadimkantorov.github.io/moncms/?url=https://github.com/vadimkantorov/moncms/blob/gh-pages/README.md
+- https://vadimkantorov.github.io/moncms/?url=https://github.com/vadimkantorov/moncms/blob/gh-pages
 - https://vadimkantorov.github.io/moncms/?url=https://github.com/vadimkantorov/moncms
 
 Test:

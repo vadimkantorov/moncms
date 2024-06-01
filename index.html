@@ -24,7 +24,7 @@
             <fieldset>
                 <legend class="monospace">Type in a link to a GitHub .md file</legend>
 
-                <input placeholder="GitHub or public URL:" id="html_url" type="text" value="https://github.com/vadimkantorov/moncms/blob/master/README.md"  onkeypress="onkeypress_enter_url(event)" />
+                <input placeholder="GitHub or public URL:" id="html_url" type="text" value="https://github.com/vadimkantorov/moncms/blob/gh-pages/README.md"  onkeypress="onkeypress_enter_url(event)" />
                 <br />
                 
                 <input placeholder="GitHub token:" id="html_token" type="text" value="" onkeypress="onkeypress_enter_url(event)" />
@@ -170,8 +170,8 @@
             const github_repo_parent_path = !github_repo_path ? '' : github_repo_path.includes('/') ? github_repo_path.slice(0, github_repo_path.lastIndexOf('/')) : '';
             prep.github_repo_url = `https://github.com/${github_repo_username}/${github_repo_name}`;
             prep.github_repo_path = github_repo_path;
-            prep.contents_api_url = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_path}`; 
-            prep.contents_api_parent_url = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_parent_path}`;
+            prep.contents_api_url = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : ''); 
+            prep.contents_api_parent_url = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_parent_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : '');
             prep.headers = {
                 'Accept': 'application/vnd.github+json',
                 'If-None-Match' : '',
@@ -299,14 +299,14 @@
             for(; i < res2.length; i++)
             {
                 let html_option = html_file_tree.options[i];
-                if(option == null)
+                if(html_option == null)
                 {
                     html_option = document.createElement('option');
-                    html_file_tree.options.add(option);
+                    html_file_tree.options.add(html_option);
                 }
                 html_option.text = res2[i - 1].name;
                 html_option.selected = html_option.text == html_file_name.value;
-                html_option.value = html_option.title = res2[i - 1].path;
+                html_option.value = html_option.title = res2[i - 1].html_url;
                 html_option.dataset.type = res2[i - 1].type;
             }
             for(; j >= i; j--)
