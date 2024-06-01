@@ -189,8 +189,8 @@
             retrieved_parent_contents = [];
             if(window.editor_setText) window.editor_setText('');
             html_file_name.value = html_file_name.title = '';
-            for(let i = file_tree.options.length - 1; i >= 1; i--)
-                file_tree.options.remove(i);
+            for(let i = html_file_tree.options.length - 1; i >= 1; i--)
+                html_file_tree.options.remove(i);
         }
         
         function onchange_token_cache()
@@ -295,23 +295,22 @@
             html_file_name.value = is_dir ? '' : html_url.value.slice(html_url.value.lastIndexOf('/') + 1);
             html_file_name.title = prep.github_repo_path;
             
-            let i = 1, j = file_tree.length - 1;
+            let i = 1, j = html_file_tree.length - 1;
             for(; i < res2.length; i++)
             {
-                let option = file_tree.options[i];
+                let html_option = html_file_tree.options[i];
                 if(option == null)
                 {
-                    option = document.createElement('option');
-                    file_tree.options.add(option);
+                    html_option = document.createElement('option');
+                    html_file_tree.options.add(option);
                 }
-                option.text = res2[i - 1].name;
-                option.selected = option.text == html_file_name.value;
-                option.value = option.title = res2[i - 1].path;
-                option.dataset.type = res2[i - 1].type;
-                //option.disabled = true;
+                html_option.text = res2[i - 1].name;
+                html_option.selected = html_option.text == html_file_name.value;
+                html_option.value = html_option.title = res2[i - 1].path;
+                html_option.dataset.type = res2[i - 1].type;
             }
             for(; j >= i; j--)
-                file_tree.options.remove(j);
+                html_file_tree.options.remove(j);
             
             console.log('open', res1, res2);
         }
@@ -320,7 +319,8 @@
         {
             if (event.code === 'Space')
             {
-                console.log(event, html_file_tree.selectedIndex)
+                const html_option = html_file_tree.options[html_file_tree.selectedIndex];
+                console.log(html_option.value);
             }
         }
 
