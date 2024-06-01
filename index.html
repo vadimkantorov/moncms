@@ -15,7 +15,7 @@
         .editor-scroller { overflow: hidden!important }
 
         #html_url, #html_token, #html_file_name, #html_log, #html_file_tree { width: 100%; /*padding-right: 0!important; margin-right: 0!important; border-right-width: 0!important*/ }
-        #ntml_file_tree { height: 100px }
+        #html_file_tree { height: 100px }
         </style>
     </head>
 
@@ -69,7 +69,7 @@
         const html_textarea = document.getElementById('html_log');
         const html_file_name = document.getElementById('html_file_name');
 
-        let retrieved_contents = {}, retrieved_parent_contents = [];
+        let retrieved_contents = {}; 
         
         function moncms_log(text, reset = true)
         {
@@ -136,7 +136,7 @@
 
         function github_api_prepare_params(github_url, github_token = '')
         {
-            const prep = {headers : {}, error : '', contents_api_url : '', contents_api_parent_url : '', github_repo_url : ''};
+            const prep = {headers : {}, error : '', contents_api_url : '', contents_api_dir_url : '', github_repo_url : ''};
             if(!github_url)
             {
                 prep.error = 'no github_url provided';
@@ -146,17 +146,17 @@
             // https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28
             const github_url_normalized = github_url.replace('https://raw.githubusercontent.com', 'https://github.com');
             
-            let github_repo_username = '', github_repo_name = '', github_repo_tag = '', github_repo_path = '';
+            let github_repo_username = '', github_repo_name = '', github_repo_tag = '', github_repo_file_path = '', github_repo_dir_path = '';
 
-            const m1 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/blob\/(.+?)\/(.+[.]md)/i);
-            const m2 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/blob\/(.+?)\/(.+[.])/i);
-            const m3 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/blob\/(.+)/i);
-            const m4 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)/i);
+            const m1 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/blob\/(.+?)\/(.+)/i);
+            const m2 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/tree\/(.+?)\/(.+)/i);
+            const m3 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/tree\/(.+)/i);
+            const m4 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/?/i);
             
             if(m1)
-                [, github_repo_username, github_repo_name, github_repo_tag, github_repo_path] = m1;
+                [, github_repo_username, github_repo_name, github_repo_tag, github_repo_file_path] = m1;
             else if(m2)
-                [, github_repo_username, github_repo_name, github_repo_tag, github_repo_path] = m2;
+                [, github_repo_username, github_repo_name, github_repo_tag, github_repo_dir_path] = m2;
             else if(m3)
                 [, github_repo_username, github_repo_name, github_repo_tag] = m3;
             else if(m4)
@@ -166,19 +166,31 @@
                 prep.error = 'github_url could not be matched';
                 return prep;
             }
+            github_repo_dir_path = github_repo_dir_path.replace(/\/$/g, '');
+            github_repo_tag = github_repo_tag.replace(/\/$/g, '');
+
+            const github_repo_path = github_repo_file_path || github_repo_dir_path;
             
             const github_repo_parent_path = !github_repo_path ? '' : github_repo_path.includes('/') ? github_repo_path.slice(0, github_repo_path.lastIndexOf('/')) : '';
             prep.github_repo_url = `https://github.com/${github_repo_username}/${github_repo_name}`;
             prep.github_repo_path = github_repo_path;
             prep.contents_api_url = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : ''); 
-            prep.contents_api_parent_url = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_parent_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : '');
+            prep.contents_api_dir_url = github_repo_dir_path ? prep.contents_api_url : (`https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_parent_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : ''));
+            
+
+            const slashIdx2 = github_repo_path.lastIndexOf('/');
+            const slashIdx1 = github_repo_path.slice(0, slashIdx2).lastIndexOf('/');
+            const github_repo_parentdir_path = github_repo_dir_path ? (slashIdx2 != -1 ? github_repo_dir_path.slice(0, slashIdx2) : '') : github_repo_file_path ? ((slashIdx2 != -1 && slashIdx1 != -1) ? github_repo_path.slice(0, slashIdx1) : (slashIdx2 != -1 && slashIdx == -1) ? '' : null) : null;
+
+            prep.parentdir_url = github_repo_parentdir_path != null ? `https://github.com/${github_repo_username}/${github_repo_name}/tree/${github_repo_tag}/${github_repo_parentdir_path}` : '';
+            
+            // https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28
             prep.headers = {
                 'Accept': 'application/vnd.github+json',
                 'If-None-Match' : '',
                 'X-GitHub-Api-Version' : '2022-11-28',
+                'Authorization' : github_token ? `Bearer ${github_token}` : ''
             };
-            if(github_token)
-                prep.headers['Authorization'] = 'Bearer ' + github_token; // 'Basic ' + btoa(auth_token) 
             
             return prep;
         }
@@ -186,7 +198,6 @@
         function clear()
         {
             retrieved_contents = {};
-            retrieved_parent_contents = [];
             if(window.editor_setText) window.editor_setText('');
             html_file_name.value = html_file_name.title = '';
             for(let i = html_file_tree.options.length - 1; i >= 1; i--)
@@ -243,6 +254,31 @@
             console.log('save', res);
         }
 
+        function update_file_tree(files_and_dirs, parentdir_url, selected_file_name)
+        {
+            const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+            const files = files_and_dirs.filter(j => j.type == 'file').sort(key_by_name);
+            const dirs  = files_and_dirs.filter(j => j.type == 'dir').sort(key_by_name);
+
+            const file_tree = [...(parentdir_url ? [{name : '..', type: 'dir', html_url : parentdir_url}] : []), ...dirs, ...files]; 
+            let i = 0;
+            for(; i < file_tree.length; i++)
+            {
+                let html_option = html_file_tree.options[1 + i];
+                if(html_option == null)
+                {
+                    html_option = document.createElement('option');
+                    html_file_tree.options.add(html_option);
+                }
+                html_option.text = file_tree[i].name + (file_tree[i].type == 'dir' ? '/' : '' );
+                html_option.selected = file_tree[i].name == selected_file_name;
+                html_option.value = html_option.title = file_tree[i].html_url;
+                html_option.dataset.type = file_tree[i].type;
+            }
+            for(let j = html_file_tree.length - 1; j > i; j--)
+                html_file_tree.options.remove(j);
+        }
+
         async function onclick_open(autoopen = false)
         {
             if(!html_url.value)
@@ -267,18 +303,18 @@
 
             console.log(prep);
 
-            const resp1 = await fetch(prep.contents_api_url, { method: 'GET', headers: prep.headers });
-            const res1 = await resp1.json();
+            const resp_file = await fetch(prep.contents_api_url, { method: 'GET', headers: prep.headers });
+            const res_file = await resp_file.json();
             
-            const resp2 = await fetch(prep.contents_api_parent_url, { method: 'GET', headers: prep.headers });
-            const res2 = await resp2.json();
+            const resp_dir = prep.contents_api_url != prep.contents_api_dir_url ? (await fetch(prep.contents_api_dir_url, { method: 'GET', headers: prep.headers })) : resp_file;
+            const res_dir = prep.contents_api_url != prep.contents_api_dir_url ? (await resp_dir.json()) : res_file;
             
-            if(resp1.status != 200 || resp2.status != 200)
+            if(resp_file.status != 200 || resp_dir.status != 200)
             {
                 clear();
-                return moncms_log(`error ${resp1.status}, [${res1.message}] | ${resp2.status}, [${JSON.stringify(res2)}] `);
+                return moncms_log(`error ${resp_file.status}, [${res_file.message}] | ${resp_dir.status}, [${JSON.stringify(res_dir)}] `);
             }
-            moncms_log(`GET ok ${resp1.status} | ${resp2.status}`, false);
+            moncms_log(`GET ok ${resp_file.status} | ${resp_dir.status}`, false);
 
             if(html_token.value && html_token_cache.checked && !autoopen)
             {
@@ -286,33 +322,31 @@
                 moncms_log('put in cache for ' + prep.github_repo_url, false);
             }
 
-            const is_dir = res1.contents === undefined;
+            const is_dir = res_file.content === undefined;
             
-            retrieved_contents = res1;
-            retrieved_parent_contents = res2;
-            const text = res1.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(atob(res1.content), m => m.codePointAt(0))) : (res1.content || '');
-            if(window.editor_setText) window.editor_setText(text);
+            retrieved_contents = res_file;
+            const text = res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || '');
+            
             html_file_name.value = is_dir ? '' : html_url.value.slice(html_url.value.lastIndexOf('/') + 1);
             html_file_name.title = prep.github_repo_path;
+
+            update_file_tree(res_dir, prep.parentdir_url, html_file_name.value);
             
-            let i = 1, j = html_file_tree.length - 1;
-            for(; i < res2.length; i++)
+            if(is_dir)
             {
-                let html_option = html_file_tree.options[i];
-                if(html_option == null)
+                html_file_tree.selectedIndex = 0;
+                if(window.editor_getText && window.editor_setText && await window.editor_getText())
                 {
-                    html_option = document.createElement('option');
-                    html_file_tree.options.add(html_option);
+                    await window.editor_setText(text);
                 }
-                html_option.text = res2[i - 1].name;
-                html_option.selected = html_option.text == html_file_name.value;
-                html_option.value = html_option.title = res2[i - 1].html_url;
-                html_option.dataset.type = res2[i - 1].type;
+                html_file_tree.focus();
             }
-            for(; j >= i; j--)
-                html_file_tree.options.remove(j);
+            else
+            {
+                if(window.editor_setText) window.editor_setText(text);
+            }
             
-            console.log('open', res1, res2);
+            console.log('open', res_file, res_dir);
         }
 
         function onkeypress_enter_file_tree(event)
@@ -320,7 +354,8 @@
             if (event.code === 'Space')
             {
                 const html_option = html_file_tree.options[html_file_tree.selectedIndex];
-                console.log(html_option.value);
+                html_url.value = html_option.value;
+                onclick_open();
             }
         }
 
@@ -330,6 +365,8 @@
 
             let autoopen = false;
             
+            console.log(window.location);
+
             if(window.location.search)
             {
                 const query_string = new URLSearchParams(window.location.search);
