@@ -16,6 +16,9 @@
 
         #html_url, #html_token, #html_file_name, #html_log, #html_file_tree { width: 100%; /*padding-right: 0!important; margin-right: 0!important; border-right-width: 0!important*/ }
         #html_file_tree { height: 100px }
+        #html_frontmatter { width: 100%; }
+        #html_frontmatter, #html_frontmatter td, #html_frontmatter th  { border: 1px solid black; border-collapse: collapse; text-align: left; }
+        #html_frontmatter td>input {width: 98%}
         </style>
     </head>
 
@@ -40,6 +43,14 @@
                     <option disabled>File tree:</option>
                 </select>
                 <br />
+
+                <ul id="html_images">
+                    <li>Images:</li>
+                </ul>
+
+                <table id="html_frontmatter">
+                    <tr><td><input type="text" placeholder="Frontmatter key:" /></td><td><input type="text" placeholder="Frontmatter value:" /></td><td><button>Add another row</button><button>Delete this row</button></td></tr>
+                </table>
 
                 <button onclick="onclick_open(); return false;">Open</button>
                 <button onclick="onclick_save(); return false;">Save</button>
@@ -279,6 +290,10 @@
             }
             for(let j = html_file_tree.length - 1; j > i; j--)
                 html_file_tree.options.remove(j);
+        }
+
+        function update_images(files_and_dirs)
+        {
         }
 
         async function onclick_open(autoopen = false)
