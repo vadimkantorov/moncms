@@ -1,5 +1,18 @@
 <!DOCTYPE html>
 <html charset="utf-8">
+<!--
+TODO: extract github url from public url meta
+TODO: extract current published timestamp file sha, and commit sha
+TODO: add Enter onkeypress to trigger open
+TODO: Ctrl+Z with loaded text, focused on text leads to deletion of text
+TODO: autofocus on text or URL
+TODO: set search to github_url. what to do with password?
+TODO: support creating a new file
+TODO: when closing with changes, prevent?
+TODO: autoopen by default always?
+TODO: version without cookies by default?
+TODO: reset retrieved_contents on a new failed attempt
+-->
     <head>
         <meta charset="utf-8">
         <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon" />
@@ -67,18 +80,6 @@
         <div id="editor"></div>
 
         <script>
-
-        //TODO: extract github url from public url meta
-        //TODO: extract current published timestamp file sha, and commit sha
-        //TODO: add Enter onkeypress to trigger open
-        //TODO: Ctrl+Z with loaded text, focused on text leads to deletion of text
-        //TODO: autofocus on text or URL
-        //TODO: set search to github_url. what to do with password?
-        //TODO: support creating a new file
-        //TODO: when closing with changes, prevent?
-        //TODO: autoopen by default always?
-        //TODO: version without cookies by default?
-        //TODO: reset retrieved_contents on a new failed attempt
         
         const html_url = document.getElementById('html_url');
         const html_token = document.getElementById('html_token');
