@@ -255,9 +255,6 @@ TODO: reset retrieved_contents on a new failed attempt
 
             moncms_log(`PUT ok ${resp.status}`);
             retrieved_contents = {encoding: 'base64', contents : base64, sha: res.content.sha, path: res.content.path};
-
-
-            console.log('save', res);
         }
 
         function update_file_tree(files_and_dirs, parentdir_url, selected_file_name, ext = ['.gif', '.jpg', '.png', '.svg'])
@@ -312,7 +309,15 @@ TODO: reset retrieved_contents on a new failed attempt
             }
             for(let j = html_images.children.length - 1; j >= i; j--)
                 html_images.removeChild(html_images.children[j]);
+        }
 
+        function update_frontmatter(frontmatter)
+        {
+        }
+
+        function parse_frontmatter(text)
+        {
+            return [text, {test: 123, foo: 'asd', bar: 'fdfd'}];
         }
 
         async function onclick_open(autoopen = false)
@@ -364,12 +369,14 @@ TODO: reset retrieved_contents on a new failed attempt
             const is_dir = res_file.content === undefined;
             
             retrieved_contents = res_file;
-            const text = res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || '');
+            let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
+            [text, frontmatter] = parse_frontmatter(text); 
             
             html_file_name.value = is_dir ? '' : html_url.value.slice(html_url.value.lastIndexOf('/') + 1);
             html_file_name.title = prep.github_repo_path;
 
             update_file_tree(res_dir, prep.parentdir_url, html_file_name.value);
+            update_frontmatter(frontmatter);
             
             if(is_dir)
             {
@@ -390,7 +397,7 @@ TODO: reset retrieved_contents on a new failed attempt
 
         function onkeypress_enter_file_tree(event)
         {
-            if (event.code === 'Space')
+            if (event.code === 'Space' || event.code == 'Enter')
             {
                 const html_option = html_file_tree.options[html_file_tree.selectedIndex];
                 html_url.value = html_option.value;
