@@ -19,7 +19,7 @@
         #html_frontmatter { width: 100%; }
         #html_frontmatter, #html_frontmatter td, #html_frontmatter th  { border: 1px solid black; border-collapse: collapse; text-align: left; }
         #html_frontmatter td>input {width: 98%}
-        #html_log {overflow-y: clip}
+        /*#html_log {overflow-y: clip}*/
         #html_images img {height: 100px}
         #html_images {height: 200px; overflow-y: scroll; padding-left: 0}
         #html_images li {list-style: none; }
@@ -41,7 +41,7 @@
                 <input placeholder="File name:" id="html_file_name" type="text" value="" readonly />
                 <br />
                 
-                <textarea placeholder="Log:" id="html_log" rows="1" cols="80" class="monospace" readonly></textarea>
+                <input placeholder="Log:" id="html_log" class="monospace" readonly />
                 <br />
 
                 <select id="html_file_tree" size="10" onkeypress="onkeypress_enter_file_tree(event)">
@@ -83,22 +83,15 @@
         const html_url = document.getElementById('html_url');
         const html_token = document.getElementById('html_token');
         const html_tokencache = document.getElementById('html_tokencache');
-        const html_textarea = document.getElementById('html_log');
+        const html_log = document.getElementById('html_log');
         const html_file_name = document.getElementById('html_file_name');
 
         let retrieved_contents = {}; 
         
-        function moncms_log(text, reset = true)
+        function moncms_log(text)
         {
-            if(reset)
-            {
-                html_textarea.value = text;
-            }
-            else
-            {
-                html_textarea.value += '\n' + text;
-                html_textarea.scrollTop = html_textarea.scrollHeight;
-            }
+            const prefix = new Date().toISOString();
+            html_log.value = `${prefix}: ${text}`;
         }
 
         function storage_load(key)
@@ -229,7 +222,7 @@
                 if(prep.github_repo_url)
                 {
                     cache_save(prep.github_repo_url, null);
-                    moncms_log('purged cache for ' + prep.github_repo_url, false);
+                    moncms_log('purged cache for ' + prep.github_repo_url);
                 }
             }
         }
@@ -252,7 +245,7 @@
             const text = await editor_getText();
             const base64 = btoa(String.fromCodePoint(...(new TextEncoder().encode(text))));
             if(retrieved_contents.encoding == 'base64' && retrieved_contents.contents == base64)
-                return moncms_log('no changes', false);
+                return moncms_log('no changes');
            
             const req = {
                 path : retrieved_contents.path,
@@ -264,7 +257,7 @@
             const resp = await fetch(prep.contents_api_url, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
             const res = await resp.json();
 
-            moncms_log(`PUT ok ${resp.status}`, false);
+            moncms_log(`PUT ok ${resp.status}`);
             retrieved_contents = {encoding: 'base64', contents : base64, sha: res.content.sha, path: res.content.path};
 
 
@@ -331,7 +324,7 @@
             if(!html_url.value)
             {
                 clear();
-                return moncms_log('clear', true);
+                return moncms_log('clear');
             }
 
             let prep = github_api_prepare_params(html_url.value, html_token.value);
@@ -339,7 +332,7 @@
             {
                 html_token.value = cache_load(prep.github_repo_url);
                 prep = github_api_prepare_params(html_url.value, html_token.value); 
-                moncms_log('got from cache for ' + prep.github_repo_url, false);
+                moncms_log('got from cache for ' + prep.github_repo_url);
             }
 
             if(prep.error != '')
@@ -361,12 +354,12 @@
                 clear();
                 return moncms_log(`error ${resp_file.status}, [${res_file.message}] | ${resp_dir.status}, [${JSON.stringify(res_dir)}] `);
             }
-            moncms_log(`GET ok ${resp_file.status} | ${resp_dir.status}`, false);
+            moncms_log(`GET ok ${resp_file.status} | ${resp_dir.status}`);
 
             if(html_token.value && html_tokencache.checked && !autoopen)
             {
                 cache_save(prep.github_repo_url, html_token.value);
-                moncms_log('put in cache for ' + prep.github_repo_url, false);
+                moncms_log('put in cache for ' + prep.github_repo_url);
             }
 
             const is_dir = res_file.content === undefined;
@@ -434,7 +427,7 @@
                     html_token.value = cache_load(prep.github_repo_url);
                     if(html_token.value)
                     {
-                        moncms_log('got from cache for ' + prep.github_repo_url, false);
+                        moncms_log('got from cache for ' + prep.github_repo_url);
                         html_tokencache.checked = true;
                         autoopen = true;
                     }
