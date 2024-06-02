@@ -93,6 +93,7 @@ TODO: reset retrieved_contents on a new failed attempt
         {
             const prefix = new Date().toISOString();
             html_log.value = `${prefix}: ${text}`;
+            //html_log.value += '\n' + text; html_log.scrollTop = html_log.scrollHeight;
         }
 
         function cache_load(key, method = 'localStorage')
