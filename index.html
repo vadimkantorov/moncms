@@ -19,6 +19,11 @@
         #html_frontmatter { width: 100%; }
         #html_frontmatter, #html_frontmatter td, #html_frontmatter th  { border: 1px solid black; border-collapse: collapse; text-align: left; }
         #html_frontmatter td>input {width: 98%}
+        #html_log {overflow-y: clip}
+        #html_images img {height: 100px}
+        #html_images {height: 200px; overflow-y: scroll; padding-left: 0}
+        #html_images li {list-style: none; }
+        #html_images li figure {margin-left: 0}
         </style>
     </head>
 
@@ -36,7 +41,7 @@
                 <input placeholder="File name:" id="html_file_name" type="text" value="" readonly />
                 <br />
                 
-                <textarea placeholder="Log:" id="html_log" rows="2" cols="80" class="monospace" readonly></textarea>
+                <textarea placeholder="Log:" id="html_log" rows="1" cols="80" class="monospace" readonly></textarea>
                 <br />
 
                 <select id="html_file_tree" size="10" onkeypress="onkeypress_enter_file_tree(event)">
@@ -45,7 +50,6 @@
                 <br />
 
                 <ul id="html_images">
-                    <li>Images:</li>
                 </ul>
 
                 <table id="html_frontmatter">
@@ -88,11 +92,11 @@
         {
             if(reset)
             {
-                html_textarea.value = text + '\n';
+                html_textarea.value = text;
             }
             else
             {
-                html_textarea.value += text + '\n';
+                html_textarea.value += '\n' + text;
                 html_textarea.scrollTop = html_textarea.scrollHeight;
             }
         }
@@ -267,11 +271,12 @@
             console.log('save', res);
         }
 
-        function update_file_tree(files_and_dirs, parentdir_url, selected_file_name)
+        function update_file_tree(files_and_dirs, parentdir_url, selected_file_name, ext = ['.gif', '.jpg', '.png', '.svg'])
         {
             const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
-            const files = files_and_dirs.filter(j => j.type == 'file').sort(key_by_name);
-            const dirs  = files_and_dirs.filter(j => j.type == 'dir').sort(key_by_name);
+            const files = files_and_dirs.filter(j => j.type == 'file' && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
+            const dirs  = files_and_dirs.filter(j => j.type == 'dir'  && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
+            const images = files_and_dirs.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
 
             const file_tree = [...(parentdir_url ? [{name : '..', type: 'dir', html_url : parentdir_url}] : []), ...dirs, ...files]; 
             let i = 0;
@@ -290,10 +295,35 @@
             }
             for(let j = html_file_tree.length - 1; j > i; j--)
                 html_file_tree.options.remove(j);
-        }
 
-        function update_images(files_and_dirs)
-        {
+            
+            i = 0;
+            for(; i < images.length; i++)
+            {
+                let html_li = html_images.children[i];
+                let html_img = null, html_figcaption = null;
+                if(html_li == null)
+                {
+                    html_li = document.createElement('li');
+                    const html_figure = document.createElement('figure');
+                    html_img = document.createElement('img');
+                    html_figcaption = document.createElement('figcaption');
+                    html_figure.appendChild(html_figcaption);
+                    html_figure.appendChild(html_img);
+                    html_li.appendChild(html_figure);
+                    html_images.appendChild(html_li);
+                }
+                else
+                {
+                    html_figcaption = html_li.getElementsByTagName('figcaption')[0];
+                    html_img = html_li.getElementsByTagName('img')[0];
+                }
+                html_figcaption.innerText = images[i].name;
+                html_img.src = images[i].download_url;
+            }
+            for(let j = html_images.children.length - 1; j >= i; j--)
+                html_images.removeChild(html_images.children[j]);
+
         }
 
         async function onclick_open(autoopen = false)
