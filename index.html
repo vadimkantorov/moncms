@@ -94,33 +94,33 @@
             html_log.value = `${prefix}: ${text}`;
         }
 
-        function storage_load(key)
+        function cache_load(key, method = 'localStorage')
         {
-            return localStorage.getItem("moncms_" + key);
+            if(method == 'localStorage')
+                return localStorage.getItem("moncms_" + key);
+            
+            if(method == 'cookie')
+                return (document.cookie.split(';').filter(k_v => k_v.split('=')[0] == key)[0] || '').split('=')[1];
         }
         
-        function storage_save(key, value)
+        function cache_save(key, value, method = 'localStorage')
         {
-            if(value)
-                localStorage.setItem("moncms_" + key, value);
-            else
-                localStorage.removeItem("moncms_" + key);
-        }
+            if(method == 'localStorage')
+            {
+                if(value)
+                    localStorage.setItem("moncms_" + key, value);
+                else
+                    localStorage.removeItem("moncms_" + key);
+            }
 
-        function cookie_load(key)
-        {
-            return (document.cookie.split(';').filter(k_v => k_v.split('=')[0] == key)[0] || '').split('=')[1];
+            if(method == 'cookie')
+            {
+                if(value)
+                    document.cookie = document.cookie ? (document.cookie + ';' + key + '=' + value) : (key + '=' + value);
+                else
+                    document.cookie = document.cookie.split(';').filter(k_v => k_v.split('=')[0] != key).join(';'); 
+            }
         }
-
-        function cookie_save(key, value)
-        {
-            if(value)
-                document.cookie = document.cookie ? (document.cookie + ';' + key + '=' + value) : (key + '=' + value);
-            else
-                document.cookie = document.cookie.split(';').filter(k_v => k_v.split('=')[0] != key).join(';'); 
-        }
-        
-        var cache_load = storage_load, cache_save = storage_save;
 
         async function onload_editor()
         {
@@ -135,13 +135,7 @@
 
         function github_api_format_error(resp_status, res_message)
         {
-            //200 OK
-            //201 Created
-            //404 Resource not found
-            //409 Conflict
-            //422 Validation failed, or the endpoint has been spammed.
-            //401 Unauthorized
-            //403 "message": "API rate limit exceeded for 84.110.59.167. (But here's the good news: Authenticated requests get a higher rate limit. Check out the documentation for more details.)", "documentation_url": "https://docs.github.com/rest/overview/resources-in-the-rest-api#rate-limiting"
+            return `${resp_status}: ` + ({200: 'OK', 201: 'Created', 404: 'Resource not found', 409: 'Conflict', 422: 'Validation failed, or the endpoint has been spammed.', 401: 'Unauthorized', 403: 'Forbidden: ' + res_message}[resp_status] || '');
         }
 
         function github_api_prepare_params(github_url, github_token = '')
@@ -349,6 +343,9 @@
             const resp_dir = prep.contents_api_url != prep.contents_api_dir_url ? (await fetch(prep.contents_api_dir_url, { method: 'GET', headers: prep.headers })) : resp_file;
             const res_dir = prep.contents_api_url != prep.contents_api_dir_url ? (await resp_dir.json()) : res_file;
             
+            const msg_file = github_api_format_error(resp_file.status, (res_file || {}).message || '');
+            const msg_dir = github_api_format_error(resp_dir.status, (res_dir || {}).message || '');
+
             if(resp_file.status != 200 || resp_dir.status != 200)
             {
                 clear();
