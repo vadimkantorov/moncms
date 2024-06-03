@@ -331,9 +331,6 @@ TODO: reset retrieved_contents on a new failed attempt
 
                 const [html_inputkey, html_inputval] = Array.from(html_row.getElementsByTagName('input'));
                 [html_inputkey.value, html_inputval.value] = [`${k}`, `${v}`];
-                
-                const [html_addrow, html_delrow] = Array.from(html_row.getElementsByTagName('button'));
-                [html_addrow.dataset.idx, html_delrow.dataset.idx] = [`${i}`, `${i}`];
             }
             for(let j = html_frontmatter.rows.length - 1; j > i; j--)
                 html_frontmatter.deleteRow(j);
@@ -372,14 +369,34 @@ TODO: reset retrieved_contents on a new failed attempt
 
         function onclick_addrow(event)
         {
+            event.preventDefault();
             const html_row = event.target.parentElement.parentElement;
-            console.log(event.target.dataset, html_row);
+            const rowIdx = html_row.rowIndex;
+            
+            const html_header = html_row.cloneNode(true);
+            const [html_inputkey, html_inputval] = Array.from(html_header.getElementsByTagName('input'));
+            [html_inputkey.value, html_inputval.value] = ['', ''];
+            
+            if(rowIdx == 0)
+                html_row.parentNode.insertBefore(html_header, html_row);
+            else if(rowIdx < html_frontmatter.children.length - 1)
+                html_row.parentNode.insertBefore(html_header, html_row.nextSibling);
+            else
+                html_frontmatter.appendChild(html_header);
         }
 
         function onclick_delrow(event)
         {
+            event.preventDefault();
             const html_row = event.target.parentElement.parentElement;
-            console.log(event.target.dataset, html_row);
+            const rowIdx = html_row.rowIndex;
+            if(rowIdx == 0)
+            {
+                const [html_inputkey, html_inputval] = Array.from(html_row.getElementsByTagName('input'));
+                [html_inputkey.value, html_inputval.value] = ['', ''];
+            }
+            else
+                html_frontmatter.deleteRow(rowIdx);
         }
 
         async function onclick_open(autoopen = false)
