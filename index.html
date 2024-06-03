@@ -45,16 +45,16 @@ TODO: reset retrieved_contents on a new failed attempt
             <fieldset>
                 <legend class="monospace">Type in a link to a GitHub .md file</legend>
 
-                <input placeholder="GitHub or public URL:" id="html_url" type="text" value="https://github.com/vadimkantorov/moncms/blob/gh-pages/README.md"  onkeypress="onkeypress_enter_url(event)" />
+                <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" type="text" value="https://github.com/vadimkantorov/moncms/blob/gh-pages/README.md"  onkeypress="onkeypress_enter_url(event)" />
                 <br />
                 
-                <input placeholder="GitHub token:" id="html_token" type="text" value="" onkeypress="onkeypress_enter_url(event)" />
+                <input placeholder="GitHub token:" title="GitHub token:" id="html_token" type="text" value="" onkeypress="onkeypress_enter_url(event)" />
                 <br />
                 
                 <input placeholder="File name:" id="html_file_name" type="text" value="" readonly />
                 <br />
                 
-                <input placeholder="Log:" id="html_log" class="monospace" readonly />
+                <input placeholder="Log:" title="Log:" id="html_log" class="monospace" readonly />
                 <br />
 
                 <select id="html_file_tree" size="10" onkeypress="onkeypress_enter_file_tree(event)">
@@ -62,11 +62,11 @@ TODO: reset retrieved_contents on a new failed attempt
                 </select>
                 <br />
 
-                <ul id="html_images">
+                <ul id="html_images" hidden>
                 </ul>
 
                 <table id="html_frontmatter">
-                    <tr><td><input type="text" placeholder="Frontmatter key:" /></td><td><input type="text" placeholder="Frontmatter value:" /></td><td><button>Add another row</button><button>Delete this row</button></td></tr>
+                    <tr><td><input type="text" placeholder="Frontmatter key:" /></td><td><input type="text" placeholder="Frontmatter value:" /></td><td><button onclick="onclick_addrow(event); return false;">Add another row</button><button onclick="onclick_delrow(event); return false;">Delete this row</button></td></tr>
                 </table>
 
                 <button onclick="onclick_open(); return false;">Open</button>
@@ -183,7 +183,6 @@ TODO: reset retrieved_contents on a new failed attempt
             prep.contents_api_url = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : ''); 
             prep.contents_api_dir_url = github_repo_dir_path ? prep.contents_api_url : (`https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_parent_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : ''));
             
-
             const slashIdx2 = github_repo_path.lastIndexOf('/');
             const slashIdx1 = github_repo_path.slice(0, slashIdx2).lastIndexOf('/');
             const github_repo_parentdir_path = github_repo_dir_path ? (slashIdx2 != -1 ? github_repo_dir_path.slice(0, slashIdx2) : '') : github_repo_file_path ? ((slashIdx2 != -1 && slashIdx1 != -1) ? github_repo_path.slice(0, slashIdx1) : (slashIdx2 != -1 && slashIdx == -1) ? '' : null) : null;
@@ -192,9 +191,9 @@ TODO: reset retrieved_contents on a new failed attempt
             
             // https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28
             prep.headers = {
+                'X-GitHub-Api-Version' : '2022-11-28',
                 'Accept': 'application/vnd.github+json',
                 'If-None-Match' : '',
-                'X-GitHub-Api-Version' : '2022-11-28',
                 'Authorization' : github_token ? `Bearer ${github_token}` : ''
             };
             
@@ -282,12 +281,10 @@ TODO: reset retrieved_contents on a new failed attempt
             for(let j = html_file_tree.length - 1; j > i; j--)
                 html_file_tree.options.remove(j);
 
-            
             i = 0;
             for(; i < images.length; i++)
             {
-                let html_li = html_images.children[i];
-                let html_img = null, html_figcaption = null;
+                let html_li = html_images.children[i], html_img = null, html_figcaption = null;
                 if(html_li == null)
                 {
                     html_li = document.createElement('li');
@@ -309,15 +306,80 @@ TODO: reset retrieved_contents on a new failed attempt
             }
             for(let j = html_images.children.length - 1; j >= i; j--)
                 html_images.removeChild(html_images.children[j]);
+            
+            html_images.hidden = images.length == 0;
         }
 
         function update_frontmatter(frontmatter)
         {
+            const html_header = html_frontmatter.getElementsByTagName('tr')[0];
+            Array.from(html_header.getElementsByTagName('input')).forEach(input => input.value = '');
+            
+            const entries = Object.entries(frontmatter);
+            console.log(entries);
+            
+            let i = 0;
+            for(; i < entries.length; i++)
+            {
+                const [k, v] = entries[i];
+                let html_row = html_frontmatter.rows[1 + i];
+                if(html_row == null)
+                {
+                    html_row = html_header.cloneNode(true);
+                    html_frontmatter.appendChild(html_row);
+                }
+
+                const [html_inputkey, html_inputval] = Array.from(html_row.getElementsByTagName('input'));
+                [html_inputkey.value, html_inputval.value] = [`${k}`, `${v}`];
+                
+                const [html_addrow, html_delrow] = Array.from(html_row.getElementsByTagName('button'));
+                [html_addrow.dataset.idx, html_delrow.dataset.idx] = [`${i}`, `${i}`];
+            }
+            for(let j = html_frontmatter.rows.length - 1; j > i; j--)
+                html_frontmatter.deleteRow(j);
         }
 
         function parse_frontmatter(text)
         {
-            return [text, {test: 123, foo: 'asd', bar: 'fdfd'}];
+            const m = text.match(/^---\n(.*?)\n---\n*/s);
+            const frontmatter = {};
+            if(m)
+            {
+                const frontmatter_str = m[1];
+                text = text.substring(m[0].length);
+
+                const procval = s => (s.length >= 2 && s[0] == '"' && s[s.length - 1] == '"') ? s.slice(1, s.length - 1) : (s.length >= 2 && s[0] == "'" && s[s.length - 1] == "'") ? s.slice(1, s.length - 1) : s;
+
+                for(const line of frontmatter_str.split('\n'))
+                {
+                    const line_strip = line.trim();
+                    const is_list_item = line_strip.startsWith('- ');
+                    if(!line || line.startsWith('#'))
+                        continue;
+
+                    const colonIdx = line.indexOf(':');
+                    const key = colonIdx != -1 ? line.slice(0, colonIdx).trim() : '';
+                    const val = colonIdx != -1 ? line.substring(1 + colonIdx).trim() : is_list_item ? line_strip.substring(2).trim() : '';
+                    
+                    if(colonIdx != -1)
+                        frontmatter[key] = val ? procval(val) : [];
+                    else if(is_list_item)
+                        front_matter[key].push(procval(val));
+                }
+            }
+            return [text, frontmatter];
+        }
+
+        function onclick_addrow(event)
+        {
+            const html_row = event.target.parentElement.parentElement;
+            console.log(event.target.dataset, html_row);
+        }
+
+        function onclick_delrow(event)
+        {
+            const html_row = event.target.parentElement.parentElement;
+            console.log(event.target.dataset, html_row);
         }
 
         async function onclick_open(autoopen = false)
@@ -342,8 +404,6 @@ TODO: reset retrieved_contents on a new failed attempt
                 return moncms_log(prep.error);
             }
 
-            console.log(prep);
-
             const resp_file = await fetch(prep.contents_api_url, { method: 'GET', headers: prep.headers });
             const res_file = await resp_file.json();
             
@@ -353,7 +413,8 @@ TODO: reset retrieved_contents on a new failed attempt
             const msg_file = github_api_format_error(resp_file.status, (res_file || {}).message || '');
             const msg_dir = github_api_format_error(resp_dir.status, (res_dir || {}).message || '');
 
-            if(resp_file.status != 200 || resp_dir.status != 200)
+            const HTTP_OK = 200;
+            if(resp_file.status != HTTP_OK || resp_dir.status != HTTP_OK)
             {
                 clear();
                 return moncms_log(`error ${resp_file.status}, [${res_file.message}] | ${resp_dir.status}, [${JSON.stringify(res_dir)}] `);
@@ -363,7 +424,7 @@ TODO: reset retrieved_contents on a new failed attempt
             if(html_token.value && html_tokencache.checked && !autoopen)
             {
                 cache_save(prep.github_repo_url, html_token.value);
-                moncms_log('put in cache for ' + prep.github_repo_url);
+                moncms_log('saved to cache for ' + prep.github_repo_url);
             }
 
             const is_dir = res_file.content === undefined;
@@ -391,14 +452,13 @@ TODO: reset retrieved_contents on a new failed attempt
             {
                 if(window.editor_setText) window.editor_setText(text);
             }
-            
-            console.log('open', res_file, res_dir);
         }
 
         function onkeypress_enter_file_tree(event)
         {
             if (event.code === 'Space' || event.code == 'Enter')
             {
+                event.preventDefault();
                 const html_option = html_file_tree.options[html_file_tree.selectedIndex];
                 html_url.value = html_option.value;
                 onclick_open();
