@@ -267,7 +267,7 @@ TODO: onclick_del: update the URL to the directory: redirect and reload the page
                 html_file_tree.removeChild(option);
             for(const li of html_images.querySelectorAll(`li[title="${selected_file_name}"]`))
                 html_images.removeChild(li);
-            html_file_name.value = dirname(html_file_name.value);
+            html_url.value = dirname(html_url.value);
             
             clear(false);
             moncms_log(`DEL ok ${resp.status}`);
