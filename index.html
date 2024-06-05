@@ -232,13 +232,24 @@ TODO: preventDefault for all buttons to prevent form submit in case of some exce
         
         async function onclick_del()
         {
-            if(!retrieved_contents || !html_file_name.value)
+            if(!retrieved_contents || !html_file_name.value || !window.confirm('Do you really want to delete this file?'))
                 return;
 
-            if(window.confirm('Do you really want to delete this file?'))
-                console.log('YES');
-            else
-                console.log('NO');
+            const prep = github_api_prepare_params(html_url.value, html_token.value);
+            if(prep.error != '')
+                return moncms_log(prep.error);
+        
+            const req = {
+                path : retrieved_contents.path,
+                sha: retrieved_contents.sha,
+                message : 'no commit message',
+            };
+        
+            const resp = await fetch(prep.contents_api_url, { method: 'DELETE', headers: prep.headers, body: JSON.stringify(req) });
+            const res = await resp.json();
+
+            clear();
+            moncms_log(`DEL ok ${resp.status}`);
         }
         
         async function onclick_upload()
@@ -247,12 +258,13 @@ TODO: preventDefault for all buttons to prevent form submit in case of some exce
 
         async function onclick_save()
         {
+            // https://stackoverflow.com/questions/31563444/rename-a-file-with-github-api
             const prep = github_api_prepare_params(html_url.value, html_token.value);
             if(prep.error != '')
                 return moncms_log(prep.error);
 
             const text = await editor_getText();
-            const base64 = btoa(String.fromCodePoint(...(new TextEncoder().encode(text))));
+            const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(text))));
             if(retrieved_contents.encoding == 'base64' && retrieved_contents.contents == base64)
                 return moncms_log('no changes');
            
@@ -461,7 +473,7 @@ TODO: preventDefault for all buttons to prevent form submit in case of some exce
             const is_dir = res_file.content === undefined;
             
             retrieved_contents = res_file;
-            let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
+            let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
             [text, frontmatter] = parse_frontmatter(text); 
             
             html_file_name.value = is_dir ? '' : html_url.value.slice(html_url.value.lastIndexOf('/') + 1);
