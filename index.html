@@ -263,9 +263,9 @@ TODO: onclick_del: update the URL to the directory: redirect and reload the page
             const res = await resp.json();
 
             const selected_file_name = html_file_name.value;
-            for(const option of Array.from(html_file_tree.getElementsByTagName('option')).filter(option => option.title == selected_file_name))
+            for(const option of html_file_tree.querySelectorAll(`option[title="${selected_file_name}"]`))
                 html_file_tree.removeChild(option);
-            for(const li of Array.from(html_images.getElementsByTagName('li')).filter(li => li.title == selected_file_name))
+            for(const li of html_images.querySelectorAll(`li[title="${selected_file_name}"]`))
                 html_images.removeChild(li);
             html_file_name.value = dirname(html_file_name.value);
             
