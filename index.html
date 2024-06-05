@@ -13,6 +13,7 @@ TODO: version without cookies by default?
 TODO: reset retrieved_contents on a new failed attempt
 TODO: preventDefault for all buttons to prevent form submit in case of some exception 
 TODO: dblclick on file tree
+TODO: onclick_del: update the URL to the directory: redirect and reload the page? (or only if had query string?)
 -->
     <head>
         <meta charset="utf-8">
@@ -200,15 +201,18 @@ TODO: dblclick on file tree
             return prep;
         }
 
-        function clear()
+        function clear(file_tree = true)
         {
             retrieved_contents = {};
             if(window.editor_setText) window.editor_setText('');
             html_file_name.value = html_file_name.title = '';
-            for(let i = html_file_tree.options.length - 1; i >= 1; i--)
-                html_file_tree.options.remove(i);
-            for(let i = html_images.length - 1; i >= 0; i--)
-                html_images.removeChild(html_images.children[i]);
+            if(file_tree)
+            {
+                for(let i = html_file_tree.options.length - 1; i >= 1; i--)
+                    html_file_tree.options.remove(i);
+                for(let i = html_images.length - 1; i >= 0; i--)
+                    html_images.removeChild(html_images.children[i]);
+            }
         }
         
         function onchange_tokencache()
@@ -233,6 +237,13 @@ TODO: dblclick on file tree
             }
         }
         
+        function dirname(path)
+        {
+            if(!path)
+                return '';
+            return path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+        }
+
         async function onclick_del()
         {
             if(!retrieved_contents || !html_file_name.value || !window.confirm('Do you really want to delete this file?'))
@@ -251,10 +262,15 @@ TODO: dblclick on file tree
             const resp = await fetch(prep.contents_api_url, { method: 'DELETE', headers: prep.headers, body: JSON.stringify(req) });
             const res = await resp.json();
 
-            clear();
+            const selected_file_name = html_file_name.value;
+            for(const option of html_file_tree.getElementsByTagName('option').filter(option => option.title == selected_file_name))
+                html_file_tree.removeChild(option);
+            for(const li of html_images.getElementsByTagName('li').filter(li => li.title == selected_file_name))
+                html_images.removeChild(li);
+            html_file_name.value = dirname(html_file_name.value);
+            
+            clear(false);
             moncms_log(`DEL ok ${resp.status}`);
-            //TODO: update the file tree (currently cleared completely)
-            //TODO: update the URL to the directory: redirect and reload the page? (or only if had query string?)
         }
         
         async function onclick_upload()
@@ -306,7 +322,8 @@ TODO: dblclick on file tree
                 }
                 html_option.text = file_tree[i].name + (file_tree[i].type == 'dir' ? '/' : '' );
                 html_option.selected = file_tree[i].name == selected_file_name;
-                html_option.value = html_option.title = file_tree[i].html_url;
+                html_option.value = file_tree[i].html_url;
+                html_option.title = file_tree[i].name;
                 html_option.dataset.type = file_tree[i].type;
             }
             for(let j = html_file_tree.length - 1; j > i; j--)
@@ -332,7 +349,7 @@ TODO: dblclick on file tree
                     html_figcaption = html_li.getElementsByTagName('figcaption')[0];
                     html_img = html_li.getElementsByTagName('img')[0];
                 }
-                html_figcaption.innerText = images[i].name;
+                html_figcaption.innerText = html_li.title = images[i].name;
                 html_img.src = images[i].download_url;
             }
             for(let j = html_images.children.length - 1; j >= i; j--)
