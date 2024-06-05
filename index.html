@@ -12,6 +12,7 @@ TODO: autoopen by default always?
 TODO: version without cookies by default?
 TODO: reset retrieved_contents on a new failed attempt
 TODO: preventDefault for all buttons to prevent form submit in case of some exception 
+TODO: dblclick on file tree
 -->
     <head>
         <meta charset="utf-8">
@@ -206,6 +207,8 @@ TODO: preventDefault for all buttons to prevent form submit in case of some exce
             html_file_name.value = html_file_name.title = '';
             for(let i = html_file_tree.options.length - 1; i >= 1; i--)
                 html_file_tree.options.remove(i);
+            for(let i = html_images.length - 1; i >= 0; i--)
+                html_images.removeChild(html_images.children[i]);
         }
         
         function onchange_tokencache()
@@ -250,7 +253,8 @@ TODO: preventDefault for all buttons to prevent form submit in case of some exce
 
             clear();
             moncms_log(`DEL ok ${resp.status}`);
-            //TODO: update file tree
+            //TODO: update file tree (currently reset only files, not images)
+            //TODO: update the URL to the directory
         }
         
         async function onclick_upload()
