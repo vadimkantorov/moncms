@@ -253,8 +253,8 @@ TODO: dblclick on file tree
 
             clear();
             moncms_log(`DEL ok ${resp.status}`);
-            //TODO: update file tree (currently reset only files, not images)
-            //TODO: update the URL to the directory
+            //TODO: update the file tree (currently cleared completely)
+            //TODO: update the URL to the directory: redirect and reload the page? (or only if had query string?)
         }
         
         async function onclick_upload()
