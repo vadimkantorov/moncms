@@ -189,6 +189,7 @@ TODO: onclick_del: update the URL to the directory: redirect and reload the page
             const github_repo_parentdir_path = github_repo_dir_path ? (slashIdx2 != -1 ? github_repo_dir_path.slice(0, slashIdx2) : '') : github_repo_file_path ? ((slashIdx2 != -1 && slashIdx1 != -1) ? github_repo_path.slice(0, slashIdx1) : (slashIdx2 != -1 && slashIdx1 == -1) ? '' : null) : null;
 
             prep.parentdir_url = github_repo_parentdir_path != null ? `https://github.com/${github_repo_username}/${github_repo_name}/tree/${github_repo_tag}/${github_repo_parentdir_path}` : '';
+            prep.curdir_url = github_repo_parentdir_path != null ? `https://github.com/${github_repo_username}/${github_repo_name}/tree/${github_repo_tag}/${github_repo_path}` : '';
             
             // https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28
             prep.headers = {
@@ -267,7 +268,7 @@ TODO: onclick_del: update the URL to the directory: redirect and reload the page
                 html_file_tree.removeChild(option);
             for(const li of html_images.querySelectorAll(`li[title="${selected_file_name}"]`))
                 html_images.removeChild(li);
-            html_url.value = dirname(html_url.value);
+            html_url.value = prep.curdir_url;
             
             clear(false);
             moncms_log(`DEL ok ${resp.status}`);
