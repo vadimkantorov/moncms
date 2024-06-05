@@ -186,8 +186,8 @@ TODO: onclick_del: update the URL to the directory: redirect and reload the page
             
             const slashIdx2 = github_repo_path.lastIndexOf('/');
             const slashIdx1 = github_repo_path.slice(0, slashIdx2).lastIndexOf('/');
-            const github_repo_parentdir_path = github_repo_dir_path ? (slashIdx2 != -1 ? github_repo_path.slice(0, slashIdx2) : '') : github_repo_file_path ? ((slashIdx2 != -1 && slashIdx1 != -1) ? github_repo_path.slice(0, slashIdx1) : (slashIdx2 != -1 && slashIdx1 == -1) ? '' : null) : null;
-            const github_repo_curdir_path = github_repo_dir_path ? (slashIdx2 != -1 ? github_repo_path.slice(0, slashIdx2) : '') : null;
+            const github_repo_parentdir_path = github_repo_path ? (slashIdx2 != -1 ? github_repo_path.slice(0, slashIdx2) : '') : github_repo_file_path ? ((slashIdx2 != -1 && slashIdx1 != -1) ? github_repo_path.slice(0, slashIdx1) : (slashIdx2 != -1 && slashIdx1 == -1) ? '' : null) : null;
+            const github_repo_curdir_path = github_repo_path ? (slashIdx2 != -1 ? github_repo_path.slice(0, slashIdx2) : '') : null;
 
             prep.parentdir_url = github_repo_parentdir_path != null ? `https://github.com/${github_repo_username}/${github_repo_name}/tree/${github_repo_tag}/${github_repo_parentdir_path}` : '';
             prep.curdir_url = github_repo_curdir_path != null ? `https://github.com/${github_repo_username}/${github_repo_name}/tree/${github_repo_tag}/${github_repo_curdir_path}` : '';
