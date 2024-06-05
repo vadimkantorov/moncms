@@ -4,15 +4,16 @@
 TODO: extract github url from public url meta
 TODO: extract current published timestamp file sha, and commit sha
 TODO: Ctrl+Z with loaded text, focused on text leads to deletion of text
-TODO: autofocus on text or URL
 TODO: set search to github_url. what to do with password?
 TODO: support creating a new file
+TODO: delete a directory? create a directory?
 TODO: when closing with changes, prevent?
 TODO: autoopen by default always?
 TODO: version without cookies by default?
 TODO: reset retrieved_contents on a new failed attempt
 TODO: preventDefault for all buttons to prevent form submit in case of some exception 
 TODO: onclick_del: redirect and reload the page? (or only if had query string?)
+TODO: format frontmatter if used
 -->
     <head>
         <meta charset="utf-8">
@@ -80,12 +81,13 @@ TODO: onclick_del: redirect and reload the page? (or only if had query string?)
         <div id="editor"></div>
 
         <script>
-        
         const html_url = document.getElementById('html_url');
         const html_token = document.getElementById('html_token');
         const html_tokencache = document.getElementById('html_tokencache');
         const html_log = document.getElementById('html_log');
         const html_file_name = document.getElementById('html_file_name');
+        
+        window.editor_getText = window.editor_setText = (text = '') => '';
 
         let retrieved_contents = {}; 
         
@@ -126,12 +128,11 @@ TODO: onclick_del: redirect and reload the page? (or only if had query string?)
 
         async function onload_editor()
         {
-            if(!window.editor_setText && window.LexicalMarkdownEditor)
+            if(window.LexicalMarkdownEditor)
             {
                 const editor = await window.LexicalMarkdownEditor('#editor');
                 window.editor_getText = () => editor.getMarkdown();
                 window.editor_setText = md => editor.setMarkdown(md);
-                //window.lexical_editor = editor;
             }
         }
 
@@ -205,7 +206,7 @@ TODO: onclick_del: redirect and reload the page? (or only if had query string?)
         function clear(file_tree = true)
         {
             retrieved_contents = {};
-            if(window.editor_setText) window.editor_setText('');
+            window.editor_setText('');
             html_file_name.value = html_file_name.title = '';
             if(file_tree)
             {
@@ -508,15 +509,15 @@ TODO: onclick_del: redirect and reload the page? (or only if had query string?)
             if(is_dir)
             {
                 html_file_tree.selectedIndex = 0;
-                if(window.editor_getText && window.editor_setText && await window.editor_getText())
+                if(await window.editor_getText())
                 {
-                    await window.editor_setText(text);
+                    window.editor_setText(text);
                 }
                 html_file_tree.focus();
             }
             else
             {
-                if(window.editor_setText) window.editor_setText(text);
+                window.editor_setText(text);
             }
         }
 
