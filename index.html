@@ -12,8 +12,7 @@ TODO: autoopen by default always?
 TODO: version without cookies by default?
 TODO: reset retrieved_contents on a new failed attempt
 TODO: preventDefault for all buttons to prevent form submit in case of some exception 
-TODO: dblclick on file tree
-TODO: onclick_del: update the URL to the directory: redirect and reload the page? (or only if had query string?)
+TODO: onclick_del: redirect and reload the page? (or only if had query string?)
 -->
     <head>
         <meta charset="utf-8">
@@ -58,7 +57,7 @@ TODO: onclick_del: update the URL to the directory: redirect and reload the page
                 <input placeholder="Log:" title="Log:" id="html_log" class="monospace" readonly />
                 <br />
 
-                <select id="html_file_tree" size="10" onkeypress="onkeypress_enter_file_tree(event)" ondblclick="ondblclick_enter_file_tree(event)">
+                <select id="html_file_tree" size="10" onkeypress="ondblclick_enter_file_tree(event)" ondblclick="ondblclick_enter_file_tree(event)">
                     <option disabled>File tree:</option>
                 </select>
                 <br />
@@ -521,21 +520,9 @@ TODO: onclick_del: update the URL to the directory: redirect and reload the page
             }
         }
 
-        function onkeypress_enter_file_tree(event)
-        {
-            if (event.code === 'Space' || event.code == 'Enter')
-            {
-                event.preventDefault();
-                const html_option = html_file_tree.options[html_file_tree.selectedIndex];
-                html_url.value = html_option.value;
-                onclick_open();
-            }
-        }
-        
         function ondblclick_enter_file_tree(event)
         {
-            console.log(event);
-            //if (event.code === 'Space' || event.code == 'Enter')
+            if (event.type == 'dblclick' || event.code == 'Space' || event.code == 'Enter')
             {
                 event.preventDefault();
                 const html_option = html_file_tree.options[html_file_tree.selectedIndex];
