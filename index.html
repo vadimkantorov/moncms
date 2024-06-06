@@ -14,6 +14,7 @@ TODO: reset retrieved_contents on a new failed attempt
 TODO: preventDefault for all buttons to prevent form submit in case of some exception 
 TODO: onclick_del: redirect and reload the page? (or only if had query string?)
 TODO: format frontmatter if used
+TODO: what happens if we open a file and then navigate to parent dir and then click save?
 -->
     <head>
         <meta charset="utf-8">
@@ -52,7 +53,7 @@ TODO: format frontmatter if used
                 <input placeholder="GitHub token:" title="GitHub token:" id="html_token" type="text" value="" onkeypress="onkeypress_enter_url(event)" />
                 <br />
                 
-                <input placeholder="File name:" id="html_file_name" type="text" value="" readonly />
+                <input placeholder="File name:" id="html_file_name" type="text" value="" />
                 <br />
                 
                 <input placeholder="Log:" title="Log:" id="html_log" class="monospace" readonly />
@@ -73,6 +74,7 @@ TODO: format frontmatter if used
                 <button onclick="onclick_open(); return false;">Open</button>
                 <button onclick="onclick_save(); return false;">Save</button>
                 <button onclick="onclick_del() ; return false;">Delete</button>
+                <button onclick="onclick_create() ; return false;">Create</button>
                 <button onclick="onclick_upload() ; return false;">Upload</button>
                 
                 <input name="html_tokencache" id="html_tokencache" type="checkbox" onchange="onchange_tokencache(); return false;" /><label for="html_tokencache">Cache token</label>
@@ -206,7 +208,6 @@ TODO: format frontmatter if used
         function clear(file_tree = true)
         {
             retrieved_contents = {};
-            window.editor_setText('');
             html_file_name.value = html_file_name.title = '';
             if(file_tree)
             {
@@ -215,8 +216,15 @@ TODO: format frontmatter if used
                 for(let i = html_images.length - 1; i >= 0; i--)
                     html_images.removeChild(html_images.children[i]);
             }
+            return window.editor_setText('');
         }
         
+        async function onclick_create()
+        {
+            await clear(false);
+            html_file_name.focus();
+        }
+
         function onchange_tokencache()
         {
             if(!html_tokencache.checked)
@@ -245,6 +253,20 @@ TODO: format frontmatter if used
                 return '';
             return path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
         }
+        
+        function basename(path)
+        {
+            if(!path)
+                return '';
+            return path.includes('/') ? path.substring(1 + path.lastIndexOf('/')) : path;
+        }
+
+        function join2(path1, path2)
+        {
+            const path1_ = path1[path1.length - 1] == '/' ? path1.slice(0, path1.length - 1) : path1
+            const _path2 = path2[0] == '/' ? path2.substring(1): path2;
+            return (path1 && path2) ? (path1_ + '/' + _path2) : (path1 && !path2) ? path1 : (!path1 && path2) ? path2 : ''
+        }
 
         async function onclick_del()
         {
@@ -264,11 +286,7 @@ TODO: format frontmatter if used
             const resp = await fetch(prep.contents_api_url, { method: 'DELETE', headers: prep.headers, body: JSON.stringify(req) });
             const res = await resp.json();
 
-            const selected_file_name = html_file_name.value;
-            for(const option of html_file_tree.querySelectorAll(`option[title="${selected_file_name}"]`))
-                html_file_tree.removeChild(option);
-            for(const li of html_images.querySelectorAll(`li[title="${selected_file_name}"]`))
-                html_images.removeChild(li);
+            delete_file_tree(html_file_name.value);
             html_url.value = prep.curdir_url;
             
             clear(false);
@@ -282,28 +300,67 @@ TODO: format frontmatter if used
         async function onclick_save()
         {
             // https://stackoverflow.com/questions/31563444/rename-a-file-with-github-api
+            // https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
+            // https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
+
             const prep = github_api_prepare_params(html_url.value, html_token.value);
             if(prep.error != '')
                 return moncms_log(prep.error);
 
             const text = await editor_getText();
             const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(text))));
-            if(retrieved_contents.encoding == 'base64' && retrieved_contents.contents == base64)
+            if(retrieved_contents.encoding == 'base64' && retrieved_contents.contents == base64 && html_file_name.value == retrieved_contents.name)
                 return moncms_log('no changes');
            
-            const req = {
-                path : retrieved_contents.path,
-                sha: retrieved_contents.sha,
-                message : 'no commit message',
-                content : base64,
-            };
+            const should_rename = retrieved_contents && html_file_name.value != retrieved_contents.name;
+            const should_update = retrieved_contents && html_file_name.value == retrieved_contents.name;
+            const should_create = !retrieved_contents && html_file_name.value;
 
-            const resp = await fetch(prep.contents_api_url, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
-            const res = await resp.json();
+            if(should_update)
+            {
+                const req = {
+                    path : retrieved_contents.path,
+                    sha: retrieved_contents.sha,
+                    message : 'no commit message',
+                    content : base64,
+                };
+                const resp = await fetch(prep.contents_api_url, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
+                const res = await resp.json();
+                retrieved_contents = {encoding: 'base64', contents : base64, sha: res.content.sha, path: res.content.path};
+                moncms_log(`PUT ok ${resp.status}`);
+            }
+            
+            if(should_rename)
+            {
+                const req_put = {
+                    path : join2(dirname(retrieved_contents.path), html_file_name.value),
+                    message : 'no commit message',
+                    content : base64,
+                };
+                const resp_put = await fetch(path2(dirname(prep.contents_api_url), html_file_name.value), { method: 'PUT', headers: prep.headers, body: JSON.stringify(req_put) });
+                const res_put = await resp_put.json();
+                retrieved_contents = {encoding: 'base64', contents : base64, sha: res_put.content.sha, path: res_put.content.path};
+                moncms_log(`PUT ok ${resp_put.status}`);
 
-            moncms_log(`PUT ok ${resp.status}`);
-            retrieved_contents = {encoding: 'base64', contents : base64, sha: res.content.sha, path: res.content.path};
+                const req_del = {
+                    path : retrieved_contents.path,
+                    sha: retrieved_contents.sha,
+                    message : 'no commit message',
+                };
+                const resp_del = await fetch(prep.contents_api_url, { method: 'DELETE', headers: prep.headers, body: JSON.stringify(req_del) });
+                const res = await resp_del.json();
+                moncms_log(`DEL ok ${resp_del.status}`);
+            }
         }
+        
+        function delete_file_tree(selected_file_name)
+        {
+            for(const option of html_file_tree.querySelectorAll(`option[title="${selected_file_name}"]`))
+                html_file_tree.removeChild(option);
+            for(const li of html_images.querySelectorAll(`li[title="${selected_file_name}"]`))
+                html_images.removeChild(li);
+        }
+
 
         function update_file_tree(files_and_dirs, parentdir_url, selected_file_name, ext = ['.gif', '.jpg', '.png', '.svg'])
         {
