@@ -15,6 +15,7 @@ TODO: preventDefault for all buttons to prevent form submit in case of some exce
 TODO: onclick_del: redirect and reload the page? (or only if had query string?)
 TODO: format frontmatter if used
 TODO: what happens if we open a file and then navigate to parent dir and then click save?
+TODO: sanitize file name before actions? (at least delete slash from beginning/end)
 -->
     <head>
         <meta charset="utf-8">
@@ -53,7 +54,7 @@ TODO: what happens if we open a file and then navigate to parent dir and then cl
                 <input placeholder="GitHub token:" title="GitHub token:" id="html_token" type="text" value="" onkeypress="onkeypress_enter_url(event)" />
                 <br />
                 
-                <input placeholder="File name:" id="html_file_name" type="text" value="" />
+                <input placeholder="File name:" id="html_file_name" type="text" value="" onkeypress="onkeypress_save(event)" />
                 <br />
                 
                 <input placeholder="Log:" title="Log:" id="html_log" class="monospace" readonly />
@@ -72,10 +73,10 @@ TODO: what happens if we open a file and then navigate to parent dir and then cl
                 </table>
 
                 <button onclick="onclick_open(); return false;">Open</button>
-                <button onclick="onclick_save(); return false;">Save</button>
-                <button onclick="onclick_del() ; return false;">Delete</button>
-                <button onclick="onclick_create() ; return false;">Create</button>
-                <button onclick="onclick_upload() ; return false;">Upload</button>
+                <button onclick="onclick_save(); return false;">Save the file</button>
+                <button onclick="onclick_del() ; return false;">Delete the file</button>
+                <button onclick="onclick_create() ; return false;">Create a file</button>
+                <button onclick="onclick_upload() ; return false;">Upload files</button>
                 
                 <input name="html_tokencache" id="html_tokencache" type="checkbox" onchange="onchange_tokencache(); return false;" /><label for="html_tokencache">Cache token</label>
             </fieldset>
@@ -83,61 +84,6 @@ TODO: what happens if we open a file and then navigate to parent dir and then cl
         <div id="editor"></div>
 
         <script>
-        const html_url = document.getElementById('html_url');
-        const html_token = document.getElementById('html_token');
-        const html_tokencache = document.getElementById('html_tokencache');
-        const html_log = document.getElementById('html_log');
-        const html_file_name = document.getElementById('html_file_name');
-        
-        window.editor_getText = window.editor_setText = (text = '') => '';
-
-        let retrieved_contents = {}; 
-        
-        function moncms_log(text)
-        {
-            const prefix = new Date().toISOString();
-            html_log.value = `${prefix}: ${text}`;
-            //html_log.value += '\n' + text; html_log.scrollTop = html_log.scrollHeight;
-        }
-
-        function cache_load(key, method = 'localStorage')
-        {
-            if(method == 'localStorage')
-                return localStorage.getItem("moncms_" + key);
-            
-            if(method == 'cookie')
-                return (document.cookie.split(';').filter(k_v => k_v.split('=')[0] == key)[0] || '').split('=')[1];
-        }
-        
-        function cache_save(key, value, method = 'localStorage')
-        {
-            if(method == 'localStorage')
-            {
-                if(value)
-                    localStorage.setItem("moncms_" + key, value);
-                else
-                    localStorage.removeItem("moncms_" + key);
-            }
-
-            if(method == 'cookie')
-            {
-                if(value)
-                    document.cookie = document.cookie ? (document.cookie + ';' + key + '=' + value) : (key + '=' + value);
-                else
-                    document.cookie = document.cookie.split(';').filter(k_v => k_v.split('=')[0] != key).join(';'); 
-            }
-        }
-
-        async function onload_editor()
-        {
-            if(window.LexicalMarkdownEditor)
-            {
-                const editor = await window.LexicalMarkdownEditor('#editor');
-                window.editor_getText = () => editor.getMarkdown();
-                window.editor_setText = md => editor.setMarkdown(md);
-            }
-        }
-
         function github_api_format_error(resp_status, res_message)
         {
             return `${resp_status}: ` + ({200: 'OK', 201: 'Created', 404: 'Resource not found', 409: 'Conflict', 422: 'Validation failed, or the endpoint has been spammed.', 401: 'Unauthorized', 403: 'Forbidden: ' + res_message}[resp_status] || '');
@@ -205,6 +151,97 @@ TODO: what happens if we open a file and then navigate to parent dir and then cl
             return prep;
         }
 
+        async function github_api_update_file(prep, retrieved_contents, base64)
+        {
+            const req = {
+                message : 'no commit message',
+                content : base64,
+            };
+            if(retrieved_contents.sha)
+                req.sha = retrieved_contents.sha;
+            const resp = await fetch(prep.contents_api_url, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
+            const res = await resp.json();
+            return [resp, res];
+        }
+
+        async function github_api_delete_file(prep, retrieved_contents)
+        {
+            const req = {
+                //path : retrieved_contents.path,
+                sha: retrieved_contents.sha,
+                message : 'no commit message',
+            };
+            const resp = await fetch(prep.contents_api_url, { method: 'DELETE', headers: prep.headers, body: JSON.stringify(req) });
+            const res = await resp.json();
+            return [resp, res];
+        }
+        
+        function dirname(path)
+        {
+            if(!path)
+                return '';
+            return path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+        }
+        
+        function basename(path)
+        {
+            if(!path)
+                return '';
+            return path.includes('/') ? path.substring(1 + path.lastIndexOf('/')) : path;
+        }
+
+        function join2(path1, path2)
+        {
+            const path1_ = path1[path1.length - 1] == '/' ? path1.slice(0, path1.length - 1) : path1
+            const _path2 = path2[0] == '/' ? path2.substring(1): path2;
+            return (path1 && path2) ? (path1_ + '/' + _path2) : (path1 && !path2) ? path1 : (!path1 && path2) ? path2 : ''
+        }
+        
+        const html_url = document.getElementById('html_url');
+        const html_token = document.getElementById('html_token');
+        const html_tokencache = document.getElementById('html_tokencache');
+        const html_log = document.getElementById('html_log');
+        const html_file_name = document.getElementById('html_file_name');
+        
+        window.editor_getText = window.editor_setText = (text = '') => '';
+
+        let retrieved_contents = {}; 
+        
+        function moncms_log(text)
+        {
+            const prefix = new Date().toISOString();
+            html_log.value = `${prefix}: ${text}`;
+            //html_log.value += '\n' + text; html_log.scrollTop = html_log.scrollHeight;
+        }
+
+        function cache_load(key, method = 'localStorage')
+        {
+            if(method == 'localStorage')
+                return localStorage.getItem("moncms_" + key);
+            
+            if(method == 'cookie')
+                return (document.cookie.split(';').filter(k_v => k_v.split('=')[0] == key)[0] || '').split('=')[1];
+        }
+        
+        function cache_save(key, value, method = 'localStorage')
+        {
+            if(method == 'localStorage')
+            {
+                if(value)
+                    localStorage.setItem("moncms_" + key, value);
+                else
+                    localStorage.removeItem("moncms_" + key);
+            }
+
+            if(method == 'cookie')
+            {
+                if(value)
+                    document.cookie = document.cookie ? (document.cookie + ';' + key + '=' + value) : (key + '=' + value);
+                else
+                    document.cookie = document.cookie.split(';').filter(k_v => k_v.split('=')[0] != key).join(';'); 
+            }
+        }
+        
         function clear(file_tree = true)
         {
             retrieved_contents = {};
@@ -218,7 +255,17 @@ TODO: what happens if we open a file and then navigate to parent dir and then cl
             }
             return window.editor_setText('');
         }
-        
+
+        async function onload_editor()
+        {
+            if(window.LexicalMarkdownEditor)
+            {
+                const editor = await window.LexicalMarkdownEditor('#editor');
+                window.editor_getText = () => editor.getMarkdown();
+                window.editor_setText = md => editor.setMarkdown(md);
+            }
+        }
+
         async function onclick_create()
         {
             await clear(false);
@@ -247,27 +294,6 @@ TODO: what happens if we open a file and then navigate to parent dir and then cl
             }
         }
         
-        function dirname(path)
-        {
-            if(!path)
-                return '';
-            return path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
-        }
-        
-        function basename(path)
-        {
-            if(!path)
-                return '';
-            return path.includes('/') ? path.substring(1 + path.lastIndexOf('/')) : path;
-        }
-
-        function join2(path1, path2)
-        {
-            const path1_ = path1[path1.length - 1] == '/' ? path1.slice(0, path1.length - 1) : path1
-            const _path2 = path2[0] == '/' ? path2.substring(1): path2;
-            return (path1 && path2) ? (path1_ + '/' + _path2) : (path1 && !path2) ? path1 : (!path1 && path2) ? path2 : ''
-        }
-
         async function onclick_del()
         {
             if(!retrieved_contents || !html_file_name.value || !window.confirm('Do you really want to delete this file?'))
@@ -277,14 +303,7 @@ TODO: what happens if we open a file and then navigate to parent dir and then cl
             if(prep.error != '')
                 return moncms_log(prep.error);
         
-            const req = {
-                path : retrieved_contents.path,
-                sha: retrieved_contents.sha,
-                message : 'no commit message',
-            };
-        
-            const resp = await fetch(prep.contents_api_url, { method: 'DELETE', headers: prep.headers, body: JSON.stringify(req) });
-            const res = await resp.json();
+            const [resp, res] = await github_api_delete_file(prep, retrieved_contents);
 
             delete_file_tree(html_file_name.value);
             html_url.value = prep.curdir_url;
@@ -303,62 +322,66 @@ TODO: what happens if we open a file and then navigate to parent dir and then cl
             // https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
             // https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
 
+            if(!html_file_name.value)
+                return;
+
             const prep = github_api_prepare_params(html_url.value, html_token.value);
             if(prep.error != '')
                 return moncms_log(prep.error);
 
             const text = await editor_getText();
-            const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(text))));
-            if(retrieved_contents.encoding == 'base64' && retrieved_contents.contents == base64 && html_file_name.value == retrieved_contents.name)
+            const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(text)))).replaceAll('\n', '');
+            
+            if(retrieved_contents.encoding == 'base64' && retrieved_contents.content.replaceAll('\n', '') == base64 && html_file_name.value == retrieved_contents.name)
                 return moncms_log('no changes');
            
             const should_rename = retrieved_contents && html_file_name.value != retrieved_contents.name;
             const should_update = retrieved_contents && html_file_name.value == retrieved_contents.name;
             const should_create = !retrieved_contents && html_file_name.value;
 
-            if(should_update)
+            if(should_create)
             {
-                const req = {
-                    path : retrieved_contents.path,
-                    sha: retrieved_contents.sha,
-                    message : 'no commit message',
-                    content : base64,
-                };
-                const resp = await fetch(prep.contents_api_url, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
-                const res = await resp.json();
-                retrieved_contents = {encoding: 'base64', contents : base64, sha: res.content.sha, path: res.content.path};
-                moncms_log(`PUT ok ${resp.status}`);
+                const [resp_put, res_put] = await github_api_update_file(prep, {}, base64);
+                retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
+                moncms_log(`PUT ok ${resp_put.status}`);
             }
-            
-            if(should_rename)
+            else if(should_update)
             {
-                const req_put = {
-                    path : join2(dirname(retrieved_contents.path), html_file_name.value),
-                    message : 'no commit message',
-                    content : base64,
-                };
-                const resp_put = await fetch(path2(dirname(prep.contents_api_url), html_file_name.value), { method: 'PUT', headers: prep.headers, body: JSON.stringify(req_put) });
-                const res_put = await resp_put.json();
-                retrieved_contents = {encoding: 'base64', contents : base64, sha: res_put.content.sha, path: res_put.content.path};
+                const [resp_put, res_put] = await github_api_update_file(prep, retrieved_contents, base64);
+                retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
+                moncms_log(`PUT ok ${resp_put.status}`);
+            }
+            else if(should_rename)
+            {
+                const _retrieved_contents = retrieved_contents;
+                const new_file_name = html_file_name.value;
+                
+                const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url : join2(dirname(prep.contents_api_url), new_file_name)}, {}, base64);
+                retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
                 moncms_log(`PUT ok ${resp_put.status}`);
 
-                const req_del = {
-                    path : retrieved_contents.path,
-                    sha: retrieved_contents.sha,
-                    message : 'no commit message',
-                };
-                const resp_del = await fetch(prep.contents_api_url, { method: 'DELETE', headers: prep.headers, body: JSON.stringify(req_del) });
-                const res = await resp_del.json();
-                moncms_log(`DEL ok ${resp_del.status}`);
+                const [resp_del, res_del] = await github_api_delete_file(prep, _retrieved_contents);
+                moncms_log(`DEL ok ${resp_del.status} | PUT ok ${resp_put.status}`);
+
+                rename_file_tree(_retrieved_contents.name, retrieved_contents);
+            }
+        }
+        
+        function rename_file_tree(selected_file_name, retrieved_contents)
+        {
+            for(const html_option of html_file_tree.querySelectorAll(`option[title="${selected_file_name}"]`))
+            {
+                html_option.text = html_option.title = retrieved_contents.name;
+                html_option.value = retrieved_contents.html_url;
             }
         }
         
         function delete_file_tree(selected_file_name)
         {
-            for(const option of html_file_tree.querySelectorAll(`option[title="${selected_file_name}"]`))
-                html_file_tree.removeChild(option);
-            for(const li of html_images.querySelectorAll(`li[title="${selected_file_name}"]`))
-                html_images.removeChild(li);
+            for(const html_option of html_file_tree.querySelectorAll(`option[title="${selected_file_name}"]`))
+                html_file_tree.removeChild(html_option);
+            for(const html_li of html_images.querySelectorAll(`li[title="${selected_file_name}"]`))
+                html_images.removeChild(html_li);
         }
 
 
@@ -423,7 +446,6 @@ TODO: what happens if we open a file and then navigate to parent dir and then cl
             Array.from(html_header.getElementsByTagName('input')).forEach(input => input.value = '');
             
             const entries = Object.entries(frontmatter);
-            console.log(entries);
             
             let i = 0;
             for(; i < entries.length; i++)
@@ -482,6 +504,9 @@ TODO: what happens if we open a file and then navigate to parent dir and then cl
             
             const html_header = html_row.cloneNode(true);
             const [html_inputkey, html_inputval] = Array.from(html_header.getElementsByTagName('input'));
+            if(!html_inputkey.value)
+                return;
+
             [html_inputkey.value, html_inputval.value] = ['', ''];
             
             if(rowIdx == 0)
@@ -541,9 +566,9 @@ TODO: what happens if we open a file and then navigate to parent dir and then cl
             if(resp_file.status != HTTP_OK || resp_dir.status != HTTP_OK)
             {
                 clear();
-                return moncms_log(`error ${resp_file.status}, [${res_file.message}] | ${resp_dir.status}, [${JSON.stringify(res_dir)}] `);
+                return moncms_log(`error ${resp_file.status}, [${res_file.message}] | ${resp_dir.status}, [${JSON.stringify(res_dir)}], ${msg_file} | ${msg_dir} `);
             }
-            moncms_log(`GET ok ${resp_file.status} | ${resp_dir.status}`);
+            moncms_log(`GET ok ${resp_file.status} ${msg_file} | ${resp_dir.status} ${msg_dir}`);
 
             if(html_token.value && html_tokencache.checked && !autoopen)
             {
@@ -567,15 +592,19 @@ TODO: what happens if we open a file and then navigate to parent dir and then cl
             {
                 html_file_tree.selectedIndex = 0;
                 if(await window.editor_getText())
-                {
                     window.editor_setText(text);
-                }
                 html_file_tree.focus();
             }
             else
             {
                 window.editor_setText(text);
             }
+        }
+
+        function onkeypress_save(event)
+        {
+            if(event.code == 'Enter')
+                onclick_save();
         }
 
         function ondblclick_enter_file_tree(event)
@@ -595,7 +624,7 @@ TODO: what happens if we open a file and then navigate to parent dir and then cl
 
             let autoopen = false;
             
-            console.log(window.location);
+            //console.log(window.location);
 
             if(window.location.search)
             {
