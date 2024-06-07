@@ -617,9 +617,8 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             if(resp_file.status != HTTP_OK || resp_dir.status != HTTP_OK)
             {
                 clear();
-                return moncms_log(`error ${resp_file.status}, [${res_file.message}] | ${resp_dir.status}, [${JSON.stringify(res_dir)}], (${msg_file} | ${msg_dir}) `);
+                return moncms_log('error ' + github_api_format_error(resp_file, res_file) + ' | dir: ' + github_api_format_error(resp_dir, res_dir));
             }
-            )
             moncms_log('GET file: ' + github_api_format_error(resp_file, res_file) + ' | dir: ' + github_api_format_error(resp_dir, res_dir));
 
             if(html_token.value && html_tokencache.checked && !autoopen)
