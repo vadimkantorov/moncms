@@ -13,7 +13,7 @@ TODO: autoopen by default always?
 TODO: version without cookies by default?
 TODO: reset retrieved_contents on a new failed attempt
 TODO: preventDefault for all buttons to prevent form submit in case of some exception 
-TODO: onclick_del: redirect and reload the page? (or only if had query string?)
+TODO: onclick_del: redirect and reload the page? (or only if had query string?) https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
 TODO: format frontmatter if used
 TODO: what happens if we open a file and then navigate to parent dir and then click save?
 TODO: sanitize file name before actions? (at least delete slash from beginning/end)
@@ -106,9 +106,11 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             return (path1 && path2) ? (path1_ + '/' + _path2) : (path1 && !path2) ? path1 : (!path1 && path2) ? path2 : ''
         }
         
-        function github_api_format_error(resp_status, res_message)
+        function github_api_format_error(resp, res)
         {
-            return `${resp_status}: ` + ({200: 'OK', 201: 'Created', 404: 'Resource not found', 409: 'Conflict', 422: 'Validation failed, or the endpoint has been spammed.', 401: 'Unauthorized', 403: 'Forbidden: ' + res_message}[resp_status] || '');
+            const resp_status = resp.status || '000';
+            const res_message = (res || {}).message || '';
+            return `${resp_status}: ` + ({200: 'OK', 201: 'OK Created', 404: 'Resource not found', 409: 'Conflict', 422: 'Already Exists. Validation failed, or the endpoint has been spammed.', 401: 'Unauthorized', 403: 'Forbidden: ' + res_message}[resp_status] || '');
         }
 
         function github_api_prepare_params(github_url, github_token = '')
@@ -279,7 +281,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
 
         async function onclick_create(event)
         {
-            if(event)
+            if(event && event.preventDefault)
                 event.preventDefault();
 
             await clear(false);
@@ -288,7 +290,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
 
         function onchange_tokencache(event)
         {
-            if(event)
+            if(event && event.preventDefault)
                 event.preventDefault();
 
             if(!html_tokencache.checked)
@@ -310,7 +312,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         
         async function onclick_del(event)
         {
-            if(event)
+            if(event && event.preventDefault)
                 event.preventDefault();
 
             if(!retrieved_contents || !html_file_name.value || !window.confirm('Do you really want to delete this file?'))
@@ -329,11 +331,16 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             moncms_log(`DEL ok ${resp.status}`);
         }
         
-        async function onclick_upload(event, HTTP_CREATED = 201)
+        async function github_api_get_file(prep)
         {
-            //TODO: update instead of create if exists?
+            const resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
+            const res_file = await resp_file.json();
+            return [resp_file, res_file];
+        }
 
-            if(event)
+        async function onclick_upload(event, HTTP_CREATED = 201, HTTP_EXISTS = 422)
+        {
+            if(event && event.preventDefault)
                 event.preventDefault();
 
             const prep = github_api_prepare_params(html_url.value, html_token.value);
@@ -346,11 +353,21 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 const reader = new FileReader();
                 reader.onload = async () => {
                     const base64 = reader.result.split(',')[1];
-                    const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, {}, base64);
-                    moncms_log(`PUT ok ${resp_put.status}`);
+                    const contents_api_url_put = join2(prep.contents_api_dir_url_put, new_file_name);
+                    const contents_api_url_get = join2(prep.contents_api_dir_url_put, new_file_name) + (prep.github_branch ? `?ref=${prep.github_branch}` : '');
+                    let [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put }, {}, base64);
+                    moncms_log('PUT ' + github_api_format_error(resp_put, res_put));
                     if(resp_put.status == HTTP_CREATED)
                         add_file_tree(res_put.content);
-
+                    
+                    if(resp_put.status == HTTP_EXISTS)
+                    {
+                        const [resp_get, res_get] = await github_api_get_file({...prep, contents_api_url_get : contents_api_url_get}, {}, base64);
+                        moncms_log('GET ' + github_api_format_error(resp_get, res_get));
+                        
+                        [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put}, res_get, base64);
+                        moncms_log('PUT ' + github_api_format_error(resp_put, res_put));
+                    }
                 };
                 reader.onerror = () => moncms_log('FILELOAD error');
                 reader.readAsDataURL(file);
@@ -365,7 +382,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             // https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
             // https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
 
-            if(event)
+            if(event && event.preventDefault)
                 event.preventDefault();
 
             if(!html_file_name.value)
@@ -414,7 +431,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         
         async function onclick_open(event = {}, autoopen = false, HTTP_OK = 200)
         {
-            if(event)
+            if(event && event.preventDefault)
                 event.preventDefault();
 
             if(!html_url.value)
@@ -443,8 +460,8 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             const resp_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await fetch(prep.contents_api_dir_url_get, { method: 'GET', headers: prep.headers })) : resp_file;
             const res_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await resp_dir.json()) : res_file;
             
-            const msg_file = github_api_format_error(resp_file.status, (res_file || {}).message || '');
-            const msg_dir = github_api_format_error(resp_dir.status, (res_dir || {}).message || '');
+            const msg_file = github_api_format_error(resp_file, res_file);
+            const msg_dir = github_api_format_error(resp_dir, res_dir);
 
             if(resp_file.status != HTTP_OK || resp_dir.status != HTTP_OK)
             {
