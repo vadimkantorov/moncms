@@ -329,12 +329,13 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             moncms_log(`DEL ok ${resp.status}`);
         }
         
-        async function onclick_upload(event)
+        async function onclick_upload(event, HTTP_CREATED = 201)
         {
+            //TODO: update instead of create if exists?
+
             if(event)
                 event.preventDefault();
 
-            //TODO: use correct prep for the new file
             const prep = github_api_prepare_params(html_url.value, html_token.value);
             if(prep.error != '')
                 return moncms_log(prep.error);
@@ -345,14 +346,17 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 const reader = new FileReader();
                 reader.onload = async () => {
                     const base64 = reader.result.split(',')[1];
-
                     const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, {}, base64);
-                    retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
                     moncms_log(`PUT ok ${resp_put.status}`);
+                    if(resp_put.status == HTTP_CREATED)
+                        add_file_tree(res_put.content);
+
                 };
                 reader.onerror = () => moncms_log('FILELOAD error');
                 reader.readAsDataURL(file);
             }
+
+            html_files.value = '';
         }
 
         async function onclick_save(event)
@@ -408,7 +412,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             }
         }
         
-        async function onclick_open(event = {}, autoopen = false)
+        async function onclick_open(event = {}, autoopen = false, HTTP_OK = 200)
         {
             if(event)
                 event.preventDefault();
@@ -442,7 +446,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             const msg_file = github_api_format_error(resp_file.status, (res_file || {}).message || '');
             const msg_dir = github_api_format_error(resp_dir.status, (res_dir || {}).message || '');
 
-            const HTTP_OK = 200;
             if(resp_file.status != HTTP_OK || resp_dir.status != HTTP_OK)
             {
                 clear();
@@ -488,6 +491,15 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 html_option.text = html_option.title = retrieved_contents.name;
                 html_option.value = retrieved_contents.html_url;
             }
+        }
+
+        function add_file_tree(res)
+        {
+            const html_option = document.createElement('option');
+            html_option.text = html_option.title = res.name;
+            html_option.dataset.type = 'file';
+            html_option.value = res.html_url;
+            html_file_tree.options.add(html_option);
         }
         
         function delete_file_tree(selected_file_name)
