@@ -85,6 +85,27 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         <div id="editor"></div>
 
         <script>
+        function dirname(path)
+        {
+            if(!path)
+                return '';
+            return path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+        }
+        
+        function basename(path)
+        {
+            if(!path)
+                return '';
+            return path.includes('/') ? path.substring(1 + path.lastIndexOf('/')) : path;
+        }
+
+        function join2(path1, path2)
+        {
+            const path1_ = path1[path1.length - 1] == '/' ? path1.slice(0, path1.length - 1) : path1
+            const _path2 = path2[0] == '/' ? path2.substring(1): path2;
+            return (path1 && path2) ? (path1_ + '/' + _path2) : (path1 && !path2) ? path1 : (!path1 && path2) ? path2 : ''
+        }
+        
         function github_api_format_error(resp_status, res_message)
         {
             return `${resp_status}: ` + ({200: 'OK', 201: 'Created', 404: 'Resource not found', 409: 'Conflict', 422: 'Validation failed, or the endpoint has been spammed.', 401: 'Unauthorized', 403: 'Forbidden: ' + res_message}[resp_status] || '');
@@ -184,27 +205,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             const resp = await fetch(prep.contents_api_url_put, { method: 'DELETE', headers: prep.headers, body: JSON.stringify(req) });
             const res = await resp.json();
             return [resp, res];
-        }
-        
-        function dirname(path)
-        {
-            if(!path)
-                return '';
-            return path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
-        }
-        
-        function basename(path)
-        {
-            if(!path)
-                return '';
-            return path.includes('/') ? path.substring(1 + path.lastIndexOf('/')) : path;
-        }
-
-        function join2(path1, path2)
-        {
-            const path1_ = path1[path1.length - 1] == '/' ? path1.slice(0, path1.length - 1) : path1
-            const _path2 = path2[0] == '/' ? path2.substring(1): path2;
-            return (path1 && path2) ? (path1_ + '/' + _path2) : (path1 && !path2) ? path1 : (!path1 && path2) ? path2 : ''
         }
         
         const html_url = document.getElementById('html_url');
