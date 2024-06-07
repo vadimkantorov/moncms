@@ -92,7 +92,8 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
 
         function github_api_prepare_params(github_url, github_token = '')
         {
-            const prep = {headers : {}, error : '', contents_api_url : '', contents_api_dir_url : '', github_repo_url : ''};
+            // TODO: init all fields as empty strings
+            const prep = {headers : {}, error : ''};
             if(!github_url)
             {
                 prep.error = 'no github_url provided';
@@ -126,12 +127,16 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             github_repo_tag = github_repo_tag.replace(/\/$/g, '');
 
             const github_repo_path = github_repo_file_path || github_repo_dir_path;
+            const github_repo_parent_path = !github_repo_path ? '' : github_repo_path.includes('/') ? dirname(github_repo_path) : '';
             
-            const github_repo_parent_path = !github_repo_path ? '' : github_repo_path.includes('/') ? github_repo_path.slice(0, github_repo_path.lastIndexOf('/')) : '';
-            prep.github_repo_url = `https://github.com/${github_repo_username}/${github_repo_name}`;
             prep.github_repo_path = github_repo_path;
-            prep.contents_api_url = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : ''); 
-            prep.contents_api_dir_url = github_repo_dir_path ? prep.contents_api_url : (`https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_parent_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : ''));
+            prep.github_branch = github_repo_tag;
+            prep.github_repo_url = `https://github.com/${github_repo_username}/${github_repo_name}`;
+            prep.contents_api_url_get = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : ''); 
+            prep.contents_api_url_put = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_path}`;
+            prep.contents_api_dir_url_put = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${dirname(github_repo_path)}`; 
+
+            prep.contents_api_dir_url_get = github_repo_dir_path ? prep.contents_api_url_get : (`https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_parent_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : ''));
             
             const slashIdx2 = github_repo_path.lastIndexOf('/');
             const slashIdx1 = github_repo_path.slice(0, slashIdx2).lastIndexOf('/');
@@ -158,9 +163,11 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 message : 'no commit message',
                 content : base64,
             };
+            if(prep.github_branch)
+                req.branch = prep.github_branch;
             if(retrieved_contents.sha)
                 req.sha = retrieved_contents.sha;
-            const resp = await fetch(prep.contents_api_url, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
+            const resp = await fetch(prep.contents_api_url_put,, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
             const res = await resp.json();
             return [resp, res];
         }
@@ -172,7 +179,9 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 sha: retrieved_contents.sha,
                 message : 'no commit message',
             };
-            const resp = await fetch(prep.contents_api_url, { method: 'DELETE', headers: prep.headers, body: JSON.stringify(req) });
+            if(prep.github_branch)
+                req.branch = prep.github_branch;
+            const resp = await fetch(prep.contents_api_url_put, { method: 'DELETE', headers: prep.headers, body: JSON.stringify(req) });
             const res = await resp.json();
             return [resp, res];
         }
@@ -323,12 +332,16 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             
             for(const file of html_files.files)
             {
+                const new_file_name = file.name;
                 const reader = new FileReader();
                 reader.onload = () => {
                     const base64 = reader.result.split(',')[1];
-                    console.log(base64);
-                    //github_api_update_file(prep, {}, base64);
+
+                    const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, {}, base64);
+                    retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
+                    moncms_log(`PUT ok ${resp_put.status}`);
                 };
+                reader.onerror = () => moncms_log('FILELOAD error');
                 reader.readAsDataURL(file);
             }
         }
@@ -352,29 +365,27 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             if(retrieved_contents.encoding == 'base64' && retrieved_contents.content.replaceAll('\n', '') == base64 && html_file_name.value == retrieved_contents.name)
                 return moncms_log('no changes');
            
-            const should_rename = retrieved_contents && html_file_name.value != retrieved_contents.name;
-            const should_update = retrieved_contents && html_file_name.value == retrieved_contents.name;
-            const should_create = !retrieved_contents && html_file_name.value;
+            const new_file_name = html_file_name.value;
+            const should_rename = retrieved_contents && new_file_name != retrieved_contents.name;
+            const should_update = retrieved_contents && new_file_name == retrieved_contents.name;
+            const should_create = !retrieved_contents && new_file_name;
 
-            if(should_create)
+            if(should_update)
             {
-                //TODO: use correct prep for the new file
-                const [resp_put, res_put] = await github_api_update_file(prep, {}, base64);
+                const [resp_put, res_put] = await github_api_update_file(prep, retrieved_contents, base64);
                 retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
                 moncms_log(`PUT ok ${resp_put.status}`);
             }
-            else if(should_update)
+            else if(should_create)
             {
-                const [resp_put, res_put] = await github_api_update_file(prep, retrieved_contents, base64);
+                const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, {}, base64);
                 retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
                 moncms_log(`PUT ok ${resp_put.status}`);
             }
             else if(should_rename)
             {
                 const _retrieved_contents = retrieved_contents;
-                const new_file_name = html_file_name.value;
-                
-                const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url : join2(dirname(prep.contents_api_url), new_file_name)}, {}, base64);
+                const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, {}, base64);
                 retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
                 moncms_log(`PUT ok ${resp_put.status}`);
 
@@ -407,11 +418,11 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 return moncms_log(prep.error);
             }
 
-            const resp_file = await fetch(prep.contents_api_url, { method: 'GET', headers: prep.headers });
+            const resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
             const res_file = await resp_file.json();
             
-            const resp_dir = prep.contents_api_url != prep.contents_api_dir_url ? (await fetch(prep.contents_api_dir_url, { method: 'GET', headers: prep.headers })) : resp_file;
-            const res_dir = prep.contents_api_url != prep.contents_api_dir_url ? (await resp_dir.json()) : res_file;
+            const resp_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await fetch(prep.contents_api_dir_url_get, { method: 'GET', headers: prep.headers })) : resp_file;
+            const res_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await resp_dir.json()) : res_file;
             
             const msg_file = github_api_format_error(resp_file.status, (res_file || {}).message || '');
             const msg_dir = github_api_format_error(resp_dir.status, (res_dir || {}).message || '');
