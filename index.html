@@ -70,16 +70,16 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 </ul>
 
                 <table id="html_frontmatter">
-                    <tr><td><input type="text" placeholder="Frontmatter key:" /></td><td><input type="text" placeholder="Frontmatter value:" /></td><td><button onclick="onclick_addrow(event); return false;">Add another row</button><button onclick="onclick_delrow(event); return false;">Delete this row</button></td></tr>
+                    <tr><td><input type="text" placeholder="Frontmatter key:" /></td><td><input type="text" placeholder="Frontmatter value:" /></td><td><button onclick="onclick_addrow(event)">Add another row</button><button onclick="onclick_delrow(event)">Delete this row</button></td></tr>
                 </table>
 
-                <button onclick="onclick_open(); return false;">Open</button>
-                <button onclick="onclick_save(); return false;">Save the file</button>
-                <button onclick="onclick_del() ; return false;">Delete the file</button>
-                <button onclick="onclick_create() ; return false;">Create a file</button>
-                <button onclick="onclick_upload() ; return false;">Upload files</button>
+                <button onclick="onclick_open(event)">Open</button>
+                <button onclick="onclick_save(event)">Save the file</button>
+                <button onclick="onclick_del(event)">Delete the file</button>
+                <button onclick="onclick_create(event)">Create a file</button>
+                <button onclick="onclick_upload(event)">Upload files</button>
                 <input type="file" id="html_files" multiple />
-                <input name="html_tokencache" id="html_tokencache" type="checkbox" onchange="onchange_tokencache(); return false;" /><label for="html_tokencache">Cache token</label>
+                <input name="html_tokencache" id="html_tokencache" type="checkbox" onchange="onchange_tokencache(event)" /><label for="html_tokencache">Cache token</label>
             </fieldset>
         </form>
         <div id="editor"></div>
@@ -155,7 +155,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             prep.github_repo_url = `https://github.com/${github_repo_username}/${github_repo_name}`;
             prep.contents_api_url_get = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : ''); 
             prep.contents_api_url_put = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_path}`;
-            prep.contents_api_dir_url_put = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${dirname(github_repo_path)}`; 
+            prep.contents_api_dir_url_put = github_repo_dir_path ? prep.contents_api_url_put : `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${dirname(github_repo_path)}`; 
 
             prep.contents_api_dir_url_get = github_repo_dir_path ? prep.contents_api_url_get : (`https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_parent_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : ''));
             
@@ -178,27 +178,27 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             return prep;
         }
 
-        async function github_api_update_file(prep, retrieved_contents, base64)
+        async function github_api_update_file(prep, retrieved_contents, base64, message = 'no commit message')
         {
             const req = {
-                message : 'no commit message',
+                message : message,
                 content : base64,
             };
             if(prep.github_branch)
                 req.branch = prep.github_branch;
             if(retrieved_contents.sha)
                 req.sha = retrieved_contents.sha;
-            const resp = await fetch(prep.contents_api_url_put,, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
+            const resp = await fetch(prep.contents_api_url_put, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
             const res = await resp.json();
             return [resp, res];
         }
 
-        async function github_api_delete_file(prep, retrieved_contents)
+        async function github_api_delete_file(prep, retrieved_contents, message = 'no commit message')
         {
             const req = {
                 //path : retrieved_contents.path,
                 sha: retrieved_contents.sha,
-                message : 'no commit message',
+                message : message,
             };
             if(prep.github_branch)
                 req.branch = prep.github_branch;
@@ -277,14 +277,20 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             }
         }
 
-        async function onclick_create()
+        async function onclick_create(event)
         {
+            if(event)
+                event.preventDefault();
+
             await clear(false);
             html_file_name.focus();
         }
 
-        function onchange_tokencache()
+        function onchange_tokencache(event)
         {
+            if(event)
+                event.preventDefault();
+
             if(!html_tokencache.checked)
             {
                 const prep = github_api_prepare_params(html_url.value);
@@ -299,14 +305,14 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         function onkeypress_enter_url(event)
         {
             if (event.code === 'Enter')
-            {
-                event.preventDefault();
-                onclick_open();
-            }
+                onclick_open(event);
         }
         
-        async function onclick_del()
+        async function onclick_del(event)
         {
+            if(event)
+                event.preventDefault();
+
             if(!retrieved_contents || !html_file_name.value || !window.confirm('Do you really want to delete this file?'))
                 return;
 
@@ -323,8 +329,11 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             moncms_log(`DEL ok ${resp.status}`);
         }
         
-        async function onclick_upload()
+        async function onclick_upload(event)
         {
+            if(event)
+                event.preventDefault();
+
             //TODO: use correct prep for the new file
             const prep = github_api_prepare_params(html_url.value, html_token.value);
             if(prep.error != '')
@@ -334,7 +343,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             {
                 const new_file_name = file.name;
                 const reader = new FileReader();
-                reader.onload = () => {
+                reader.onload = async () => {
                     const base64 = reader.result.split(',')[1];
 
                     const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, {}, base64);
@@ -346,11 +355,14 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             }
         }
 
-        async function onclick_save()
+        async function onclick_save(event)
         {
             // https://stackoverflow.com/questions/31563444/rename-a-file-with-github-api
             // https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
             // https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
+
+            if(event)
+                event.preventDefault();
 
             if(!html_file_name.value)
                 return;
@@ -396,8 +408,11 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             }
         }
         
-        async function onclick_open(autoopen = false)
+        async function onclick_open(event = {}, autoopen = false)
         {
+            if(event)
+                event.preventDefault();
+
             if(!html_url.value)
             {
                 clear();
@@ -634,17 +649,16 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         function onkeypress_save(event)
         {
             if(event.code == 'Enter')
-                onclick_save();
+                onclick_save(event);
         }
 
         function ondblclick_enter_file_tree(event)
         {
             if (event.type == 'dblclick' || event.code == 'Space' || event.code == 'Enter')
             {
-                event.preventDefault();
                 const html_option = html_file_tree.options[html_file_tree.selectedIndex];
                 html_url.value = html_option.value;
-                onclick_open();
+                onclick_open(event);
             }
         }
 
@@ -684,7 +698,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             }
 
             if(autoopen && (html_url.value))
-                onclick_open(true);
+                onclick_open({}, true);
             else
                 html_url.focus();
         }
