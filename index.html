@@ -3,6 +3,7 @@
 <!--
 TODO: ditch form? why pressing enter leads to addrow?
 TODO: extract github url from public url meta
+TODO: login/logout buttons function
 TODO: extract current published timestamp file sha, and commit sha
 TODO: Ctrl+Z with loaded text, focused on text leads to deletion of text
 TODO: set search to github_url. what to do with password?
@@ -74,10 +75,10 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 </table>
 
                 <button onclick="onclick_open(event)">Open</button>
-                <button onclick="onclick_save(event)">Save the file</button>
-                <button onclick="onclick_del(event)">Delete the file</button>
-                <button onclick="onclick_create(event)">Create a file</button>
-                <button onclick="onclick_upload(event)">Upload files</button>
+                <button onclick="onclick_save(event)">Save the File</button>
+                <button onclick="onclick_del(event)">Delete the File</button>
+                <button onclick="onclick_create(event)">Create a File</button>
+                <button onclick="onclick_upload(event)">Upload Files</button>
                 <input type="file" id="html_files" multiple />
                 <input name="html_tokencache" id="html_tokencache" type="checkbox" onchange="onchange_tokencache(event)" /><label for="html_tokencache">Cache token</label>
             </fieldset>
@@ -179,6 +180,25 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             
             return prep;
         }
+        
+        async function github_api_get_file(prep)
+        {
+            const resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
+            const res_file = await resp_file.json();
+            return [resp_file, res_file];
+        }
+        
+        async function github_api_get_file_dir(prep)
+        {
+            const resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
+            const res_file = await resp_file.json();
+            
+            const resp_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await fetch(prep.contents_api_dir_url_get, { method: 'GET', headers: prep.headers })) : resp_file;
+            const res_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await resp_dir.json()) : res_file;
+
+            return [[resp_file, res_file], [resp_dir, res_dir]];
+        }
+        
 
         async function github_api_update_file(prep, retrieved_contents, base64, message = 'no commit message')
         {
@@ -208,6 +228,38 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             const res = await resp.json();
             return [resp, res];
         }
+        
+        function parse_frontmatter(text)
+        {
+            const m = text.match(/^---\n(.*?)\n---\n*/s);
+            const frontmatter = {};
+            if(m)
+            {
+                const frontmatter_str = m[1];
+                text = text.substring(m[0].length);
+
+                const procval = s => (s.length >= 2 && s[0] == '"' && s[s.length - 1] == '"') ? s.slice(1, s.length - 1) : (s.length >= 2 && s[0] == "'" && s[s.length - 1] == "'") ? s.slice(1, s.length - 1) : s;
+
+                for(const line of frontmatter_str.split('\n'))
+                {
+                    const line_strip = line.trim();
+                    const is_list_item = line_strip.startsWith('- ');
+                    if(!line || line.startsWith('#'))
+                        continue;
+
+                    const colonIdx = line.indexOf(':');
+                    const key = colonIdx != -1 ? line.slice(0, colonIdx).trim() : '';
+                    const val = colonIdx != -1 ? line.substring(1 + colonIdx).trim() : is_list_item ? line_strip.substring(2).trim() : '';
+                    
+                    if(colonIdx != -1)
+                        frontmatter[key] = val ? procval(val) : [];
+                    else if(is_list_item)
+                        front_matter[key].push(procval(val));
+                }
+            }
+            return [text, frontmatter];
+        }
+
         
         const html_url = document.getElementById('html_url');
         const html_token = document.getElementById('html_token');
@@ -268,6 +320,119 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             }
             return window.editor_setText('');
         }
+        
+        function format_frontmatter()
+        {
+            
+        }
+
+        function update_frontmatter(frontmatter)
+        {
+            const html_header = html_frontmatter.getElementsByTagName('tr')[0];
+            Array.from(html_header.getElementsByTagName('input')).forEach(input => input.value = '');
+            
+            const entries = Object.entries(frontmatter || {});
+            
+            let i = 0;
+            for(; i < entries.length; i++)
+            {
+                const [k, v] = entries[i];
+                let html_row = html_frontmatter.rows[1 + i];
+                if(html_row == null)
+                {
+                    html_row = html_header.cloneNode(true);
+                    html_frontmatter.appendChild(html_row);
+                }
+
+                const [html_inputkey, html_inputval] = Array.from(html_row.getElementsByTagName('input'));
+                [html_inputkey.value, html_inputval.value] = [`${k}`, `${v}`];
+            }
+            for(let j = html_frontmatter.rows.length - 1; j > i; j--)
+                html_frontmatter.deleteRow(j);
+        }
+
+        function update_file_tree(files_and_dirs, parentdir_url, selected_file_name, ext = ['.gif', '.jpg', '.png', '.svg'])
+        {
+            const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+            const files = files_and_dirs.filter(j => j.type == 'file' && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
+            const dirs  = files_and_dirs.filter(j => j.type == 'dir'  && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
+            const images = files_and_dirs.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
+
+            const file_tree = [...(parentdir_url ? [{name : '..', type: 'dir', html_url : parentdir_url}] : []), ...dirs, ...files]; 
+            let i = 0;
+            for(; i < file_tree.length; i++)
+            {
+                let html_option = html_file_tree.options[1 + i];
+                if(html_option == null)
+                {
+                    html_option = document.createElement('option');
+                    html_file_tree.options.add(html_option);
+                }
+                html_option.text = file_tree[i].name + (file_tree[i].type == 'dir' ? '/' : '' );
+                html_option.selected = file_tree[i].name == selected_file_name;
+                html_option.value = file_tree[i].html_url;
+                html_option.title = file_tree[i].name;
+                html_option.dataset.type = file_tree[i].type;
+            }
+            for(let j = html_file_tree.length - 1; j > i; j--)
+                html_file_tree.options.remove(j);
+
+            i = 0;
+            for(; i < images.length; i++)
+            {
+                let html_li = html_images.children[i], html_img = null, html_figcaption = null;
+                if(html_li == null)
+                {
+                    html_li = document.createElement('li');
+                    const html_figure = document.createElement('figure');
+                    html_img = document.createElement('img');
+                    html_figcaption = document.createElement('figcaption');
+                    html_figure.appendChild(html_figcaption);
+                    html_figure.appendChild(html_img);
+                    html_li.appendChild(html_figure);
+                    html_images.appendChild(html_li);
+                }
+                else
+                {
+                    html_figcaption = html_li.getElementsByTagName('figcaption')[0];
+                    html_img = html_li.getElementsByTagName('img')[0];
+                }
+                html_figcaption.innerText = html_li.title = images[i].name;
+                html_img.src = images[i].download_url;
+            }
+            for(let j = html_images.children.length - 1; j >= i; j--)
+                html_images.removeChild(html_images.children[j]);
+            
+            html_images.hidden = images.length == 0;
+        }
+
+        
+        function rename_file_tree(selected_file_name, retrieved_contents)
+        {
+            for(const html_option of html_file_tree.querySelectorAll(`option[title="${selected_file_name}"]`))
+            {
+                html_option.text = html_option.title = retrieved_contents.name;
+                html_option.value = retrieved_contents.html_url;
+            }
+        }
+
+        function add_file_tree(res)
+        {
+            const html_option = document.createElement('option');
+            html_option.text = html_option.title = res.name;
+            html_option.dataset.type = 'file';
+            html_option.value = res.html_url;
+            html_file_tree.options.add(html_option);
+        }
+        
+        function delete_file_tree(selected_file_name)
+        {
+            for(const html_option of html_file_tree.querySelectorAll(`option[title="${selected_file_name}"]`))
+                html_file_tree.removeChild(html_option);
+            for(const html_li of html_images.querySelectorAll(`li[title="${selected_file_name}"]`))
+                html_images.removeChild(html_li);
+        }
+
 
         async function onload_editor()
         {
@@ -322,22 +487,15 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             if(prep.error != '')
                 return moncms_log(prep.error);
         
-            const [resp, res] = await github_api_delete_file(prep, retrieved_contents);
+            const [resp_del, res_del] = await github_api_delete_file(prep, retrieved_contents);
 
             delete_file_tree(html_file_name.value);
             html_url.value = prep.curdir_url;
             
             clear(false);
-            moncms_log(`DEL ok ${resp.status}`);
+            moncms_log('DEL ' + github_api_format_error(resp_del, res_del));
         }
         
-        async function github_api_get_file(prep)
-        {
-            const resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
-            const res_file = await resp_file.json();
-            return [resp_file, res_file];
-        }
-
         async function onclick_upload(event, HTTP_CREATED = 201, HTTP_EXISTS = 422)
         {
             if(event && event.preventDefault)
@@ -407,23 +565,23 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             {
                 const [resp_put, res_put] = await github_api_update_file(prep, retrieved_contents, base64);
                 retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
-                moncms_log(`PUT ok ${resp_put.status}`);
+                moncms_log('PUT ' + github_api_format_error(resp_put, res_put));
             }
             else if(should_create)
             {
                 const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, {}, base64);
                 retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
-                moncms_log(`PUT ok ${resp_put.status}`);
+                moncms_log('PUT ' + github_api_format_error(resp_put, res_put));
             }
             else if(should_rename)
             {
                 const _retrieved_contents = retrieved_contents;
                 const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, {}, base64);
                 retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
-                moncms_log(`PUT ok ${resp_put.status}`);
+                moncms_log('PUT ' + github_api_format_error(resp_put, res_put));
 
                 const [resp_del, res_del] = await github_api_delete_file(prep, _retrieved_contents);
-                moncms_log(`DEL ok ${resp_del.status} | PUT ok ${resp_put.status}`);
+                moncms_log('DEL ' + github_api_format_error(resp_del, res_del) +  ' | PUT ' + github_api_format_error(resp_put, res_put));
 
                 rename_file_tree(_retrieved_contents.name, retrieved_contents);
             }
@@ -453,22 +611,16 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 clear();
                 return moncms_log(prep.error);
             }
-
-            const resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
-            const res_file = await resp_file.json();
             
-            const resp_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await fetch(prep.contents_api_dir_url_get, { method: 'GET', headers: prep.headers })) : resp_file;
-            const res_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await resp_dir.json()) : res_file;
+            const [[resp_file, res_file], [resp_dir, res_dir]] = await github_api_get_file_dir(prep);
             
-            const msg_file = github_api_format_error(resp_file, res_file);
-            const msg_dir = github_api_format_error(resp_dir, res_dir);
-
             if(resp_file.status != HTTP_OK || resp_dir.status != HTTP_OK)
             {
                 clear();
                 return moncms_log(`error ${resp_file.status}, [${res_file.message}] | ${resp_dir.status}, [${JSON.stringify(res_dir)}], (${msg_file} | ${msg_dir}) `);
             }
-            moncms_log(`GET ok ${resp_file.status} (${msg_file}) | ${resp_dir.status} (${msg_dir})`);
+            )
+            moncms_log('GET file: ' + github_api_format_error(resp_file, res_file) + ' | dir: ' + github_api_format_error(resp_dir, res_dir));
 
             if(html_token.value && html_tokencache.checked && !autoopen)
             {
@@ -482,7 +634,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
             [text, frontmatter] = parse_frontmatter(text); 
             
-            html_file_name.value = is_dir ? '' : html_url.value.slice(html_url.value.lastIndexOf('/') + 1);
+            html_file_name.value = is_dir ? '' : basename(html_url.value);
             html_file_name.title = prep.github_repo_path;
 
             update_file_tree(res_dir, prep.parentdir_url, html_file_name.value);
@@ -501,143 +653,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             }
         }
         
-        function rename_file_tree(selected_file_name, retrieved_contents)
-        {
-            for(const html_option of html_file_tree.querySelectorAll(`option[title="${selected_file_name}"]`))
-            {
-                html_option.text = html_option.title = retrieved_contents.name;
-                html_option.value = retrieved_contents.html_url;
-            }
-        }
-
-        function add_file_tree(res)
-        {
-            const html_option = document.createElement('option');
-            html_option.text = html_option.title = res.name;
-            html_option.dataset.type = 'file';
-            html_option.value = res.html_url;
-            html_file_tree.options.add(html_option);
-        }
-        
-        function delete_file_tree(selected_file_name)
-        {
-            for(const html_option of html_file_tree.querySelectorAll(`option[title="${selected_file_name}"]`))
-                html_file_tree.removeChild(html_option);
-            for(const html_li of html_images.querySelectorAll(`li[title="${selected_file_name}"]`))
-                html_images.removeChild(html_li);
-        }
-
-
-        function update_file_tree(files_and_dirs, parentdir_url, selected_file_name, ext = ['.gif', '.jpg', '.png', '.svg'])
-        {
-            const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
-            const files = files_and_dirs.filter(j => j.type == 'file' && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
-            const dirs  = files_and_dirs.filter(j => j.type == 'dir'  && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
-            const images = files_and_dirs.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
-
-            const file_tree = [...(parentdir_url ? [{name : '..', type: 'dir', html_url : parentdir_url}] : []), ...dirs, ...files]; 
-            let i = 0;
-            for(; i < file_tree.length; i++)
-            {
-                let html_option = html_file_tree.options[1 + i];
-                if(html_option == null)
-                {
-                    html_option = document.createElement('option');
-                    html_file_tree.options.add(html_option);
-                }
-                html_option.text = file_tree[i].name + (file_tree[i].type == 'dir' ? '/' : '' );
-                html_option.selected = file_tree[i].name == selected_file_name;
-                html_option.value = file_tree[i].html_url;
-                html_option.title = file_tree[i].name;
-                html_option.dataset.type = file_tree[i].type;
-            }
-            for(let j = html_file_tree.length - 1; j > i; j--)
-                html_file_tree.options.remove(j);
-
-            i = 0;
-            for(; i < images.length; i++)
-            {
-                let html_li = html_images.children[i], html_img = null, html_figcaption = null;
-                if(html_li == null)
-                {
-                    html_li = document.createElement('li');
-                    const html_figure = document.createElement('figure');
-                    html_img = document.createElement('img');
-                    html_figcaption = document.createElement('figcaption');
-                    html_figure.appendChild(html_figcaption);
-                    html_figure.appendChild(html_img);
-                    html_li.appendChild(html_figure);
-                    html_images.appendChild(html_li);
-                }
-                else
-                {
-                    html_figcaption = html_li.getElementsByTagName('figcaption')[0];
-                    html_img = html_li.getElementsByTagName('img')[0];
-                }
-                html_figcaption.innerText = html_li.title = images[i].name;
-                html_img.src = images[i].download_url;
-            }
-            for(let j = html_images.children.length - 1; j >= i; j--)
-                html_images.removeChild(html_images.children[j]);
-            
-            html_images.hidden = images.length == 0;
-        }
-
-        function update_frontmatter(frontmatter)
-        {
-            const html_header = html_frontmatter.getElementsByTagName('tr')[0];
-            Array.from(html_header.getElementsByTagName('input')).forEach(input => input.value = '');
-            
-            const entries = Object.entries(frontmatter);
-            
-            let i = 0;
-            for(; i < entries.length; i++)
-            {
-                const [k, v] = entries[i];
-                let html_row = html_frontmatter.rows[1 + i];
-                if(html_row == null)
-                {
-                    html_row = html_header.cloneNode(true);
-                    html_frontmatter.appendChild(html_row);
-                }
-
-                const [html_inputkey, html_inputval] = Array.from(html_row.getElementsByTagName('input'));
-                [html_inputkey.value, html_inputval.value] = [`${k}`, `${v}`];
-            }
-            for(let j = html_frontmatter.rows.length - 1; j > i; j--)
-                html_frontmatter.deleteRow(j);
-        }
-
-        function parse_frontmatter(text)
-        {
-            const m = text.match(/^---\n(.*?)\n---\n*/s);
-            const frontmatter = {};
-            if(m)
-            {
-                const frontmatter_str = m[1];
-                text = text.substring(m[0].length);
-
-                const procval = s => (s.length >= 2 && s[0] == '"' && s[s.length - 1] == '"') ? s.slice(1, s.length - 1) : (s.length >= 2 && s[0] == "'" && s[s.length - 1] == "'") ? s.slice(1, s.length - 1) : s;
-
-                for(const line of frontmatter_str.split('\n'))
-                {
-                    const line_strip = line.trim();
-                    const is_list_item = line_strip.startsWith('- ');
-                    if(!line || line.startsWith('#'))
-                        continue;
-
-                    const colonIdx = line.indexOf(':');
-                    const key = colonIdx != -1 ? line.slice(0, colonIdx).trim() : '';
-                    const val = colonIdx != -1 ? line.substring(1 + colonIdx).trim() : is_list_item ? line_strip.substring(2).trim() : '';
-                    
-                    if(colonIdx != -1)
-                        frontmatter[key] = val ? procval(val) : [];
-                    else if(is_list_item)
-                        front_matter[key].push(procval(val));
-                }
-            }
-            return [text, frontmatter];
-        }
 
         function onclick_addrow(event)
         {
