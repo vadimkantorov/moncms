@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html charset="utf-8">
 <!--
+TODO: by addrow focus on new key
 TODO: ditch form? why pressing enter leads to addrow?
 TODO: extract github url from public url meta
 TODO: login/logout buttons function
@@ -199,7 +200,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             return [[resp_file, res_file], [resp_dir, res_dir]];
         }
         
-
         async function github_api_update_file(prep, retrieved_contents, base64, message = 'no commit message')
         {
             const req = {
@@ -268,7 +268,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         const html_file_name = document.getElementById('html_file_name');
         const html_files = document.getElementById('html_files');
         
-        window.editor_getText = window.editor_setText = (text = '') => '';
+        window.editor_getMarkdown = window.editor_setMarkdown = (text = '') => '';
 
         let retrieved_contents = {}; 
         
@@ -318,7 +318,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 for(let i = html_images.length - 1; i >= 0; i--)
                     html_images.removeChild(html_images.children[i]);
             }
-            return window.editor_setText('');
+            return window.editor_setMarkdown('');
         }
         
         function format_frontmatter()
@@ -358,7 +358,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             const dirs  = files_and_dirs.filter(j => j.type == 'dir'  && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
             const images = files_and_dirs.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
 
-            const file_tree = [...(parentdir_url ? [{name : '..', type: 'dir', html_url : parentdir_url}] : []), ...dirs, ...files]; 
+            const file_tree = [...(parentdir_url ? [{name : '..', type: 'dir', html_url : parentdir_url}] : []), ...dirs, ...files, ...images]; 
             let i = 0;
             for(; i < file_tree.length; i++)
             {
@@ -439,8 +439,8 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             if(window.LexicalMarkdownEditor)
             {
                 const editor = await window.LexicalMarkdownEditor('#editor');
-                window.editor_getText = () => editor.getMarkdown();
-                window.editor_setText = md => editor.setMarkdown(md);
+                window.editor_getMarkdown = () => editor.getMarkdown();
+                window.editor_setMarkdown = md => editor.setMarkdown(md);
             }
         }
 
@@ -550,7 +550,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             if(prep.error != '')
                 return moncms_log(prep.error);
 
-            const text = await editor_getText();
+            const text = await editor_getMarkdown();
             const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(text)))).replaceAll('\n', '');
             
             if(retrieved_contents.encoding == 'base64' && retrieved_contents.content.replaceAll('\n', '') == base64 && html_file_name.value == retrieved_contents.name)
@@ -587,7 +587,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             }
         }
         
-        async function onclick_open(event = {}, autoopen = false, HTTP_OK = 200)
+        async function onclick_open(event = {}, autoopen = false, HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
         {
             if(event && event.preventDefault)
                 event.preventDefault();
@@ -628,27 +628,42 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             }
 
             const is_dir = res_file.content === undefined;
+            const is_image = !is_dir && ext.some(e => res_file.name.endsWith(e));
             
             retrieved_contents = res_file;
-            let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
-            [text, frontmatter] = parse_frontmatter(text); 
-            
-            html_file_name.value = is_dir ? '' : basename(html_url.value);
-            html_file_name.title = prep.github_repo_path;
-
-            update_file_tree(res_dir, prep.parentdir_url, html_file_name.value);
-            update_frontmatter(frontmatter);
             
             if(is_dir)
             {
+                html_file_name.value = '';
+                html_file_name.title = prep.github_repo_path;
+
+                update_file_tree(res_dir, prep.parentdir_url, html_file_name.value);
+                update_frontmatter(null);
+                
                 html_file_tree.selectedIndex = 0;
-                if(await window.editor_getText())
-                    window.editor_setText(text);
+                window.editor_setMarkdown('');
                 html_file_tree.focus();
+            }
+            else if(!is_image)
+            {
+                html_file_name.value = basename(html_url.value);
+                html_file_name.title = prep.github_repo_path;
+
+                let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
+                [text, frontmatter] = parse_frontmatter(text); 
+                
+                update_file_tree(res_dir, prep.parentdir_url, html_file_name.value);
+                update_frontmatter(frontmatter);
+                window.editor_setMarkdown(text);
             }
             else
             {
-                window.editor_setText(text);
+                html_file_name.value = basename(html_url.value);
+                html_file_name.title = prep.github_repo_path;
+
+                update_file_tree(res_dir, prep.parentdir_url, html_file_name.value);
+                update_frontmatter(null);
+                window.editor_setMarkdown(`![](${res_file.download_url})`);
             }
         }
         
@@ -711,8 +726,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
 
             let autoopen = false;
             
-            //console.log(window.location);
-
             if(window.location.search)
             {
                 const query_string = new URLSearchParams(window.location.search);
