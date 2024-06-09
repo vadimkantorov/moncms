@@ -664,6 +664,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 update_file_tree(res_dir, prep.parentdir_url, html_file_name.value);
                 update_frontmatter(null);
                 window.editor_setMarkdown(`![](${res_file.download_url})`);
+                //window.editor_setMarkdown(`<img src="${res_file.download_url}" height="100px"/>`);
             }
         }
         
