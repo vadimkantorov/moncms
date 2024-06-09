@@ -39,10 +39,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         #html_frontmatter, #html_frontmatter td, #html_frontmatter th  { border: 1px solid black; border-collapse: collapse; text-align: left; }
         #html_frontmatter td>input {width: 98%}
         /*#html_log {overflow-y: clip}*/
-        #html_images img {height: 50px}
-        #html_images {height: 100px; overflow-y: scroll; padding-left: 0}
-        #html_images li {list-style: none}
-        #html_images li figure {margin-left: 0}
         </style>
     </head>
 
@@ -67,9 +63,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                     <option disabled>File tree:</option>
                 </select>
                 <br />
-
-                <ul id="html_images" hidden>
-                </ul>
 
                 <table id="html_frontmatter">
                     <tr><td><input type="text" placeholder="Frontmatter key:" /></td><td><input type="text" placeholder="Frontmatter value:" /></td><td><button onclick="onclick_addrow(event)">Add another row</button><button onclick="onclick_delrow(event)">Delete this row</button></td></tr>
@@ -166,7 +159,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             const slashIdx2 = github_repo_path.lastIndexOf('/');
             const slashIdx1 = github_repo_path.slice(0, slashIdx2).lastIndexOf('/');
             const github_repo_parentdir_path = github_repo_path ? (slashIdx2 != -1 ? github_repo_path.slice(0, slashIdx2) : '') : github_repo_file_path ? ((slashIdx2 != -1 && slashIdx1 != -1) ? github_repo_path.slice(0, slashIdx1) : (slashIdx2 != -1 && slashIdx1 == -1) ? '' : null) : null;
-            const github_repo_curdir_path = github_repo_path ? (slashIdx2 != -1 ? github_repo_path.slice(0, slashIdx2) : '') : null;
+            const github_repo_curdir_path = github_repo_dir_path ? github_repo_path : github_repo_file_path ? (slashIdx2 != -1 ? github_repo_path.slice(0, slashIdx2) : '') : null;
 
             prep.parentdir_url = github_repo_parentdir_path != null ? `https://github.com/${github_repo_username}/${github_repo_name}/tree/${github_repo_tag}/${github_repo_parentdir_path}` : '';
             prep.curdir_url = github_repo_curdir_path != null ? `https://github.com/${github_repo_username}/${github_repo_name}/tree/${github_repo_tag}/${github_repo_curdir_path}` : '';
@@ -232,7 +225,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         function parse_frontmatter(text)
         {
             const m = text.match(/^---\n(.*?)\n---\n*/s);
-            const frontmatter = {};
+            const frontmatter = null;
             if(m)
             {
                 const frontmatter_str = m[1];
@@ -252,9 +245,19 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                     const val = colonIdx != -1 ? line.substring(1 + colonIdx).trim() : is_list_item ? line_strip.substring(2).trim() : '';
                     
                     if(colonIdx != -1)
+                    {
+                        if(!frontmatter)
+                            frontmatter = {};
                         frontmatter[key] = val ? procval(val) : [];
+                    }
                     else if(is_list_item)
+                    {
+                        if(!frontmatter)
+                            frontmatter = {};
+                        if(!front_matter[key])
+                            front_matter[key] = [];
                         front_matter[key].push(procval(val));
+                    }
                 }
             }
             return [text, frontmatter];
@@ -315,8 +318,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             {
                 for(let i = html_file_tree.options.length - 1; i >= 1; i--)
                     html_file_tree.options.remove(i);
-                for(let i = html_images.length - 1; i >= 0; i--)
-                    html_images.removeChild(html_images.children[i]);
             }
             return window.editor_setMarkdown('');
         }
@@ -351,14 +352,14 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 html_frontmatter.deleteRow(j);
         }
 
-        function update_file_tree(files_and_dirs, parentdir_url, selected_file_name, ext = ['.gif', '.jpg', '.png', '.svg'])
+        function update_file_tree(files_and_dirs, curdir_url, parentdir_url, selected_file_name, ext = ['.gif', '.jpg', '.png', '.svg'])
         {
             const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
             const files = files_and_dirs.filter(j => j.type == 'file' && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
             const dirs  = files_and_dirs.filter(j => j.type == 'dir'  && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
             const images = files_and_dirs.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
 
-            const file_tree = [...(parentdir_url ? [{name : '..', type: 'dir', html_url : parentdir_url}] : []), ...dirs, ...files, ...images]; 
+            const file_tree = [ {name : '.', type : 'dir', html_url : curdir_url}, {name : '..', type: 'dir', html_url : parentdir_url ? parentdir_url : curdir_url}, ...dirs, ...files, ...images]; 
             let i = 0;
             for(; i < file_tree.length; i++)
             {
@@ -376,34 +377,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             }
             for(let j = html_file_tree.length - 1; j > i; j--)
                 html_file_tree.options.remove(j);
-
-            i = 0;
-            for(; i < images.length; i++)
-            {
-                let html_li = html_images.children[i], html_img = null, html_figcaption = null;
-                if(html_li == null)
-                {
-                    html_li = document.createElement('li');
-                    const html_figure = document.createElement('figure');
-                    html_img = document.createElement('img');
-                    html_figcaption = document.createElement('figcaption');
-                    html_figure.appendChild(html_figcaption);
-                    html_figure.appendChild(html_img);
-                    html_li.appendChild(html_figure);
-                    html_images.appendChild(html_li);
-                }
-                else
-                {
-                    html_figcaption = html_li.getElementsByTagName('figcaption')[0];
-                    html_img = html_li.getElementsByTagName('img')[0];
-                }
-                html_figcaption.innerText = html_li.title = images[i].name;
-                html_img.src = images[i].download_url;
-            }
-            for(let j = html_images.children.length - 1; j >= i; j--)
-                html_images.removeChild(html_images.children[j]);
-            
-            html_images.hidden = images.length == 0;
         }
 
         
@@ -429,8 +402,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         {
             for(const html_option of html_file_tree.querySelectorAll(`option[title="${selected_file_name}"]`))
                 html_file_tree.removeChild(html_option);
-            for(const html_li of html_images.querySelectorAll(`li[title="${selected_file_name}"]`))
-                html_images.removeChild(html_li);
         }
 
 
@@ -627,8 +598,11 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 moncms_log('saved to cache for ' + prep.github_repo_url);
             }
 
+            const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
             const is_dir = res_file.content === undefined;
             const is_image = !is_dir && ext.some(e => res_file.name.endsWith(e));
+            const images = res_dir.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
+            const image_listing = images.map(j => `# ${j.name}\n![${j.name}](${j.download_url})`).join('\n\n');
             
             retrieved_contents = res_file;
             
@@ -637,11 +611,11 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 html_file_name.value = '';
                 html_file_name.title = prep.github_repo_path;
 
-                update_file_tree(res_dir, prep.parentdir_url, html_file_name.value);
+                update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
                 update_frontmatter(null);
                 
                 html_file_tree.selectedIndex = 0;
-                window.editor_setMarkdown('');
+                window.editor_setMarkdown(image_listing);
                 html_file_tree.focus();
             }
             else if(!is_image)
@@ -652,7 +626,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
                 [text, frontmatter] = parse_frontmatter(text); 
                 
-                update_file_tree(res_dir, prep.parentdir_url, html_file_name.value);
+                update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
                 update_frontmatter(frontmatter);
                 window.editor_setMarkdown(text);
             }
@@ -661,10 +635,10 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 html_file_name.value = basename(html_url.value);
                 html_file_name.title = prep.github_repo_path;
 
-                update_file_tree(res_dir, prep.parentdir_url, html_file_name.value);
+                update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
                 update_frontmatter(null);
-                window.editor_setMarkdown(`![](${res_file.download_url})`);
-                //window.editor_setMarkdown(`<img src="${res_file.download_url}" height="100px"/>`);
+                //window.editor_setMarkdown(`# ${res_file.name}\n![${res_file.name}](${res_file.download_url})`);
+                window.editor_setMarkdown(`<img src="${res_file.download_url}" height="100px"/>`);
             }
         }
         
