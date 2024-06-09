@@ -324,11 +324,19 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         
         function format_frontmatter()
         {
-            
+            const frontmatter_str_inside = Array.from(html_frontmatter.rows).filter(html_tr => html_tr.querySelectorAll('input')[0].value).map(html_tr => html_tr.querySelectorAll('input')[0].value + ': "' + html_tr.querySelectorAll('input')[1].value + '"' ).join('\n');
+            const frontmatter_str = `---\n${frontmatter_str_inside}\n---\n\n`;
+
+            if(html_frontmatter.dataset.empty == 'false')
+                return frontmatter_str;
+
+            return frontmatter_str_inside ? frontmatter_str : '';
         }
 
         function update_frontmatter(frontmatter)
         {
+            html_frontmatter.dataset.empty = frontmatter == null ? 'true' : 'false';
+
             const html_header = html_frontmatter.getElementsByTagName('tr')[0];
             Array.from(html_header.getElementsByTagName('input')).forEach(input => input.value = '');
             
@@ -521,10 +529,15 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             if(prep.error != '')
                 return moncms_log(prep.error);
 
+            const frontmatter_str = format_frontmatter();
             const text = await editor_getMarkdown();
-            const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(text)))).replaceAll('\n', '');
+            const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(frontmatter_str + text)))).replaceAll('\n', '');
+
+            console.log(frontmatter_str);
+            return;
+
             
-            if(retrieved_contents.encoding == 'base64' && retrieved_contents.content.replaceAll('\n', '') == base64 && html_file_name.value == retrieved_contents.name)
+            if(retrieved_contents.encoding == 'base64' && retrieved_contents.content.replaceAll('\n', '') == base64 && html_file_name.value == retrieved_contents.name && html_frontmatter.dataset.empty == 'true' && !frontmatter_str)
                 return moncms_log('no changes');
            
             const new_file_name = html_file_name.value;
