@@ -8,9 +8,10 @@ Test:
 - [https://vadimkantorov.github.io/moncms/?https://github.com/vadimkantorov/moncms](https://vadimkantorov.github.io/moncms/?https://github.com/vadimkantorov/moncms)
 - [https://vadimkantorov.github.io/moncms/?/https://github.com/vadimkantorov/moncms](https://vadimkantorov.github.io/moncms/?/https://github.com/vadimkantorov/moncms)
 
-# Foo
-
-bar
+# Update https://github.com/facebook/lexical
+```shell
+wget https://github.com/facebook/lexical/archive/refs/tags/v0.16.0.tar.gz && tar -xf v0.16.0.tar.gz --strip-components=1 lexical-0.16.0/packages/lexical-playground lexical-0.16.0/packages/shared && git add -A -f packages
+```
 
 # References
 

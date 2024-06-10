@@ -54,6 +54,5 @@ assets:
 	#
 	npm install --force --prefix packages/lexical-playground @rollup/plugin-babel @babel/plugin-transform-flow-strip-types @babel/preset-react 
 	npm run --prefix packages/lexical-playground build-prod
-	#mv packages/lexical-playground/build assets
 	#python -c "$$DATAURIFY" assets/main.js css
 	#python -c "$$DATAURIFY" assets/main.js js
