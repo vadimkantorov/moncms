@@ -226,6 +226,21 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             return [resp, res];
         }
         
+        async function github_api_upsert_file(prep, retrieved_contents, base64, message = 'no commit message')
+        {
+            const req = {
+                message : message,
+                content : base64,
+            };
+            if(prep.github_branch)
+                req.branch = prep.github_branch;
+            if(retrieved_contents.sha)
+                req.sha = retrieved_contents.sha;
+            const resp = await fetch(prep.contents_api_url_put, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
+            const res = await resp.json();
+            return [resp, res];
+        }
+        
         async function github_api_rename_file(prep, retrieved_contents, base64, message = 'no commit message')
         {
             const req = {
@@ -683,8 +698,8 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
 
                 update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
                 update_frontmatter(null);
-                //window.editor_setMarkdown(`# ${res_file.name}\n![${res_file.name}](${res_file.download_url})`);
-                window.editor_setMarkdown(`<img src="${res_file.download_url}" height="100px"/>`);
+                window.editor_setMarkdown(`# ${res_file.name}\n![${res_file.name}](${res_file.download_url})`);
+                //window.editor_setMarkdown(`<img src="${res_file.download_url}" height="100px"/>`);
             }
         }
         
