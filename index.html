@@ -210,6 +210,36 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             const res = await resp.json();
             return [resp, res];
         }
+        
+        async function github_api_create_file(prep, retrieved_contents, base64, message = 'no commit message')
+        {
+            const req = {
+                message : message,
+                content : base64,
+            };
+            if(prep.github_branch)
+                req.branch = prep.github_branch;
+            if(retrieved_contents.sha)
+                req.sha = retrieved_contents.sha;
+            const resp = await fetch(prep.contents_api_url_put, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
+            const res = await resp.json();
+            return [resp, res];
+        }
+        
+        async function github_api_rename_file(prep, retrieved_contents, base64, message = 'no commit message')
+        {
+            const req = {
+                message : message,
+                content : base64,
+            };
+            if(prep.github_branch)
+                req.branch = prep.github_branch;
+            if(retrieved_contents.sha)
+                req.sha = retrieved_contents.sha;
+            const resp = await fetch(prep.contents_api_url_put, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
+            const res = await resp.json();
+            return [resp, res];
+        }
 
         async function github_api_delete_file(prep, retrieved_contents, message = 'no commit message')
         {
@@ -556,14 +586,14 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             }
             else if(should_create)
             {
-                const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, {}, base64);
+                const [resp_put, res_put] = await github_api_create_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, {}, base64);
                 retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
                 moncms_log('PUT ' + github_api_format_error(resp_put, res_put));
             }
             else if(should_rename)
             {
                 const _retrieved_contents = retrieved_contents;
-                const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, {}, base64);
+                const [resp_put, res_put] = await github_api_rename_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, {}, base64);
                 retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
                 moncms_log('PUT ' + github_api_format_error(resp_put, res_put));
 
