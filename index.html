@@ -59,9 +59,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 <input placeholder="Log:" title="Log:" id="html_log" class="monospace" readonly />
                 <br />
 
-                <select id="html_file_tree" size="10" onkeypress="ondblclick_enter_file_tree(event)" ondblclick="ondblclick_enter_file_tree(event)">
-                    <option disabled>File tree:</option>
-                </select>
+                <select id="html_file_tree" size="10" onkeypress="ondblclick_enter_file_tree(event)" ondblclick="ondblclick_enter_file_tree(event)"></select>
                 <br />
 
                 <table id="html_frontmatter">
@@ -372,7 +370,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             html_file_name.value = html_file_name.title = '';
             if(file_tree)
             {
-                for(let i = html_file_tree.options.length - 1; i >= 1; i--)
+                for(let i = html_file_tree.options.length - 1; i >= 0; i--)
                     html_file_tree.options.remove(i);
             }
             return window.editor_setMarkdown('');
@@ -427,7 +425,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             let i = 0;
             for(; i < file_tree.length; i++)
             {
-                let html_option = html_file_tree.options[1 + i];
+                let html_option = html_file_tree.options[i];
                 if(html_option == null)
                 {
                     html_option = document.createElement('option');
@@ -439,7 +437,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 html_option.title = file_tree[i].name;
                 html_option.dataset.type = file_tree[i].type;
             }
-            for(let j = html_file_tree.length - 1; j > i; j--)
+            for(let j = html_file_tree.length - 1; j >= i; j--)
                 html_file_tree.options.remove(j);
         }
 
