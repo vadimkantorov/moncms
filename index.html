@@ -185,7 +185,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             return [resp_file, res_file];
         }
         
-        async function github_api_get_file_dir(prep, HTTP_OK = 200)
+        async function github_api_get_file_dir(prep, moncms_log, HTTP_OK = 200)
         {
             const resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
             const res_file = await resp_file.json();
