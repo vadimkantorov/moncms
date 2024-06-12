@@ -71,13 +71,22 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 <button onclick="onclick_del(event)">Delete the File</button>
                 <button onclick="onclick_create(event)">Create a File</button>
                 <button onclick="onclick_upload(event)">Upload Files</button>
-                <input type="file" id="html_files" multiple />
+                <input type="file" id="html_files" onchange="onchange_files(event)" multiple />
                 <input name="html_tokencache" id="html_tokencache" type="checkbox" onchange="onchange_tokencache(event)" /><label for="html_tokencache">Cache token</label>
+                <button>Sign Out</button>
+                <button>Compact View</button>
             </fieldset>
         </form>
         <div id="editor"></div>
 
         <script>
+        function onchange_files(event)
+        {
+            //if(event && event.preventDefault)
+            //    event.preventDefault();
+            console.log(event);
+        }
+
         function dirname(path)
         {
             if(!path)
