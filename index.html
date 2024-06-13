@@ -48,20 +48,10 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 <legend class="monospace">Type in a link to a GitHub .md file</legend>
 
                 <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" type="text" value="https://github.com/vadimkantorov/moncms/blob/gh-pages/README.md"  onkeypress="onkeypress_enter_url(event)" />
-                <br />
-                
                 <input placeholder="GitHub token:" title="GitHub token:" id="html_token" type="text" value="" onkeypress="onkeypress_enter_url(event)" />
-                <br />
-                
                 <input placeholder="File name:" id="html_file_name" type="text" value="" onkeypress="onkeypress_save(event)" />
-                <br />
-                
                 <input placeholder="Log:" title="Log:" id="html_log" class="monospace" readonly />
-                <br />
-
                 <select id="html_file_tree" size="10" onkeypress="ondblclick_enter_file_tree(event)" ondblclick="ondblclick_enter_file_tree(event)"></select>
-                <br />
-
                 <table id="html_frontmatter">
                     <tr><td><input type="text" placeholder="Frontmatter key:" /></td><td><input type="text" placeholder="Frontmatter value:" /></td><td><button onclick="onclick_addrow(event)">Add another row</button><button onclick="onclick_delrow(event)">Delete this row</button></td></tr>
                 </table>
@@ -71,10 +61,10 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 <button onclick="onclick_del(event)">Delete the File</button>
                 <button onclick="onclick_create(event)">Create a File</button>
                 <button onclick="onclick_upload(event)">Upload Files</button>
-                <input type="file" id="html_files" onchange="onchange_files(event)" multiple />
-                <input name="html_tokencache" id="html_tokencache" type="checkbox" onchange="onchange_tokencache(event)" /><label for="html_tokencache">Cache token</label>
-                <button>Sign Out</button>
-                <button>Compact View</button>
+                <input type="file" id="html_files" onchange="onchange_files(event)" multiple hidden />
+                <input hidden name="html_tokencache" id="html_tokencache" type="checkbox" onchange="onchange_tokencache(event)" /><label hidden for="html_tokencache">Cache token</label>
+                <button onclick="onclick_signinout(event)">Sign In</button>
+                <button onclick="onclick_togglecompactview(event)">Toggle Compact View</button>
             </fieldset>
         </form>
         <div id="editor"></div>
@@ -82,9 +72,22 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         <script>
         function onchange_files(event)
         {
-            //if(event && event.preventDefault)
-            //    event.preventDefault();
-            console.log(event);
+            // https://stackoverflow.com/questions/572768/styling-an-input-type-file-button/25825731#25825731
+            if(event && event.preventDefault)
+                event.preventDefault();
+
+            for(const file of html_files.files)
+            {
+                const new_file_name = file.name;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = reader.result.split(',')[1];
+                    github_api_upsert_file(prep, new_file_name, base64, moncms_log);
+                };
+                reader.onerror = () => moncms_log('FILELOAD error');
+                reader.readAsDataURL(file);
+            }
+            html_files.value = '';
         }
 
         function dirname(path)
@@ -326,12 +329,12 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             return [text, frontmatter];
         }
 
-        
         const html_url = document.getElementById('html_url');
         const html_token = document.getElementById('html_token');
         const html_tokencache = document.getElementById('html_tokencache');
         const html_log = document.getElementById('html_log');
         const html_file_name = document.getElementById('html_file_name');
+        const html_file_tree = document.getElementById('html_file_tree');
         const html_files = document.getElementById('html_files');
         
         window.editor_getMarkdown = window.editor_setMarkdown = (text = '') => '';
@@ -475,7 +478,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 html_file_tree.removeChild(html_option);
         }
 
-
         async function onload_editor()
         {
             if(window.LexicalMarkdownEditor)
@@ -547,19 +549,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             if(prep.error != '')
                 return moncms_log(prep.error);
             
-            for(const file of html_files.files)
-            {
-                const new_file_name = file.name;
-                const reader = new FileReader();
-                reader.onload = async () => {
-                    const base64 = reader.result.split(',')[1];
-                    await github_api_upsert_file(prep, new_file_name, base64, moncms_log);
-                };
-                reader.onerror = () => moncms_log('FILELOAD error');
-                reader.readAsDataURL(file);
-            }
-
-            html_files.value = '';
+            html_files.click();
         }
 
         async function onclick_save(event)
@@ -609,7 +599,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             }
         }
         
-        async function onclick_open(event = {}, autoopen = false, HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
+        async function onclick_open(event = {}, HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
         {
             if(event && event.preventDefault)
                 event.preventDefault();
@@ -633,12 +623,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             }
             
             const [[resp_file, res_file], [resp_dir, res_dir]] = await github_api_get_file_dir(prep, moncms_log);
-
-            if(html_token.value && html_tokencache.checked && !autoopen)
-            {
-                cache_save(prep.github_repo_url, html_token.value);
-                moncms_log('saved to cache for ' + prep.github_repo_url);
-            }
 
             const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
             const is_dir = res_file.content === undefined;
@@ -736,6 +720,55 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 onclick_open(event);
             }
         }
+        
+        function onclick_togglecompactview(event)
+        {
+            if(event && event.preventDefault)
+                event.preventDefault();
+
+            // https://stackoverflow.com/questions/19927813/make-a-checkbox-look-like-a-button-css
+            html_file_tree.hidden = !html_file_tree.hidden;
+            html_log.hidden = !html_log.hidden;
+            html_token.hidden = !html_token.hidden;
+            html_frontmatter.hidden = !html_frontmatter.hidden;
+            html_file_name.hidden = !html_file_name.hidden;
+        }
+        
+        function onclick_signinout(event)
+        {
+            if(event && event.preventDefault)
+                event.preventDefault();
+
+            if(event.target.innerText == 'Sign In')
+            {
+                if(!html_url.value || !html_token.value)
+                    return;
+
+                const prep = github_api_prepare_params(html_url.value);
+                if(!prep.github_repo_url || prep.error != '')
+                {
+                    if(!prep.error) moncms_log(prep.error);
+                    return;
+                }
+                
+                cache_save(prep.github_repo_url, html_token.value);
+                event.target.innerText = 'Sign Out';
+                moncms_log('saved to cache for ' + prep.github_repo_url);
+            }
+            else if(event.target.innerText == 'Sign Out')
+            {
+                const prep = github_api_prepare_params(html_url.value);
+                if(prep.github_repo_url)
+                {
+                    clear();
+                    html_token.value = '';
+                    html_tokencache.checked = false;
+                    cache_save(prep.github_repo_url, null);
+                    event.target.innerText = 'Sign In';
+                    moncms_log('cleared and purged cache for ' + prep.github_repo_url);
+                }
+            }
+        }
 
         async function onload_body()
         {
@@ -771,7 +804,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             }
 
             if(autoopen && (html_url.value))
-                onclick_open({}, true);
+                onclick_open();
             else
                 html_url.focus();
         }
