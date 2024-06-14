@@ -63,7 +63,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 <button onclick="onclick_upload(event)">Upload Files</button>
                 <input type="file" id="html_files" onchange="onchange_files(event)" multiple hidden />
                 <input hidden name="html_tokencache" id="html_tokencache" type="checkbox" onchange="onchange_tokencache(event)" /><label hidden for="html_tokencache">Cache token</label>
-                <button onclick="onclick_signinout(event)">Sign In</button>
+                <button id="html_signinout" onclick="onclick_signinout(event)">Sign In</button>
                 <button onclick="onclick_togglecompactview(event)">Toggle Compact View</button>
             </fieldset>
         </form>
@@ -336,6 +336,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         const html_file_name = document.getElementById('html_file_name');
         const html_file_tree = document.getElementById('html_file_tree');
         const html_files = document.getElementById('html_files');
+        const html_signinout = document.getElementById('html_signinout');
         
         window.editor_getMarkdown = window.editor_setMarkdown = (text = '') => '';
 
@@ -610,12 +611,17 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 return moncms_log('clear');
             }
             let prep = github_api_prepare_params(html_url.value, html_token.value);
-            if(!html_token.value && html_tokencache.checked)
+            if(!html_token.value)
             {
                 html_token.value = cache_load(prep.github_repo_url);
                 prep = github_api_prepare_params(html_url.value, html_token.value); 
                 moncms_log('got from cache for ' + prep.github_repo_url);
+                html_signinout.title = html_token.value ? 'Sign Out' : 'Sign In';
+
             }
+            else
+                html_signinout.title = 'Sign In';
+
             if(prep.error != '')
             {
                 clear();
