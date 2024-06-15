@@ -62,7 +62,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 <button onclick="onclick_create(event)">Create a File</button>
                 <button onclick="onclick_upload(event)">Upload Files</button>
                 <input type="file" id="html_files" onchange="onchange_files(event)" multiple hidden />
-                <input hidden name="html_tokencache" id="html_tokencache" type="checkbox" onchange="onchange_tokencache(event)" /><label hidden for="html_tokencache">Cache token</label>
                 <button id="html_signinout" onclick="onclick_signinout(event)">Sign In</button>
                 <button onclick="onclick_togglecompactview(event)">Toggle Compact View</button>
             </fieldset>
@@ -331,7 +330,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
 
         const html_url = document.getElementById('html_url');
         const html_token = document.getElementById('html_token');
-        const html_tokencache = document.getElementById('html_tokencache');
         const html_log = document.getElementById('html_log');
         const html_file_name = document.getElementById('html_file_name');
         const html_file_tree = document.getElementById('html_file_tree');
@@ -427,7 +425,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 html_frontmatter.deleteRow(j);
         }
 
-        function update_file_tree(files_and_dirs, curdir_url, parentdir_url, selected_file_name, ext = ['.gif', '.jpg', '.png', '.svg'])
+        function update_file_tree(files_and_dirs, curdir_url, parentdir_url, selected_file_name, ext = ['.gif','.jpg','.png','.svg'])
         {
             const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
             const files = files_and_dirs.filter(j => j.type == 'file' && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
@@ -454,7 +452,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 html_file_tree.options.remove(j);
         }
 
-        
         function rename_file_tree(selected_file_name, retrieved_contents)
         {
             for(const html_option of html_file_tree.querySelectorAll(`option[title="${selected_file_name}"]`))
@@ -498,22 +495,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             html_file_name.focus();
         }
 
-        function onchange_tokencache(event)
-        {
-            if(event && event.preventDefault)
-                event.preventDefault();
-
-            if(!html_tokencache.checked)
-            {
-                const prep = github_api_prepare_params(html_url.value);
-                if(prep.github_repo_url)
-                {
-                    cache_save(prep.github_repo_url, null);
-                    moncms_log('purged cache for ' + prep.github_repo_url);
-                }
-            }
-        }
-
         function onkeypress_enter_url(event)
         {
             if (event.code === 'Enter')
@@ -550,6 +531,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             if(prep.error != '')
                 return moncms_log(prep.error);
             
+            // https://stackoverflow.com/questions/37504383/button-inside-a-label
             html_files.click();
         }
 
@@ -611,22 +593,19 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 return moncms_log('clear');
             }
             let prep = github_api_prepare_params(html_url.value, html_token.value);
-            if(!html_token.value)
-            {
-                html_token.value = cache_load(prep.github_repo_url);
-                prep = github_api_prepare_params(html_url.value, html_token.value); 
-                moncms_log('got from cache for ' + prep.github_repo_url);
-                html_signinout.title = html_token.value ? 'Sign Out' : 'Sign In';
-
-            }
-            else
-                html_signinout.title = 'Sign In';
-
             if(prep.error != '')
             {
                 clear();
                 return moncms_log(prep.error);
             }
+            
+            if(!html_token.value)
+            {
+                html_token.value = cache_load(prep.github_repo_url);
+                prep = github_api_prepare_params(html_url.value, html_token.value); 
+                moncms_log('got from cache for ' + prep.github_repo_url);
+            }
+            html_signinout.innerText = html_token.value ? 'Sign Out' : 'Sign In';
             
             const [[resp_file, res_file], [resp_dir, res_dir]] = await github_api_get_file_dir(prep, moncms_log);
 
@@ -673,7 +652,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 //window.editor_setMarkdown(`<img src="${res_file.download_url}" height="100px"/>`);
             }
         }
-        
 
         function onclick_addrow(event)
         {
@@ -710,7 +688,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 html_frontmatter.deleteRow(rowIdx);
         }
 
-
         function onkeypress_save(event)
         {
             if(event.code == 'Enter')
@@ -733,11 +710,8 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 event.preventDefault();
 
             // https://stackoverflow.com/questions/19927813/make-a-checkbox-look-like-a-button-css
-            html_file_tree.hidden = !html_file_tree.hidden;
-            html_log.hidden = !html_log.hidden;
-            html_token.hidden = !html_token.hidden;
-            html_frontmatter.hidden = !html_frontmatter.hidden;
-            html_file_name.hidden = !html_file_name.hidden;
+            const hidden = !html_file_tree.hidden;
+            html_file_tree.hidden = html_log.hidden = html_token.hidden = html_frontmatter.hidden = html_file_name.hidden = hidden;
         }
         
         function onclick_signinout(event)
@@ -768,7 +742,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 {
                     clear();
                     html_token.value = '';
-                    html_tokencache.checked = false;
                     cache_save(prep.github_repo_url, null);
                     event.target.innerText = 'Sign In';
                     moncms_log('cleared and purged cache for ' + prep.github_repo_url);
@@ -788,9 +761,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 for(const k of ['url', 'token'])
                     document.getElementById('html_' + k).value = query_string.get(k);
 
-                if(query_string.has('tokencache'))
-                    html_tokencache.checked = ['1', 'true'].includes(query_string.get('tokencache'));
-
+                //if(query_string.has('tokencache')) html_tokencache.checked = ['1', 'true'].includes(query_string.get('tokencache'));
                 autoopen = query_string.has('url');
             }
 
@@ -803,7 +774,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                     if(html_token.value)
                     {
                         moncms_log('got from cache for ' + prep.github_repo_url);
-                        html_tokencache.checked = true;
                         autoopen = true;
                     }
                 }
