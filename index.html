@@ -2,9 +2,7 @@
 <html charset="utf-8">
 <!--
 TODO: by addrow focus on new key
-TODO: ditch form? why pressing enter leads to addrow?
 TODO: extract github url from public url meta
-TODO: login/logout buttons function
 TODO: extract current published timestamp file sha, and commit sha
 TODO: Ctrl+Z with loaded text, focused on text leads to deletion of text
 TODO: set search to github_url. what to do with password?
@@ -14,9 +12,7 @@ TODO: when closing with changes, prevent?
 TODO: autoopen by default always?
 TODO: version without cookies by default?
 TODO: reset retrieved_contents on a new failed attempt
-TODO: preventDefault for all buttons to prevent form submit in case of some exception 
 TODO: onclick_del: redirect and reload the page? (or only if had query string?) https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
-TODO: format frontmatter if used
 TODO: what happens if we open a file and then navigate to parent dir and then click save?
 TODO: sanitize file name before actions? (at least delete slash from beginning/end)
 -->
@@ -314,6 +310,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         const html_signinout = document.getElementById('html_signinout');
         
         window.editor_getMarkdown = window.editor_setMarkdown = (text = '') => '';
+        window.editor_setEditable = (editable) => null;
 
         let retrieved_contents = {}; 
         
@@ -460,6 +457,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 const editor = await window.LexicalMarkdownEditor('#editor');
                 window.editor_getMarkdown = () => editor.getMarkdown();
                 window.editor_setMarkdown = md => editor.setMarkdown(md);
+                window.editor_setEditable = editable => editor._getRawEditorInstance().setEditable(editable);
             }
         }
         
@@ -608,6 +606,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 
                 html_file_tree.selectedIndex = 0;
                 window.editor_setMarkdown(image_listing);
+                window.editor_setEditable(false);
                 html_file_tree.focus();
             }
             else if(!is_image)
@@ -621,6 +620,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
                 update_frontmatter(frontmatter);
                 window.editor_setMarkdown(text);
+                window.editor_setEditable(true);
             }
             else if(is_image)
             {
@@ -631,6 +631,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 update_frontmatter(null);
                 window.editor_setMarkdown(`# ${res_file.name}\n![${res_file.name}](${res_file.download_url})`);
                 //window.editor_setMarkdown(`<img src="${res_file.download_url}" height="100px"/>`);
+                window.editor_setEditable(false);
             }
         }
 
