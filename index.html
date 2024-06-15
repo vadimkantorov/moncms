@@ -511,7 +511,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             moncms_log('DEL ' + github_api_format_error(resp_del, res_del));
         }
         
-        async function onclick_upload(HTTP_CREATED = 201, HTTP_EXISTS = 422)
+        async function onclick_upload()
         {
             const prep = github_api_prepare_params(html_url.value, html_token.value);
             if(prep.error != '')
@@ -594,7 +594,8 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             const is_image = !is_dir && ext.some(e => res_file.name.endsWith(e));
             const images = res_dir.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
             const image_listing = images.map(j => `# ${j.name}\n![${j.name}](${j.download_url})`).join('\n\n');
-            
+            // https://lexical.dev/docs/concepts/read-only
+
             retrieved_contents = res_file;
             
             if(is_dir)
@@ -621,7 +622,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
                 update_frontmatter(frontmatter);
                 window.editor_setMarkdown(text);
             }
-            else
+            else if(is_image)
             {
                 html_file_name.value = basename(html_url.value);
                 html_file_name.title = prep.github_repo_path;
@@ -758,39 +759,4 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         }
         </script>
     </body>
-    <!--
-<html>
-    <head>
-        <link rel="stylesheet" href="/assets/main.css">
-        <script type="module" crossorigin src="/assets/main.js" onload="on_editor_script_loaded()"></script>
-    </head>
-    <body>
-        <div id="editor"></div>
-        <script>
-        async function on_editor_script_loaded()
-        {
-            const editor = await window.LexicalMarkdownEditor('#editor');
-            console.log(editor._getRawEditorInstance())
-
-            const md = `
-# [WIP ] lexical-playground-only
-
-The idea is to have https://github.com/facebook/lexical/tree/main/packages/lexical-playground as a separate, lean repo bundlable as a single JS file to be used as a simple client-side markdown editor with usage API similar to https://github.com/quilljs/quill (and usable in vanilla HTML/JS without mandatory usage of package managers/bundlers/react)
-
-Based on the broken release https://github.com/facebook/lexical/releases/tag/v0.12.5: https://github.com/facebook/lexical/discussions/5392
-
-- do this
-- do that
-- cheers
-`
-            editor.setMarkdown(md)
-
-            console.log(await editor.getMarkdown())
-
-            window.editor = editor;
-        }
-        </script>
-    </body>
-</html>
--->
 </html>
