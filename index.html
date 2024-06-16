@@ -485,12 +485,6 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             html_file_name.focus();
         }
 
-        function onkeypress_enter_url(event)
-        {
-            if (event.code === 'Enter')
-                onclick_open();
-        }
-        
         async function onclick_del()
         {
             if(!retrieved_contents || !html_file_name.value || !window.confirm('Do you really want to delete this file?'))
@@ -672,6 +666,12 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         {
             if(event.code == 'Enter')
                 onclick_save();
+        }
+        
+        function onkeypress_enter_url(event)
+        {
+            if (event.code === 'Enter')
+                onclick_open();
         }
 
         function ondblclick_enter_file_tree(event)
