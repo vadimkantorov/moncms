@@ -12,7 +12,7 @@ TODO: autoopen by default always?
 TODO: version without cookies by default?
 TODO: reset retrieved_contents on a new failed attempt
 TODO: onclick_del: redirect and reload the page? (or only if had query string?) https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
-TODO: what happens if we open a file and then navigate to parent dir and then click save?
+TODO: what happens if we open a file and then navigate to parent dir and then click save? (does it get saved to the wrong dir?)
 TODO: sanitize file name before actions? (at least delete slash from beginning/end)
 -->
     <head>
@@ -308,7 +308,8 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         const html_files = document.getElementById('html_files');
         const html_signinout = document.getElementById('html_signinout');
         
-        window.editor_getMarkdown = window.editor_setMarkdown = (text = '') => '';
+        window.editor_getMarkdown = (text = '') => '';
+        window.editor_setMarkdown = (text = '') => '';
         window.editor_setEditable = (editable) => null;
 
         let retrieved_contents = {}; 

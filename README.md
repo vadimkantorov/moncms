@@ -38,7 +38,10 @@ wget https://github.com/facebook/lexical/archive/refs/tags/v0.16.0.tar.gz && tar
 - [https://kentcdodds.com/blog/super-simple-start-to-react](https://kentcdodds.com/blog/super-simple-start-to-react)
 
 - [https://medium.com/codex/ditching-markdown-editors-for-quill-bbd314d546b7](https://medium.com/codex/ditching-markdown-editors-for-quill-bbd314d546b7)
-
+- https://stackoverflow.com/questions/572768/styling-an-input-type-file-button/25825731#comment91932951_25825731
+- https://stackoverflow.com/questions/61742164/label-inside-of-button-click-button-and-activate-the-label
+- https://stackoverflow.com/questions/37504383/button-inside-a-label
+- https://stackoverflow.com/questions/572768/styling-an-input-type-file-button/25825731#25825731
 # lexical-playground-only
 ```html
 <html>
