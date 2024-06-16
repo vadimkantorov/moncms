@@ -6,7 +6,6 @@ TODO: extract github url from public url meta
 TODO: extract current published timestamp file sha, and commit sha
 TODO: Ctrl+Z with loaded text, focused on text leads to deletion of text
 TODO: set search to github_url. what to do with password?
-TODO: support creating a new file
 TODO: delete a directory? create a directory?
 TODO: when closing with changes, prevent?
 TODO: autoopen by default always?
@@ -487,7 +486,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
 
         async function onclick_del()
         {
-            if(!retrieved_contents || !html_file_name.value || !window.confirm('Do you really want to delete this file?'))
+            if(!retrieved_contents || !html_file_name.value || !html_token.value || !window.confirm('Do you really want to delete this file?'))
                 return;
 
             const prep = github_api_prepare_params(html_url.value, html_token.value);
@@ -519,7 +518,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             // https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
             // https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
 
-            if(!html_file_name.value)
+            if(!html_file_name.value || !html_token.value)
                 return;
 
             const prep = github_api_prepare_params(html_url.value, html_token.value);
@@ -653,6 +652,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         {
             const html_row = event.target.parentElement.parentElement;
             const rowIdx = html_row.rowIndex;
+
             if(rowIdx == 0)
             {
                 const [html_inputkey, html_inputval] = Array.from(html_row.getElementsByTagName('input'));
@@ -732,8 +732,8 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             if(window.location.search)
             {
                 const query_string = new URLSearchParams(window.location.search);
-                for(const k of ['url', 'token'])
-                    document.getElementById('html_' + k).value = query_string.get(k);
+                for(const k of ['html_url', 'html_token'])
+                    document.getElementById(k).value = query_string.get(k);
 
                 //if(query_string.has('tokencache')) html_tokencache.checked = ['1', 'true'].includes(query_string.get('tokencache'));
                 autoopen = query_string.has('url');
