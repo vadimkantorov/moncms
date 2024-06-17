@@ -9,6 +9,9 @@ TODO: autoopen by default always controlled with meta or only if hosted at https
 TODO: autouse localStorage only for file:/// protocol? or only use localStorage?
 TODO: onclick_del: redirect and reload the page? (or only if had query string?) https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
 TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README.md instead of API by default (need to somehow fix for cache)
+TODO: support some sort of frontmatter scheme
+
+BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://github.com/vadimkantorov/moncms/blob/gh-pages/assets/foo15.md , parent dir is set incorrectly
 -->
     <head>
         <meta charset="utf-8">
@@ -88,6 +91,12 @@ TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README
             path = path.startsWith('/') ? path.substring(1) : path;
             path = path.endsWith('/') ? path.slice(0, path.length - 1) : path;
             return path;
+        }
+
+        function update_location(path)
+        {
+            // https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
+            window.history.replaceState({}, document.title, path );
         }
         
         function github_api_format_error(resp, res)
@@ -428,7 +437,7 @@ TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README
                 html_option.text = file_tree[i].name + (file_tree[i].type == 'dir' ? '/' : '' );
                 html_option.selected = file_tree[i].name == selected_file_name;
                 html_option.value = file_tree[i].html_url;
-                html_option.title = file_tree[i].name;
+                html_option.title = html_option.value;
                 html_option.dataset.type = file_tree[i].type;
             }
             for(let j = html_file_tree.length - 1; j >= i; j--)
@@ -439,17 +448,19 @@ TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README
         {
             for(const html_option of html_file_tree.querySelectorAll(`option[title="${selected_file_name}"]`))
             {
-                html_option.text = html_option.title = retrieved_contents.name;
+                html_option.text = retrieved_contents.name;
                 html_option.value = retrieved_contents.html_url;
+                html_option.title = html_option.value;
             }
         }
 
         function add_file_tree(res)
         {
             const html_option = document.createElement('option');
-            html_option.text = html_option.title = res.name;
+            html_option.text = res.name;
             html_option.dataset.type = 'file';
             html_option.value = res.html_url;
+            html_option.title = html_option.value;
             html_file_tree.options.add(html_option);
         }
         
@@ -511,7 +522,7 @@ TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README
                 return;
 
             const prep = github_api_prepare_params(html_url.value, html_token.value);
-            if(prep.error != '')
+            if(prep.error)
                 return moncms_log(prep.error);
         
             const [resp_del, res_del] = await github_api_delete_file(prep, retrieved_contents);
@@ -528,7 +539,7 @@ TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README
             if(!html_url.value || !html_token.value)
                 return;
             const prep = github_api_prepare_params(html_url.value, html_token.value);
-            if(prep.error != '' || !html_url.value || !html_token.value)
+            if(prep.error || !html_url.value || !html_token.value)
                 return moncms_log(prep.error);
             
             html_files.click();
@@ -544,7 +555,7 @@ TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README
             if(!html_file_name.value || !html_token.value)
                 return;
             const prep = github_api_prepare_params(html_url.value, html_token.value);
-            if(prep.error != '')
+            if(prep.error)
                 return moncms_log(prep.error);
 
             const frontmatter_str = format_frontmatter();
@@ -586,7 +597,7 @@ TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README
                 return moncms_log('clear');
             }
             let prep = github_api_prepare_params(html_url.value, html_token.value);
-            if(prep.error != '')
+            if(prep.error)
             {
                 clear();
                 return moncms_log(prep.error);
@@ -720,7 +731,7 @@ TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README
                     return;
 
                 const prep = github_api_prepare_params(html_url.value);
-                if(!prep.github_repo_url || prep.error != '')
+                if(!prep.github_repo_url || prep.error)
                 {
                     if(!prep.error) moncms_log(prep.error);
                     return;
@@ -732,13 +743,14 @@ TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README
             }
             else if(html_signinout.className == 'signout')
             {
+                clear();
+                html_token.value = '';
+                html_signinout.className = 'signin';
+                
                 const prep = github_api_prepare_params(html_url.value);
                 if(prep.github_repo_url)
                 {
-                    clear();
-                    html_token.value = '';
                     cache_save(prep.github_repo_url, null);
-                    html_signinout.className = 'signin';
                     moncms_log('cleared and purged cache for ' + prep.github_repo_url);
                 }
             }
@@ -757,7 +769,7 @@ TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README
                     document.getElementById(k).value = query_string.get(k);
 
                 //if(query_string.has('tokencache')) html_tokencache.checked = ['1', 'true'].includes(query_string.get('tokencache'));
-                autoopen = query_string.has('url');
+                autoopen = query_string.has('html_url');
             }
 
             if(!html_token.value)
