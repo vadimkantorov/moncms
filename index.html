@@ -50,7 +50,7 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             <button onclick="onclick_open()">Open</button>
             <button onclick="onclick_save()">Save the File</button>
             <button onclick="onclick_del()">Delete the File</button>
-            <button onclick="onclick_create()">Create a File</button>
+            <button onclick="onclick_create()">New File</button>
             
             <button onclick="onclick_upload()">Upload Files</button>
             <input type="file" id="html_files" onchange="onchange_files()" multiple hidden />
@@ -316,8 +316,8 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         
         function moncms_log(text)
         {
-            const prefix = new Date().toISOString();
-            html_log.value = `${prefix}: ${text}`;
+            const now = new Date().toISOString();
+            html_log.value = `${now}: ${text}`;
             //html_log.value += '\n' + text; html_log.scrollTop = html_log.scrollHeight;
         }
 
@@ -482,6 +482,11 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
         async function onclick_create()
         {
             await clear(false);
+            
+            const now = new Date().toISOString();
+            const date = now.slice(0, '0000-00-00'.length);
+            const time = now.slice('0000-00-00'.length, '0000-00-00'.length + 'T00:00:00'.length).toLowerCase().replaceAll(':', '');
+            html_file_name.value = `${date}-new-post-draft-a${time}.md`; 
             html_file_name.focus();
         }
 
@@ -503,25 +508,26 @@ TODO: sanitize file name before actions? (at least delete slash from beginning/e
             moncms_log('DEL ' + github_api_format_error(resp_del, res_del));
         }
         
-        async function onclick_upload()
+        function onclick_upload()
         {
+            if(!html_url.value || !html_token.value)
+                return;
             const prep = github_api_prepare_params(html_url.value, html_token.value);
-            if(prep.error != '')
+            if(prep.error != '' || !html_url.value || !html_token.value)
                 return moncms_log(prep.error);
             
-            // https://stackoverflow.com/questions/37504383/button-inside-a-label
             html_files.click();
         }
 
         async function onclick_save()
         {
+            // https://stackoverflow.com/questions/37504383/button-inside-a-label
             // https://stackoverflow.com/questions/31563444/rename-a-file-with-github-api
             // https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
             // https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
 
             if(!html_file_name.value || !html_token.value)
                 return;
-
             const prep = github_api_prepare_params(html_url.value, html_token.value);
             if(prep.error != '')
                 return moncms_log(prep.error);
