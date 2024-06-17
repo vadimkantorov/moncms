@@ -185,11 +185,12 @@ TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README
             if(resp_file.status != HTTP_OK || resp_dir.status != HTTP_OK)
             {
                 clear();
-                return moncms_log('error ' + github_api_format_error(resp_file, res_file) + ' | dir: ' + github_api_format_error(resp_dir, res_dir));
+                moncms_log('error ' + github_api_format_error(resp_file, res_file) + ' | dir: ' + github_api_format_error(resp_dir, res_dir));
+                return [{}, []];
             }
             moncms_log('GET file: ' + github_api_format_error(resp_file, res_file) + ' | dir: ' + github_api_format_error(resp_dir, res_dir));
 
-            return [[resp_file, res_file], [resp_dir, res_dir]];
+            return [res_file, res_dir];
         }
         
         async function github_api_update_file(prep, retrieved_contents, base64, message = 'no commit message')
@@ -599,7 +600,7 @@ TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README
             }
             html_signinout.className = html_token.value ? 'signout' : 'signin';
             
-            const [[resp_file, res_file], [resp_dir, res_dir]] = await github_api_get_file_dir(prep, moncms_log);
+            const [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
 
             const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
             const is_dir = res_file.content === undefined;
@@ -707,14 +708,13 @@ TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README
         
         function onclick_togglecompactview()
         {
-            // https://stackoverflow.com/questions/19927813/make-a-checkbox-look-like-a-button-css
             const hidden = !html_file_tree.hidden;
             html_file_tree.hidden = html_log.hidden = html_token.hidden = html_frontmatter.hidden = html_file_name.hidden = hidden;
         }
         
         function onclick_signinout()
         {
-            if(html_signinout.classList.contains('signin'))
+            if(html_signinout.className == 'signin')
             {
                 if(!html_url.value || !html_token.value)
                     return;
@@ -727,11 +727,10 @@ TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README
                 }
                 
                 cache_save(prep.github_repo_url, html_token.value);
-                html_signinout.classList.toggle('signin');
-                html_signinout.classList.toggle('signout');
+                html_signinout.className = 'signout';
                 moncms_log('saved to cache for ' + prep.github_repo_url);
             }
-            else if(html_signinout.classList.contains('signout'))
+            else if(html_signinout.className == 'signout')
             {
                 const prep = github_api_prepare_params(html_url.value);
                 if(prep.github_repo_url)
@@ -739,8 +738,7 @@ TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README
                     clear();
                     html_token.value = '';
                     cache_save(prep.github_repo_url, null);
-                    html_signinout.classList.toggle('signin');
-                    html_signinout.classList.toggle('signout');
+                    html_signinout.className = 'signin';
                     moncms_log('cleared and purged cache for ' + prep.github_repo_url);
                 }
             }
