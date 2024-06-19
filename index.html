@@ -151,6 +151,7 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
                 prep.error = 'github_url could not be matched';
                 return prep;
             }
+            github_repo_name = github_repo_name.replace(/\/$/g, '');
             github_repo_dir_path = github_repo_dir_path.replace(/\/$/g, '');
             github_repo_tag = github_repo_tag.replace(/\/$/g, '');
 
