@@ -2,14 +2,14 @@
 <html charset="utf-8">
 <!--
 TODO: extract github url from public url meta, current published timestamp file sha, and commit sha or from repos like https://username.github.io/ or https://username.github.io/repo
-TODO: set search to github_url. what to do with password?
+TODO: when navigating, update html_url in search. what to do with password: make some url with all creds?
 TODO: add to readme example of creating a file in a new directory: or make a new directory with a a new file "newdir/.gitignore"
 TODO: when closing with changes, prevent?
 TODO: autoopen by default always controlled with meta or only if hosted at https://vadimkantorov.github.io/moncms?
-TODO: autouse localStorage only for file:/// protocol? or only use localStorage?
 TODO: onclick_del: redirect and reload the page? (or only if had query string?) https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
 TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README.md instead of API by default (need to somehow fix for cache)
 TODO: support some sort of frontmatter scheme
+TODO: Sign In should check if token is good
 
 BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://github.com/vadimkantorov/moncms/blob/gh-pages/assets/foo15.md , parent dir is set incorrectly
 -->
@@ -98,6 +98,12 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
             // https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
             window.history.replaceState({}, document.title, path );
         }
+
+        function discover_meta(url, key = 'moncms')
+        {
+            //const parser = new DOMParser();
+            //const htmlDoc = parser.parseFromString(txt, 'text/html');
+        }
         
         function github_api_format_error(resp, res)
         {
@@ -109,7 +115,7 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
         function github_api_prepare_params(github_url, github_token = '')
         {
             // TODO: init all fields as empty strings
-            const prep = {headers : {}, error : ''};
+            const prep = {headers : {}, error : '', github_repo_url : ''};
             if(!github_url)
             {
                 prep.error = 'no github_url provided';
@@ -125,6 +131,8 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
             const m2 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/tree\/(.+?)\/(.+)/i);
             const m3 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/tree\/(.+)/i);
             const m4 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/?/i);
+            const m5 = github_url_normalized.match(/https:\/\/(.+)\.github.io\/(.+)\/?/i);
+            const m6 = github_url_normalized.match(/https:\/\/(.+)\.github.io\/?/i);
             
             if(m1)
                 [, github_repo_username, github_repo_name, github_repo_tag, github_repo_file_path] = m1;
@@ -134,6 +142,10 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
                 [, github_repo_username, github_repo_name, github_repo_tag] = m3;
             else if(m4)
                 [, github_repo_username, github_repo_name] = m4;
+            else if(m5)
+                [, github_repo_usernmae, github_repo_name] = m5;
+            else if(m6)
+                [github_repo_username, github_repo_name] = m6[1], (m6[1] + '.github.io');
             else
             {
                 prep.error = 'github_url could not be matched';
@@ -258,23 +270,22 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
             retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
             moncms_log('PUT ' + github_api_format_error(resp_put, res_put));
 
-            const [resp_del, res_del] = await github_api_delete_file(prep, _retrieved_contents);
-            moncms_log('DEL ' + github_api_format_error(resp_del, res_del) +  ' | PUT ' + github_api_format_error(resp_put, res_put));
+            await github_api_delete_file(prep, _retrieved_contents, moncms_log);
             return retrieved_contents;
         }
 
-        async function github_api_delete_file(prep, retrieved_contents, message = 'no commit message')
+        async function github_api_delete_file(prep, retrieved_contents, moncms_log, message = 'no commit message')
         {
             const req = {
-                //path : retrieved_contents.path,
                 sha: retrieved_contents.sha,
                 message : message,
             };
             if(prep.github_branch)
                 req.branch = prep.github_branch;
-            const resp = await fetch(prep.contents_api_url_put, { method: 'DELETE', headers: prep.headers, body: JSON.stringify(req) });
-            const res = await resp.json();
-            return [resp, res];
+            const resp_del = await fetch(prep.contents_api_url_put, { method: 'DELETE', headers: prep.headers, body: JSON.stringify(req) });
+            const res_del = await resp.json();
+            moncms_log('DEL ' + github_api_format_error(resp_del, res_del));
+            return res_del;
         }
         
         function parse_frontmatter(text)
@@ -339,32 +350,17 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
             //html_log.value += '\n' + text; html_log.scrollTop = html_log.scrollHeight;
         }
 
-        function cache_load(key, method = 'localStorage')
+        function cache_load(key)
         {
-            if(method == 'localStorage')
-                return localStorage.getItem("moncms_" + key);
-            
-            if(method == 'cookie')
-                return (document.cookie.split(';').filter(k_v => k_v.split('=')[0] == key)[0] || '').split('=')[1];
+            return localStorage.getItem("moncms_" + key);
         }
         
-        function cache_save(key, value, method = 'localStorage')
+        function cache_save(key, value)
         {
-            if(method == 'localStorage')
-            {
-                if(value)
-                    localStorage.setItem("moncms_" + key, value);
-                else
-                    localStorage.removeItem("moncms_" + key);
-            }
-
-            if(method == 'cookie')
-            {
-                if(value)
-                    document.cookie = document.cookie ? (document.cookie + ';' + key + '=' + value) : (key + '=' + value);
-                else
-                    document.cookie = document.cookie.split(';').filter(k_v => k_v.split('=')[0] != key).join(';'); 
-            }
+            if(value)
+                localStorage.setItem("moncms_" + key, value);
+            else
+                localStorage.removeItem("moncms_" + key);
         }
         
         function clear(file_tree = true)
@@ -422,7 +418,7 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
             const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
             const files = files_and_dirs.filter(j => j.type == 'file' && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
             const dirs  = files_and_dirs.filter(j => j.type == 'dir'  && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
-            const images = files_and_dirs.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
+            const images = files_and_dirs.filter(j =>j.type == 'file' &&  ext.some(e => j.name.endsWith(e))).sort(key_by_name);
 
             const file_tree = [ {name : '.', type : 'dir', html_url : curdir_url}, {name : '..', type: 'dir', html_url : parentdir_url ? parentdir_url : curdir_url}, ...dirs, ...files, ...images]; 
             let i = 0;
@@ -489,10 +485,7 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
             {
                 const new_file_name = file.name;
                 const reader = new FileReader();
-                reader.onload = () => {
-                    const base64 = reader.result.split(',')[1];
-                    github_api_upsert_file(prep, new_file_name, base64, moncms_log);
-                };
+                reader.onload = () => github_api_upsert_file(prep, new_file_name, reader.result.split(',')[1], moncms_log);
                 reader.onerror = () => moncms_log('FILELOAD error');
                 reader.readAsDataURL(file);
             }
@@ -525,13 +518,12 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
             if(prep.error)
                 return moncms_log(prep.error);
         
-            const [resp_del, res_del] = await github_api_delete_file(prep, retrieved_contents);
+            await github_api_delete_file(prep, retrieved_contents, moncms_log);
 
             delete_file_tree(html_file_name.value);
             html_url.value = prep.curdir_url;
             
             clear(false);
-            moncms_log('DEL ' + github_api_format_error(resp_del, res_del));
         }
         
         function onclick_upload()
@@ -760,16 +752,20 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
         {
             await onload_editor();
 
-            let autoopen = false;
-            
             if(window.location.search)
             {
                 const query_string = new URLSearchParams(window.location.search);
                 for(const k of ['html_url', 'html_token'])
                     document.getElementById(k).value = query_string.get(k);
 
-                //if(query_string.has('tokencache')) html_tokencache.checked = ['1', 'true'].includes(query_string.get('tokencache'));
-                autoopen = query_string.has('html_url');
+                console.log(github_api_prepare_params(html_url.value));
+            }
+
+            if(!html_url.value)
+            {
+                const prep = github_api_prepare_params(window.location.href);
+                const metas = Array.from(document.querySelectorAll('meta')).filter(meta => meta.name == 'moncms');
+                html_url.value = metas.length > 0 ? metas.pop().content : prep.github_repo_url;
             }
 
             if(!html_token.value)
@@ -779,14 +775,11 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
                 {
                     html_token.value = cache_load(prep.github_repo_url);
                     if(html_token.value)
-                    {
                         moncms_log('got from cache for ' + prep.github_repo_url);
-                        autoopen = true;
-                    }
                 }
             }
 
-            if(autoopen && (html_url.value))
+            if(html_url.value)
                 onclick_open();
             else
                 html_url.focus();
