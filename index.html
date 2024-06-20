@@ -10,6 +10,7 @@ TODO: onclick_del: redirect and reload the page? (or only if had query string?) 
 TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README.md instead of API by default (need to somehow fix for cache)
 TODO: support some sort of frontmatter scheme
 TODO: Sign In should check if token is good
+TOOD: if res_dir is empty because of error -> clear including file tree
 
 BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://github.com/vadimkantorov/moncms/blob/gh-pages/assets/foo15.md , parent dir is set incorrectly
 -->
@@ -25,14 +26,14 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
         .editor-shell { max-width: 100%!important }
         .editor-scroller { overflow: hidden!important }
 
-        #html_signinout {width: 6em}
+        #html_signinout { width: 6em }
         #html_file_tree { height: 100px }
-        #html_frontmatter, #html_url, #html_token, #html_file_name, #html_log, #html_file_tree { width: 100%; }
+        #html_frontmatter, #html_url, #html_token, #html_file_name, #html_log, #html_file_tree { width: 100% }
         #html_frontmatter, #html_frontmatter td, #html_frontmatter th  { border: 1px solid black; border-collapse: collapse; text-align: left; }
-        #html_frontmatter td>input {width: 98%}
+        #html_frontmatter td>input { width: 98% }
 
-        button.signin::after  {content: "Sign In" }
-        button.signout::after {content: "Sign Out"}
+        button.signin::after  { content: "Sign In"  }
+        button.signout::after { content: "Sign Out" }
 
         /*#html_togglecompactview {float: right}*/
         </style>
@@ -584,27 +585,27 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
         
         async function onclick_open(HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
         {
-            if(!html_url.value)
-            {
-                clear();
-                return moncms_log('clear');
-            }
             let prep = github_api_prepare_params(html_url.value, html_token.value);
             if(prep.error)
             {
                 clear();
                 return moncms_log(prep.error);
             }
-            
             if(!html_token.value)
             {
                 html_token.value = cache_load(prep.github_repo_url);
                 prep = github_api_prepare_params(html_url.value, html_token.value); 
                 moncms_log('got from cache for ' + prep.github_repo_url);
             }
+            
             html_signinout.className = html_token.value ? 'signout' : 'signin';
             
             const [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
+            if(!prep.github_branch && res_file == res_dir)
+            {
+                for(const j of res_dir.filter(j => j.name.toLowerCase() == 'README.md'.toLowerCase()))
+                    res_file = j;
+            }
 
             const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
             const is_dir = res_file.content === undefined;
@@ -764,7 +765,7 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
 
             if(!html_url.value)
             {
-                const prep = github_api_prepare_params(window.location.href);
+                const prep = github_api_prepare_params(window.location.protocol != 'file:' ? window.location.href : 'https://github.com/vadimkantorov/moncms');
                 const metas = Array.from(document.querySelectorAll('meta')).filter(meta => meta.name == 'moncms');
                 html_url.value = metas.length > 0 ? metas.pop().content : prep.github_repo_url;
             }
