@@ -4,7 +4,7 @@
 - [https://vadimkantorov.github.io/moncms/?html_url=https://github.com/vadimkantorov/moncms](https://vadimkantorov.github.io/moncms/?html_url=https://github.com/vadimkantorov/moncms)
 
 Test:
-
+![image](assets/yellow-flower.a2a7c7a2.jpg)
 - [https://vadimkantorov.github.io/moncms/?https://github.com/vadimkantorov/moncms](https://vadimkantorov.github.io/moncms/?https://github.com/vadimkantorov/moncms)
 - [https://vadimkantorov.github.io/moncms/?/https://github.com/vadimkantorov/moncms](https://vadimkantorov.github.io/moncms/?/https://github.com/vadimkantorov/moncms)
 
