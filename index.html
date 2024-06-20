@@ -201,11 +201,20 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
         
         async function github_api_get_file_dir(prep, moncms_log, HTTP_OK = 200)
         {
-            const resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
-            const res_file = await resp_file.json();
+            let resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
+            let res_file = await resp_file.json();
             
             const resp_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await fetch(prep.contents_api_dir_url_get, { method: 'GET', headers: prep.headers })) : resp_file;
             const res_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await resp_dir.json()) : res_file;
+            
+            if(!prep.github_branch && res_file == res_dir)
+            {
+                for(const j of res_dir.filter(j => j.name.toLowerCase() == 'README.md'.toLowerCase()))
+                {
+                    resp_file = await fetch(j.git_url, { method: 'GET', headers: prep.headers });
+                    res_file = await resp_file.json();
+                }
+            }
             
             if(resp_file.status != HTTP_OK || resp_dir.status != HTTP_OK)
             {
@@ -213,8 +222,9 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
                 moncms_log('error ' + github_api_format_error(resp_file, res_file) + ' | dir: ' + github_api_format_error(resp_dir, res_dir));
                 return [{}, []];
             }
+            
             moncms_log('GET file: ' + github_api_format_error(resp_file, res_file) + ' | dir: ' + github_api_format_error(resp_dir, res_dir));
-
+            
             return [res_file, res_dir];
         }
         
@@ -602,14 +612,7 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
             
             html_signinout.className = html_token.value ? 'signout' : 'signin';
             
-            let [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
-            if(!prep.github_branch && res_file == res_dir)
-            {
-                for(const j of res_dir.filter(j => j.name.toLowerCase() == 'README.md'.toLowerCase()))
-                {
-                    res_file = j;
-                }
-            }
+            const [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
 
             const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
             const is_dir = res_file.content === undefined;
