@@ -212,7 +212,7 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
                 for(const j of res_dir.filter(j => j.name.toLowerCase() == 'README.md'.toLowerCase()))
                 {
                     resp_file = await fetch(j.git_url, { method: 'GET', headers: prep.headers });
-                    res_file = {...res_file, ...await resp_file.json()};
+                    res_file = {...j, ...await resp_file.json()};
                 }
             }
             
