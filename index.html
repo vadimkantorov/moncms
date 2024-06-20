@@ -601,7 +601,7 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
             
             html_signinout.className = html_token.value ? 'signout' : 'signin';
             
-            const [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
+            let [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
             if(!prep.github_branch && res_file == res_dir)
             {
                 for(const j of res_dir.filter(j => j.name.toLowerCase() == 'README.md'.toLowerCase()))
