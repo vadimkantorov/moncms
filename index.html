@@ -11,7 +11,6 @@ TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README
 TODO: support some sort of frontmatter scheme
 TODO: if res_dir is empty because of error -> clear including file tree
 TODO: discover settings from a json file moncms.json next to the index.html
-TODO: when auto-README.md is open, set correctly file name to README.md instead of dir name
 TODO: button for navigating to Help document (https://github.com/vadimkantorov/moncms/blob/gh-pages/README.md)
 TODO: do not load from cache token if deleted it? what to do if outdated token is there and changed the url? what to do with signed-in status when changing url? (set after get on onclick_load?)
 TODO: do not return res_file/res_dir when error?
@@ -48,7 +47,7 @@ TODO: signin should open (or maybe clear or should show at least dir)?
         <div>
             <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" type="text"  onkeypress="onkeypress_enter_url(event)" /><!--value="https://github.com/vadimkantorov/moncms/blob/gh-pages/README.md" --> 
             <input placeholder="GitHub token:" title="GitHub token:" id="html_token" type="text" value="" onkeypress="onkeypress_enter_url(event)" />
-            <input placeholder="File name:" id="html_file_name" type="text" value="" onkeypress="onkeypress_save(event)" />
+            <input placeholder="File name:" title="File name:" id="html_file_name" type="text" value="" onkeypress="onkeypress_save(event)" />
             <input placeholder="Log:" title="Log:" id="html_log" readonly />
             <select id="html_file_tree" size="10" onkeypress="ondblclick_enter_file_tree(event)" ondblclick="ondblclick_enter_file_tree(event)"></select>
             <table id="html_frontmatter">
