@@ -4,7 +4,6 @@
 <!--
 TODO: extract github url from public url meta, current published timestamp file sha, and commit sha or from repos like https://username.github.io/ or https://username.github.io/repo
 TODO: when navigating, update html_url in search. what to do with password: make some url with all creds?
-TODO: add to readme example of creating a file in a new directory: or make a new directory with a a new file "newdir/.gitignore"
 TODO: when closing with changes, prevent?
 TODO: onclick_del: redirect and reload the page? (or only if had query string?) https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
 TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README.md instead of API by default (need to somehow fix for cache)
@@ -118,7 +117,7 @@ TODO: opening with token should not sign in / change sign button text
             return `${resp_status}: ` + ({200: 'OK', 201: 'OK Created', 404: 'Resource not found', 409: 'Conflict', 422: 'Already Exists. Validation failed, or the endpoint has been spammed.', 401: 'Unauthorized', 403: 'Forbidden: ' + res_message}[resp_status] || '');
         }
 
-        function github_api_prepare_params(github_url, github_token = '')
+        function github_api_prepare_params(github_url, github_token = '', must_have_token = false)
         {
             const prep = {
                 headers : {}, 
@@ -137,6 +136,11 @@ TODO: opening with token should not sign in / change sign button text
             if(!github_url)
             {
                 prep.error = 'no github_url provided';
+                return prep;
+            }
+            if(must_have_token && !github_token)
+            {
+                prep.error = 'no github_token provided';
                 return prep;
             }
             
@@ -563,10 +567,8 @@ TODO: opening with token should not sign in / change sign button text
         
         function onclick_upload()
         {
-            if(!html_url.value || !html_token.value)
-                return;
-            const prep = github_api_prepare_params(html_url.value, html_token.value);
-            if(prep.error || !html_url.value || !html_token.value)
+            const prep = github_api_prepare_params(html_url.value, html_token.value, true);
+            if(prep.error)
                 return moncms_log(prep.error);
             
             html_files.click();
@@ -579,9 +581,9 @@ TODO: opening with token should not sign in / change sign button text
             // https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
             // https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
 
-            if(!html_file_name.value || !html_token.value)
+            if(!html_file_name.value || Object.entries(retrieved_contents).length == 0)
                 return;
-            const prep = github_api_prepare_params(html_url.value, html_token.value);
+            const prep = github_api_prepare_params(html_url.value, html_token.value, true);
             if(prep.error)
                 return moncms_log(prep.error);
 
