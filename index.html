@@ -117,8 +117,20 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
 
         function github_api_prepare_params(github_url, github_token = '')
         {
-            // TODO: init all fields as empty strings
-            const prep = {headers : {}, error : '', github_repo_url : ''};
+            const prep = {
+                headers : {}, 
+                error : '', 
+            
+                github_repo_path : '', 
+                github_branch : '',         
+                github_repo_url : '',       
+                contents_api_url_get : '',  
+                contents_api_url_put : '',  
+                contents_api_dir_url_put : '',  
+                contents_api_dir_url_get : '',  
+                curdir_url : '',     
+                parentdir_url : '',  
+            };
             if(!github_url)
             {
                 prep.error = 'no github_url provided';
@@ -178,7 +190,6 @@ BUG: when going to file:///C:/Users/vadim/moncms/index.html?html_url=https://git
             const github_repo_parentdir_path = github_repo_dir_path ? (slashIdx2 != -1 ? github_repo_path.slice(0, slashIdx2) : '') : github_repo_file_path ? ((slashIdx2 != -1 && slashIdx1 != -1) ? github_repo_path.slice(0, slashIdx1) : (slashIdx2 != -1 && slashIdx1 == -1) ? '' : null) : null;
 
             prep.curdir_url = `https://github.com/${github_repo_username}/${github_repo_name}/tree/${github_repo_tag}/${github_repo_curdir_path || ""}`;
-            
             prep.parentdir_url = github_repo_parentdir_path != null ? `https://github.com/${github_repo_username}/${github_repo_name}/tree/${github_repo_tag}/${github_repo_parentdir_path}` : prep.curdir_url;
             
             // https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28
