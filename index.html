@@ -760,7 +760,7 @@ TODO: do not return res_file/res_dir when error?
 
                 cache_save(prep.github_repo_url, null);
 
-                if(github_api_signin(prep, moncms_log))
+                if(await github_api_signin(prep, moncms_log))
                 {
                     cache_save(prep.github_repo_url, html_token.value);
                     html_signinout.className = 'signout';
