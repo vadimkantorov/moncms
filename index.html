@@ -753,6 +753,9 @@ TODO: button for navigating to Help document (https://github.com/vadimkantorov/m
                 cache_save(prep.github_repo_url, html_token.value);
                 html_signinout.className = 'signout';
                 moncms_log('saved to cache for ' + prep.github_repo_url);
+                
+                html_url.value = 'https://github.com/vadimkantorov/moncms/blob/gh-pages/README.md';
+                onclick_open();
             }
             else if(html_signinout.className == 'signout')
             {
