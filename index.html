@@ -15,6 +15,7 @@ TODO: when auto-README.md is open, set correctly file name to README.md instead 
 TODO: button for navigating to Help document (https://github.com/vadimkantorov/moncms/blob/gh-pages/README.md)
 TODO: do not load from cache token if deleted it? what to do if outdated token is there and changed the url? what to do with signed-in status when changing url? (set after get on onclick_load?)
 TODO: do not return res_file/res_dir when error?
+TODO: signin should open (or maybe clear or should show at least dir)?
 -->
 
     <head>
@@ -658,7 +659,7 @@ TODO: do not return res_file/res_dir when error?
             }
             else if(!is_image)
             {
-                html_file_name.value = basename(html_url.value);
+                html_file_name.value = res_file.name;
                 html_file_name.title = prep.github_repo_path;
 
                 let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
@@ -671,7 +672,7 @@ TODO: do not return res_file/res_dir when error?
             }
             else if(is_image)
             {
-                html_file_name.value = basename(html_url.value);
+                html_file_name.value = res_file.name;
                 html_file_name.title = prep.github_repo_path;
 
                 update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
