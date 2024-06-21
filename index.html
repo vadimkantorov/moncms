@@ -793,7 +793,8 @@ TODO: do not return res_file/res_dir when error?
             {
                 const query_string = new URLSearchParams(window.location.search);
                 for(const k of ['html_url', 'html_token'])
-                    document.getElementById(k).value = query_string.get(k);
+                    if(query_string.has(k))
+                        document.getElementById(k).value = query_string.get(k);
 
                 console.log(github_api_prepare_params(html_url.value));
             }
