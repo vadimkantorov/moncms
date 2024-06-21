@@ -204,11 +204,18 @@ TODO: button for navigating to Help document (https://github.com/vadimkantorov/m
             return prep;
         }
         
-        async function github_api_get_file(prep)
+        async function github_api_get_file(prep, moncms_log)
         {
             const resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
             const res_file = await resp_file.json();
-            return [resp_file, res_file];
+            moncms_log('GET ' + github_api_format_error(resp_get, res_get));
+            return res_file;
+        }
+
+        async function github_api_signin(prep, moncms_log, HTTP_OK = 200)
+        {
+            const resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
+            return resp_file.status == HTTP_OK;
         }
         
         async function github_api_get_file_dir(prep, moncms_log, HTTP_OK = 200)
@@ -281,8 +288,7 @@ TODO: button for navigating to Help document (https://github.com/vadimkantorov/m
             
             if(resp_put.status == HTTP_EXISTS)
             {
-                const [resp_get, res_get] = await github_api_get_file({...prep, contents_api_url_get : contents_api_url_get}, {}, base64);
-                moncms_log('GET ' + github_api_format_error(resp_get, res_get));
+                const res_get = await github_api_get_file({...prep, contents_api_url_get : contents_api_url_get}, moncms_log);
                 
                 [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put}, res_get, base64);
                 moncms_log('PUT ' + github_api_format_error(resp_put, res_put));
@@ -740,22 +746,27 @@ TODO: button for navigating to Help document (https://github.com/vadimkantorov/m
         {
             if(html_signinout.className == 'signin')
             {
-                if(!html_url.value || !html_token.value)
+                if(!html_token.value)
                     return;
 
-                const prep = github_api_prepare_params(html_url.value);
+                const prep = github_api_prepare_params(html_url.value, html_token.value);
                 if(!prep.github_repo_url || prep.error)
                 {
                     if(!prep.error) moncms_log(prep.error);
                     return;
                 }
-                
-                cache_save(prep.github_repo_url, html_token.value);
-                html_signinout.className = 'signout';
-                moncms_log('saved to cache for ' + prep.github_repo_url);
-                
-                html_url.value = 'https://github.com/vadimkantorov/moncms/blob/gh-pages/README.md';
-                onclick_open();
+
+                cache_save(prep.github_repo_url, null);
+
+                if(github_api_signin(prep, moncms_log))
+                {
+                    cache_save(prep.github_repo_url, html_token.value);
+                    html_signinout.className = 'signout';
+                    moncms_log('saved to cache for ' + prep.github_repo_url);
+                }
+                else
+                    moncms_log('cleared and purged cache for ' + prep.github_repo_url);
+
             }
             else if(html_signinout.className == 'signout')
             {
