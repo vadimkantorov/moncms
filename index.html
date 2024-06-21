@@ -13,6 +13,8 @@ TODO: if res_dir is empty because of error -> clear including file tree
 TODO: discover settings from a json file moncms.json next to the index.html
 TODO: when auto-README.md is open, set correctly file name to README.md instead of dir name
 TODO: button for navigating to Help document (https://github.com/vadimkantorov/moncms/blob/gh-pages/README.md)
+TODO: do not load from cache token if deleted it? what to do if outdated token is there and changed the url? what to do with signed-in status when changing url? (set after get on onclick_load?)
+TODO: do not return res_file/res_dir when error?
 -->
 
     <head>
@@ -215,7 +217,7 @@ TODO: button for navigating to Help document (https://github.com/vadimkantorov/m
         {
             const resp_get = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
             moncms_log('GET ' + github_api_format_error(resp_get));
-            return resp_file.status == HTTP_OK;
+            return resp_get.status == HTTP_OK;
         }
         
         async function github_api_get_file_dir(prep, moncms_log, HTTP_OK = 200)
