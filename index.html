@@ -9,7 +9,6 @@ TODO: when closing with changes, prevent?
 TODO: onclick_del: redirect and reload the page? (or only if had query string?) https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
 TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README.md instead of API by default (need to somehow fix for cache)
 TODO: support some sort of frontmatter scheme
-TODO: Sign In should check if token is good
 TODO: if res_dir is empty because of error -> clear including file tree
 TODO: discover settings from a json file moncms.json next to the index.html
 TODO: when auto-README.md is open, set correctly file name to README.md instead of dir name
@@ -109,7 +108,7 @@ TODO: button for navigating to Help document (https://github.com/vadimkantorov/m
             //const htmlDoc = parser.parseFromString(txt, 'text/html');
         }
         
-        function github_api_format_error(resp, res)
+        function github_api_format_error(resp, res = {})
         {
             const resp_status = resp.status || '000';
             const res_message = (res || {}).message || '';
@@ -214,7 +213,8 @@ TODO: button for navigating to Help document (https://github.com/vadimkantorov/m
 
         async function github_api_signin(prep, moncms_log, HTTP_OK = 200)
         {
-            const resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
+            const resp_get = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
+            moncms_log('GET ' + github_api_format_error(resp_get));
             return resp_file.status == HTTP_OK;
         }
         
