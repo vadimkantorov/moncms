@@ -57,7 +57,7 @@ TODO: opening with token should not sign in / change sign button text
             <button onclick="onclick_open()">Open</button>
             <button onclick="onclick_savefile()">Save the File</button>
             <button onclick="onclick_delfile()" id="html_delfile" data-message="Do you really want to delete this file?">Delete the File</button>
-            <button onclick="onclick_createfile()">New File</button>
+            <button onclick="onclick_createfile()" id="html_createfile" data-message="# click Save to actually create and save the file">New File</button>
             <button onclick="onclick_createdir()" id="html_createdir" data-message="# to create a directory, one must create a file in the directory and click Save">New Directory</button>
             
             <button onclick="onclick_upload()">Upload Files</button>
@@ -378,6 +378,7 @@ TODO: opening with token should not sign in / change sign button text
         const html_files = document.getElementById('html_files');
         const html_signinout = document.getElementById('html_signinout');
         const html_delfile = document.getElementById('html_delfile');
+        const html_createfile = document.getElementById('html_createfile');
         const html_createdir = document.getElementById('html_createdir');
         const html_help = document.getElementById('html_help');
         
@@ -538,7 +539,7 @@ TODO: opening with token should not sign in / change sign button text
 
         async function onclick_createfile()
         {
-            await clear(false);
+            await clear(false, html_createfile.dataset.message);
             
             const now = new Date().toISOString();
             const date = now.slice(0, '0000-00-00'.length);
