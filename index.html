@@ -55,13 +55,15 @@ TODO: opening with token should not sign in / change sign button text
             </table>
 
             <button onclick="onclick_open()">Open</button>
-            <button onclick="onclick_save()">Save the File</button>
-            <button onclick="onclick_del()">Delete the File</button>
-            <button onclick="onclick_create()">New File</button>
+            <button onclick="onclick_savefile()">Save the File</button>
+            <button onclick="onclick_delfile()" id="html_delfile" data-message="Do you really want to delete this file?">Delete the File</button>
+            <button onclick="onclick_createfile()">New File</button>
+            <button onclick="onclick_createdir()" id="html_createdir" data-message="# to create a directory, one must create a file in the directory">New Directory</button>
             
             <button onclick="onclick_upload()">Upload Files</button>
             <input type="file" id="html_files" onchange="onchange_files()" multiple hidden />
             
+            <button>Help</button>
             <button id="html_signinout" class="signin" onclick="onclick_signinout()"></button>
             <button id="html_togglecompactview" onclick="onclick_togglecompactview()">Toggle Compact View</button>
         </div>
@@ -375,6 +377,8 @@ TODO: opening with token should not sign in / change sign button text
         const html_file_tree = document.getElementById('html_file_tree');
         const html_files = document.getElementById('html_files');
         const html_signinout = document.getElementById('html_signinout');
+        const html_delfile = document.getElementById('html_delfile');
+        const html_createdir = document.getElementById('html_createdir');
         
         window.editor_getMarkdown = (text = '') => '';
         window.editor_setMarkdown = (text = '') => '';
@@ -531,7 +535,7 @@ TODO: opening with token should not sign in / change sign button text
             html_files.value = '';
         }
 
-        async function onclick_create()
+        async function onclick_createfile()
         {
             await clear(false);
             
@@ -541,8 +545,19 @@ TODO: opening with token should not sign in / change sign button text
             html_file_name.value = `${date}-new-post-draft-a${time}.md`; 
             html_file_name.focus();
         }
+        
+        async function onclick_createdir()
+        {
+            await clear(false);
+            
+            const now = new Date().toISOString();
+            const time = now.slice('0000-00-00'.length, '0000-00-00'.length + 'T00:00:00'.length).toLowerCase().replaceAll(':', '');
+            html_file_name.value = `new-dir-draft-a${time}/.gitignore`;
+            window.editor_setMarkdown(html_createdir.dataset.message);
+            html_file_name.focus();
+        }
 
-        async function onclick_del()
+        async function onclick_delfile()
         {
             if(retrieved_contents || Object.entries(retrieved_contents).length == 0)
             {
@@ -550,7 +565,7 @@ TODO: opening with token should not sign in / change sign button text
                 html_file_name.focus();
                 return;
             }
-            if(!retrieved_contents || Object.entries(retrieved_contents).length == 0 || !html_file_name.value || !html_token.value || !window.confirm('Do you really want to delete this file?'))
+            if(!retrieved_contents || Object.entries(retrieved_contents).length == 0 || !html_file_name.value || !html_token.value || !window.confirm(html_delfile.dataset.message))
                 return;
 
             const prep = github_api_prepare_params(html_url.value, html_token.value);
@@ -574,7 +589,7 @@ TODO: opening with token should not sign in / change sign button text
             html_files.click();
         }
 
-        async function onclick_save()
+        async function onclick_savefile()
         {
             // https://stackoverflow.com/questions/37504383/button-inside-a-label
             // https://stackoverflow.com/questions/31563444/rename-a-file-with-github-api
@@ -722,7 +737,7 @@ TODO: opening with token should not sign in / change sign button text
         function onkeypress_save(event)
         {
             if(event.code == 'Enter')
-                onclick_save();
+                onclick_savefile();
         }
         
         function onkeypress_enter_url(event)
