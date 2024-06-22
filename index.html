@@ -407,7 +407,7 @@ TODO: opening with token should not sign in / change sign button text
                 localStorage.removeItem("moncms_" + key);
         }
         
-        function clear(file_tree = true)
+        function clear(file_tree = true, msg = '')
         {
             retrieved_contents = {};
             html_file_name.value = html_file_name.title = '';
@@ -416,7 +416,7 @@ TODO: opening with token should not sign in / change sign button text
                 for(let i = html_file_tree.options.length - 1; i >= 0; i--)
                     html_file_tree.options.remove(i);
             }
-            return window.editor_setMarkdown('');
+            return window.editor_setMarkdown(msg);
         }
         
         function format_frontmatter()
@@ -549,12 +549,11 @@ TODO: opening with token should not sign in / change sign button text
         
         async function onclick_createdir()
         {
-            await clear(false);
+            await clear(false, html_createdir.dataset.message);
             
             const now = new Date().toISOString();
             const time = now.slice('0000-00-00'.length, '0000-00-00'.length + 'T00:00:00'.length).toLowerCase().replaceAll(':', '');
-            html_file_name.value = `new-dir-draft-a${time}/.gitignore`;
-            window.editor_setMarkdown(html_createdir.dataset.message);
+            html_file_name.value = `new-dir-a${time}/.gitignore`;
             html_file_name.focus();
         }
 
