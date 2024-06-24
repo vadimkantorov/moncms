@@ -43,8 +43,6 @@ import DraggableBlockPlugin from './plugins/DraggableBlockPlugin';
 import EmojiPickerPlugin from './plugins/EmojiPickerPlugin';
 import EmojisPlugin from './plugins/EmojisPlugin';
 import EquationsPlugin from './plugins/EquationsPlugin';
-import ExcalidrawPlugin from './plugins/ExcalidrawPlugin';
-import FigmaPlugin from './plugins/FigmaPlugin';
 import FloatingLinkEditorPlugin from './plugins/FloatingLinkEditorPlugin';
 import FloatingTextFormatToolbarPlugin from './plugins/FloatingTextFormatToolbarPlugin';
 import ImagesPlugin from './plugins/ImagesPlugin';
@@ -57,8 +55,6 @@ import MarkdownShortcutPlugin from './plugins/MarkdownShortcutPlugin';
 import {MaxLengthPlugin} from './plugins/MaxLengthPlugin';
 import MentionsPlugin from './plugins/MentionsPlugin';
 import PageBreakPlugin from './plugins/PageBreakPlugin';
-import PollPlugin from './plugins/PollPlugin';
-import SpeechToTextPlugin from './plugins/SpeechToTextPlugin';
 import TabFocusPlugin from './plugins/TabFocusPlugin';
 import TableCellActionMenuPlugin from './plugins/TableActionMenuPlugin';
 import TableCellResizer from './plugins/TableCellResizer';
@@ -139,7 +135,6 @@ export default function EditorOnly({
         <EmojisPlugin />
         <HashtagPlugin />
         <KeywordsPlugin />
-        <SpeechToTextPlugin />
         <AutoLinkPlugin />
             
         <HistoryPlugin externalHistoryState={historyState} />
@@ -167,14 +162,11 @@ export default function EditorOnly({
         <ImagesPlugin />
         <InlineImagePlugin />
         <LinkPlugin />
-        <PollPlugin />
         <TwitterPlugin />
         <YouTubePlugin />
-        <FigmaPlugin />
         {!isEditable && <LexicalClickableLinkPlugin />}
         <HorizontalRulePlugin />
         <EquationsPlugin />
-        <ExcalidrawPlugin />
         <TabFocusPlugin />
         <TabIndentationPlugin />
         <CollapsiblePlugin />
