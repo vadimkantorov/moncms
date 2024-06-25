@@ -1097,7 +1097,7 @@ export default function ToolbarPlugin({
               <i className="icon gif" />
               <span className="text">GIF</span>
             </DropDownItem>
-            <DropDownItem
+            {/*<DropDownItem
               onClick={() => {
                 activeEditor.dispatchCommand(
                   INSERT_EXCALIDRAW_COMMAND,
@@ -1107,7 +1107,7 @@ export default function ToolbarPlugin({
               className="item">
               <i className="icon diagram-2" />
               <span className="text">Excalidraw</span>
-            </DropDownItem>
+            </DropDownItem>*/}
             <DropDownItem
               onClick={() => {
                 showModal('Insert Table', (onClose) => (
@@ -1121,7 +1121,7 @@ export default function ToolbarPlugin({
               <i className="icon table" />
               <span className="text">Table</span>
             </DropDownItem>
-            <DropDownItem
+            {/*<DropDownItem
               onClick={() => {
                 showModal('Insert Poll', (onClose) => (
                   <InsertPollDialog
@@ -1133,7 +1133,7 @@ export default function ToolbarPlugin({
               className="item">
               <i className="icon poll" />
               <span className="text">Poll</span>
-            </DropDownItem>
+            </DropDownItem>*/}
             <DropDownItem
               onClick={() => {
                 showModal('Insert Columns Layout', (onClose) => (
