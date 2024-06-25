@@ -1052,14 +1052,14 @@ export default function ToolbarPlugin({
               <i className="icon horizontal-rule" />
               <span className="text">Horizontal Rule</span>
             </DropDownItem>
-            <DropDownItem
+            {/*<DropDownItem
               onClick={() => {
                 activeEditor.dispatchCommand(INSERT_PAGE_BREAK, undefined);
               }}
               className="item">
               <i className="icon page-break" />
               <span className="text">Page Break</span>
-            </DropDownItem>
+            </DropDownItem>*/}
             <DropDownItem
               onClick={() => {
                 showModal('Insert Image', (onClose) => (
