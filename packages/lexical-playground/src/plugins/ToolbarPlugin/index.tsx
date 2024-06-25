@@ -1161,7 +1161,7 @@ export default function ToolbarPlugin({
               <i className="icon equation" />
               <span className="text">Equation</span>
             </DropDownItem>
-            <DropDownItem
+            {/*<DropDownItem
               onClick={() => {
                 editor.update(() => {
                   const root = $getRoot();
@@ -1172,7 +1172,7 @@ export default function ToolbarPlugin({
               className="item">
               <i className="icon sticky" />
               <span className="text">Sticky Note</span>
-            </DropDownItem>
+            </DropDownItem>*/}
             <DropDownItem
               onClick={() => {
                 editor.dispatchCommand(INSERT_COLLAPSIBLE_COMMAND, undefined);
