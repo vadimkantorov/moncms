@@ -60,7 +60,7 @@ TODO: do not return res_file/res_dir when error?
             <button onclick="onclick_savefile()">Save File</button>
             <button onclick="onclick_delfile()" id="html_delfile" data-message="Do you really want to delete this file?">Delete File</button>
             <button onclick="onclick_createfile()" id="html_createfile" data-message="### modify the file name, modify this content and click Save to actually create and save the file">New File</button>
-            <button onclick="onclick_createdir()" id="html_createdir" data-message="### modify the directory name, and then click Save to create the file and the directory">New Directory</button>
+            <button onclick="onclick_createdir()" id="html_createdir" data-message="### modify the directory name, and then click Save to create the file and the directory">New Folder</button>
             
             <button onclick="onclick_upload()">Upload Files</button>
             <input type="file" id="html_files" onchange="onchange_files()" multiple hidden />
@@ -258,7 +258,7 @@ TODO: do not return res_file/res_dir when error?
             return [res_file, res_dir];
         }
         
-        async function github_api_update_file(prep, retrieved_contents, base64, message = 'no commit message')
+        async function github_api_update_file(prep, retrieved_contents, base64, moncms_log, message = 'no commit message')
         {
             const req = {
                 message : message,
@@ -273,7 +273,7 @@ TODO: do not return res_file/res_dir when error?
             return [resp, res];
         }
         
-        async function github_api_create_file(prep, retrieved_contents, base64, message = 'no commit message')
+        async function github_api_create_file(prep, retrieved_contents, base64, moncms_log, message = 'no commit message')
         {
             const req = {
                 message : message,
@@ -283,17 +283,17 @@ TODO: do not return res_file/res_dir when error?
                 req.branch = prep.github_branch;
             if(retrieved_contents.sha)
                 req.sha = retrieved_contents.sha;
-            const resp = await fetch(prep.contents_api_url_put, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
-            const res = await resp.json();
-            return [resp, res];
+            const resp_put = await fetch(prep.contents_api_url_put, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
+            const res_put = await resp_put.json();
+            moncms_log('PUT ' + github_api_format_error(resp_put, res_put));
+            return [resp_put, res_put];
         }
         
         async function github_api_upsert_file(prep, new_file_name, base64, moncms_log, message = 'no commit message', HTTP_CREATED = 201, HTTP_EXISTS = 422)
         {
             const contents_api_url_put = join2(prep.contents_api_dir_url_put, new_file_name);
             const contents_api_url_get = join2(prep.contents_api_dir_url_put, new_file_name) + (prep.github_branch ? `?ref=${prep.github_branch}` : '');
-            let [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put }, {}, base64);
-            moncms_log('PUT ' + github_api_format_error(resp_put, res_put));
+            let [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put }, {}, base64, moncms_log);
             if(resp_put.status == HTTP_CREATED)
                 add_file_tree(res_put.content);
             
@@ -301,18 +301,16 @@ TODO: do not return res_file/res_dir when error?
             {
                 const res_get = await github_api_get_file({...prep, contents_api_url_get : contents_api_url_get}, moncms_log);
                 
-                [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put}, res_get, base64);
-                moncms_log('PUT ' + github_api_format_error(resp_put, res_put));
+                [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put}, res_get, base64, moncms_log);
             }
+            return res_put;
         }
         
         async function github_api_rename_file(prep, new_file_name, base64, retrieved_contents, moncms_log, message = 'no commit message')
         {
             const _retrieved_contents = retrieved_contents;
-            const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, {}, base64);
+            const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, {}, base64, moncms_log);
             retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
-            moncms_log('PUT ' + github_api_format_error(resp_put, res_put));
-
             await github_api_delete_file(prep, _retrieved_contents, moncms_log);
             return retrieved_contents;
         }
@@ -626,15 +624,13 @@ TODO: do not return res_file/res_dir when error?
 
             if(should_update)
             {
-                const [resp_put, res_put] = await github_api_update_file(prep, retrieved_contents, base64);
+                const res_put = await github_api_update_file(prep, retrieved_contents, base64, moncms_log).pop();
                 retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
-                moncms_log('PUT ' + github_api_format_error(resp_put, res_put));
             }
             else if(should_create)
             {
-                const [resp_put, res_put] = await github_api_create_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, {}, base64);
+                const res_put = await github_api_create_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, {}, base64, moncms_log).pop();
                 retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
-                moncms_log('PUT ' + github_api_format_error(resp_put, res_put));
             }
             else if(should_rename)
             {
