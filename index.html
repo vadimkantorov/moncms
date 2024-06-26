@@ -108,16 +108,23 @@ TODO: onclick_open with token should not sign in / change sign button text
 
         async function discover_github_url(url, key = 'moncmsdefault', HTTP_OK = 200)
         {
-            if(url && !url.startsWith('file:'))
-            {
-                const resp = await fetch(url);
-                if(resp.status != HTTP_OK)
-                    return '';
+            if(!url)
+                return '';
 
-                const html = await resp.text();
-                const parser = new DOMParser();
-                const document = parser.parseFromString(html, 'text/html');
-                return (Array.from(document.querySelectorAll('meta')).filter(meta => meta.name == key).pop() || {}).content || '';
+            if(url == window.location.href || !url.startsWith('file:'))
+            {
+                let doc = document;
+                if(url != window.location.href)
+                {
+                    const resp = await fetch(url);
+                    if(!resp.ok)
+                        return '';
+
+                    const html = await resp.text();
+                    const parser = new DOMParser();
+                    doc = parser.parseFromString(html, 'text/html');
+                }
+                return (Array.from(doc.querySelectorAll('meta')).filter(meta => meta.name == key).pop() || {}).content || '';
             }
             return '';
         }
@@ -661,9 +668,6 @@ TODO: onclick_open with token should not sign in / change sign button text
                 moncms_log('got from cache for ' + prep.github_repo_url);
             }
             
-            const discovered = await discover_github_url(html_url.value);
-            console.log(discovered);
-            
             html_signinout.className = html_token.value ? 'signout' : 'signin';
             
             const [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
@@ -842,9 +846,9 @@ TODO: onclick_open with token should not sign in / change sign button text
 
             if(!html_url.value)
             {
-                const metas = Array.from(document.querySelectorAll('meta')).filter(meta => meta.name == 'moncmsdefault');
-                const prep = github_api_prepare_params(window.location.protocol != 'file:' ? window.location.href : await discover_github_url(window.location.href));
-                html_url.value = metas.length > 0 ? metas.pop().content : prep.github_repo_url;
+                const discovered = await discover_github_url(window.location.href);
+                const prep = github_api_prepare_params(window.location.protocol != 'file:' ? window.location.href : discovered);
+                html_url.value = discovered || prep.github_repo_url;
             }
 
             if(!html_token.value)
