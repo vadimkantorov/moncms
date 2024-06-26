@@ -195,7 +195,7 @@ export default function ActionsPlugin({
 
   return (
     <div className="actions">
-      {/*{SUPPORT_SPEECH_RECOGNITION && (
+      {SUPPORT_SPEECH_RECOGNITION && (
         <button
           onClick={() => {
             editor.dispatchCommand(SPEECH_TO_TEXT_COMMAND, !isSpeechToText);
@@ -218,7 +218,7 @@ export default function ActionsPlugin({
         title="Import"
         aria-label="Import editor state from JSON">
         <i className="import" />
-      </button>*/}
+      </button>
       <button
         className="action-button export"
         onClick={() =>
@@ -231,7 +231,7 @@ export default function ActionsPlugin({
         aria-label="Export editor state to JSON">
         <i className="export" />
       </button>
-      {/*<button
+      <button
         className="action-button share"
         disabled={isCollabActive || INITIAL_SETTINGS.isCollab}
         onClick={() =>
@@ -247,7 +247,7 @@ export default function ActionsPlugin({
         title="Share"
         aria-label="Share Playground link to current editor state">
         <i className="share" />
-      </button>*/}
+      </button>
       <button
         className="action-button clear"
         disabled={isEditorEmpty}
@@ -260,7 +260,7 @@ export default function ActionsPlugin({
         aria-label="Clear editor contents">
         <i className="clear" />
       </button>
-      {/*<button
+      <button
         className={`action-button ${!isEditable ? 'unlock' : 'lock'}`}
         onClick={() => {
           // Send latest editor state to commenting validation server
@@ -272,7 +272,7 @@ export default function ActionsPlugin({
         title="Read-Only Mode"
         aria-label={`${!isEditable ? 'Unlock' : 'Lock'} read-only mode`}>
         <i className={!isEditable ? 'unlock' : 'lock'} />
-      </button>*/}
+      </button>
       <button
         className="action-button"
         onClick={handleMarkdownToggle}

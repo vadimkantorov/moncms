@@ -929,7 +929,7 @@ export default function ToolbarPlugin({
         title="Convert From Markdown"
         type="button"
         aria-label="Convert from markdown">
-        <i className="markdown" />
+        <i className="format markdown" />
       </button>
       
       <button

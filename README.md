@@ -15,7 +15,6 @@ wget https://github.com/facebook/lexical/archive/refs/tags/v0.16.0.tar.gz && tar
 
 # Modified
 - [packages/lexical-playground/src/plugins/ToolbarPlugin/index.tsx](packages/lexical-playground/src/plugins/ToolbarPlugin/index.tsx)
-- [packages/lexical-playground/src/plugins/ActionsPlugin/index.tsx](packages/lexical-playground/src/plugins/ActionsPlugin/index.tsx)
 
 # References
 
