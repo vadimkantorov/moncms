@@ -580,7 +580,7 @@ TODO: onclick_open with token should not sign in / change sign button text
 
         async function onclick_delfile()
         {
-            if(!retrieved_contents || Object.entries(retrieved_contents).length == 0)
+            if(Object.entries(retrieved_contents || {}).length == 0)
             {
                 html_file_name.value = '';
                 return html_file_name.focus();
@@ -613,8 +613,8 @@ TODO: onclick_open with token should not sign in / change sign button text
             // https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
             // https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
 
-            if(!html_file_name.value || Object.entries(retrieved_contents).length == 0)
-                return;
+            if(!html_file_name.value)
+                return moncms_log('cannot save a file without file name');
             const prep = github_api_prepare_params(html_url.value, html_token.value, true);
             if(prep.error)
                 return moncms_log(prep.error);
@@ -629,7 +629,7 @@ TODO: onclick_open with token should not sign in / change sign button text
             const new_file_name = html_file_name.value;
             const should_rename = retrieved_contents && new_file_name != retrieved_contents.name;
             const should_update = retrieved_contents && new_file_name == retrieved_contents.name;
-            const should_create = (!retrieved_contents || Object.entries(retrieved_contents).length == 0) && new_file_name;
+            const should_create = Object.entries(retrieved_contents || {}).length == 0 && new_file_name;
 
             if(should_update)
             {
