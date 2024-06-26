@@ -580,24 +580,20 @@ TODO: onclick_open with token should not sign in / change sign button text
 
         async function onclick_delfile()
         {
-            if(retrieved_contents || Object.entries(retrieved_contents).length == 0)
+            if(!retrieved_contents || Object.entries(retrieved_contents).length == 0)
             {
                 html_file_name.value = '';
-                html_file_name.focus();
-                return;
+                return html_file_name.focus();
             }
-            if(!retrieved_contents || Object.entries(retrieved_contents).length == 0 || !html_file_name.value || !html_token.value || !window.confirm(html_delfile.dataset.message))
-                return;
-
-            const prep = github_api_prepare_params(html_url.value, html_token.value);
+            const prep = github_api_prepare_params(html_url.value, html_token.value, true);
             if(prep.error)
                 return moncms_log(prep.error);
+            if(!html_file_name.value || !window.confirm(html_delfile.dataset.message))
+                return;
         
             await github_api_delete_file(prep, retrieved_contents, moncms_log);
-
             delete_file_tree(html_file_name.value);
             html_url.value = prep.curdir_url;
-            
             clear(false);
         }
         
