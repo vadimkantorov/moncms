@@ -3,20 +3,17 @@
 
 <!--
 TODO: extract github url from public url meta, current published timestamp file sha, and commit sha or from repos like https://username.github.io/ or https://username.github.io/repo
-TODO: when navigating, update html_url in search. what to do with password: make some url with all creds?
+TODO: when navigating, update html_url in search. what to do with password: make some url with all creds? reload after onclick_del at the opened file?
 TODO: when closing with changes, prevent?
-TODO: onclick_del: redirect and reload the page? (or only if had query string?) https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
 TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README.md instead of API by default (need to somehow fix for cache)
 TODO: support some sort of frontmatter scheme
-TODO: discover settings from a json file moncms.json next to the index.html
+TODO: discover settings from a json file moncms.json (assets dir?) next to the index.html
 
 TODO: do not load from cache token if deleted it? what to do if outdated token is there and changed the url? what to do with signed-in status when changing url? (set after get on onclick_load?)
 
 TODO: signin should open (or maybe clear or should show at least dir)?
-TODO: opening with token should not sign in / change sign button text
+TODO: onclick_open with token should not sign in / change sign button text
 
-TODO: if res_dir is empty because of error -> clear including file tree
-TODO: do not return res_file/res_dir when error?
 -->
 
     <head>
@@ -248,9 +245,8 @@ TODO: do not return res_file/res_dir when error?
             
             if(resp_file.status != HTTP_OK || resp_dir.status != HTTP_OK)
             {
-                clear();
                 moncms_log('error ' + github_api_format_error(resp_file, res_file) + ' | dir: ' + github_api_format_error(resp_dir, res_dir));
-                return [{}, []];
+                return [{}, null];
             }
             
             moncms_log('GET file: ' + github_api_format_error(resp_file, res_file) + ' | dir: ' + github_api_format_error(resp_dir, res_dir));
@@ -660,6 +656,7 @@ TODO: do not return res_file/res_dir when error?
 
             const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
             const is_dir = res_file.content === undefined;
+            const is_err = Object.entries(res_file).length == 0 && res_dir == null;
             const is_image = !is_dir && ext.some(e => res_file.name.endsWith(e));
             const images = res_dir.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
             const image_listing = images.map(j => `# ${j.name}\n![${j.name}](${j.download_url})`).join('\n\n');
@@ -667,7 +664,13 @@ TODO: do not return res_file/res_dir when error?
 
             retrieved_contents = res_file;
             
-            if(is_dir)
+            if(is_err)
+            {
+                html_file_name.value = '';
+                html_file_name.title = '';
+                clear();
+            }
+            else if(is_dir)
             {
                 html_file_name.value = '';
                 html_file_name.title = prep.github_repo_path;
@@ -773,7 +776,7 @@ TODO: do not return res_file/res_dir when error?
             if(html_signinout.className == 'signin')
             {
                 if(!html_token.value)
-                    return;
+                    return moncms_log('cannot signin, no token provided');
 
                 const prep = github_api_prepare_params(html_url.value, html_token.value);
                 if(!prep.github_repo_url || prep.error)
@@ -789,7 +792,10 @@ TODO: do not return res_file/res_dir when error?
                     cache_save(prep.github_repo_url, html_token.value);
                     html_signinout.className = 'signout';
                     moncms_log('saved to cache for ' + prep.github_repo_url);
+                    onclick_open();
                 }
+                else
+                    clear();
             }
             else if(html_signinout.className == 'signout')
             {
