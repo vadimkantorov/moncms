@@ -116,7 +116,7 @@ TODO: onclick_open with token should not sign in / change sign button text
 
                 const html = await resp.text();
                 const parser = new DOMParser();
-                const document = parser.parseFromString(txt, 'text/html');
+                const document = parser.parseFromString(html, 'text/html');
                 return (Array.from(document.querySelectorAll('meta')).filter(meta => meta.name == key).pop() || {}).content || '';
             }
             return '';
