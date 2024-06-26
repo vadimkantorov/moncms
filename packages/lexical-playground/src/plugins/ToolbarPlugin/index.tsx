@@ -892,6 +892,8 @@ export default function ToolbarPlugin({
     activeEditor.dispatchCommand(INSERT_IMAGE_COMMAND, payload);
   };
   
+  const shouldPreserveNewLinesInMarkdown = false;
+
   const handleMarkdownToggle = useCallback(() => {
     editor.update(() => {
       const root = $getRoot();
