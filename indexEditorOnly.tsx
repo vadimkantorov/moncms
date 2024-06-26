@@ -200,7 +200,7 @@ export default function EditorOnly({
         {isAutocomplete && <AutocompletePlugin />}
         <div>{showTableOfContents && <TableOfContentsPlugin />}</div>
         {shouldUseLexicalContextMenu && <ContextMenuPlugin />}
-        {showActions && <ActionsPlugin isRichText={true} />}
+        {/*{showActions && <ActionsPlugin isRichText={true} />}*/}
       </div>
       {showTreeView && <TreeViewPlugin />}
     </>

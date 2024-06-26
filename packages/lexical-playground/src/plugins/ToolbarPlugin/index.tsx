@@ -97,6 +97,52 @@ import {InsertPollDialog} from '../PollPlugin';
 import {InsertTableDialog} from '../TablePlugin';
 import FontSize from './fontSize';
 
+
+
+
+import type {LexicalEditor} from 'lexical';
+
+import {$createCodeNode, $isCodeNode} from '@lexical/code';
+import {
+  editorStateFromSerializedDocument,
+  exportFile,
+  importFile,
+  SerializedDocument,
+  serializedDocumentFromEditorState,
+} from '@lexical/file';
+import {
+  $convertFromMarkdownString,
+  $convertToMarkdownString,
+} from '@lexical/markdown';
+import {useCollaborationContext} from '@lexical/react/LexicalCollaborationContext';
+import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext';
+import {mergeRegister} from '@lexical/utils';
+import {CONNECTED_COMMAND, TOGGLE_CONNECT_COMMAND} from '@lexical/yjs';
+import {
+  $createTextNode,
+  $getRoot,
+  $isParagraphNode,
+  CLEAR_EDITOR_COMMAND,
+  CLEAR_HISTORY_COMMAND,
+  COMMAND_PRIORITY_EDITOR,
+} from 'lexical';
+import {useCallback, useEffect, useState} from 'react';
+
+import {INITIAL_SETTINGS} from '../../appSettings';
+import useFlashMessage from '../../hooks/useFlashMessage';
+import useModal from '../../hooks/useModal';
+import Button from '../../ui/Button';
+import {docFromHash, docToHash} from '../../utils/docSerialization';
+import {PLAYGROUND_TRANSFORMERS} from '../MarkdownTransformers';
+import {
+  SPEECH_TO_TEXT_COMMAND,
+  SUPPORT_SPEECH_RECOGNITION,
+} from '../SpeechToTextPlugin';
+
+
+
+
+
 const blockTypeToBlockName = {
   bullet: 'Bulleted List',
   check: 'Check List',
@@ -546,6 +592,16 @@ export default function ToolbarPlugin({
   const [codeLanguage, setCodeLanguage] = useState<string>('');
   const [isEditable, setIsEditable] = useState(() => editor.isEditable());
 
+
+
+  const [isSpeechToText, setIsSpeechToText] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [isEditorEmpty, setIsEditorEmpty] = useState(true);
+  const showFlashMessage = useFlashMessage();
+  const {isCollabActive} = useCollaborationContext();
+
+
+
   const $updateToolbar = useCallback(() => {
     const selection = $getSelection();
     if ($isRangeSelection(selection)) {
@@ -835,9 +891,45 @@ export default function ToolbarPlugin({
   const insertGifOnClick = (payload: InsertImagePayload) => {
     activeEditor.dispatchCommand(INSERT_IMAGE_COMMAND, payload);
   };
+  
+  const handleMarkdownToggle = useCallback(() => {
+    editor.update(() => {
+      const root = $getRoot();
+      const firstChild = root.getFirstChild();
+      if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'markdown') {
+        $convertFromMarkdownString(
+          firstChild.getTextContent(),
+          PLAYGROUND_TRANSFORMERS,
+          undefined, // node
+          shouldPreserveNewLinesInMarkdown,
+        );
+      } else {
+        const markdown = $convertToMarkdownString(
+          PLAYGROUND_TRANSFORMERS,
+          undefined, //node
+          shouldPreserveNewLinesInMarkdown,
+        );
+        root
+          .clear()
+          .append(
+            $createCodeNode('markdown').append($createTextNode(markdown)),
+          );
+      }
+      root.selectEnd();
+    });
+  }, [editor, shouldPreserveNewLinesInMarkdown]);
 
   return (
     <div className="toolbar">
+      <button
+        className="toolbar-item spaced"
+        onClick={handleMarkdownToggle}
+        title="Convert From Markdown"
+        type="button"
+        aria-label="Convert from markdown">
+        <i className="markdown" />
+      </button>
+      
       <button
         disabled={!canUndo || !isEditable}
         onClick={() => {
