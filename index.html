@@ -2,7 +2,9 @@
 <html charset="utf-8">
 
 <!--
-TODO: extract github url from public url meta, current published timestamp file sha, and commit sha or from repos like https://username.github.io/ or https://username.github.io/repo
+
+TODO: handle all fetch errors
+TODO: extract meta from public_html page
 TODO: when navigating, update html_url in search. what to do with password: make some url with all creds? reload after onclick_del at the opened file?
 TODO: when closing with changes, prevent?
 TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README.md instead of API by default (need to somehow fix for cache)
@@ -11,7 +13,6 @@ TODO: discover settings from a json file moncms.json (assets dir?) next to the i
 
 TODO: do not load from cache token if deleted it? what to do if outdated token is there and changed the url? what to do with signed-in status when changing url? (set after get on onclick_load?)
 
-TODO: signin should open (or maybe clear or should show at least dir)?
 TODO: onclick_open with token should not sign in / change sign button text
 
 -->
@@ -105,10 +106,17 @@ TODO: onclick_open with token should not sign in / change sign button text
             window.history.replaceState({}, document.title, path );
         }
 
-        function discover_meta(url, key = 'moncms')
+        async function discover_github_url(url, key = 'moncmsdefault')
         {
-            //const parser = new DOMParser();
-            //const htmlDoc = parser.parseFromString(txt, 'text/html');
+            if(url)
+            {
+                const resp = await fetch(url);
+                const html = await resp.text();
+                const parser = new DOMParser();
+                const document = parser.parseFromString(txt, 'text/html');
+                return (Array.from(document.querySelectorAll('meta')).filter(meta => meta.name == key).pop() || {}).content || '';
+            }
+            return '';
         }
         
         function github_api_format_error(resp, res = {})
@@ -650,6 +658,9 @@ TODO: onclick_open with token should not sign in / change sign button text
                 moncms_log('got from cache for ' + prep.github_repo_url);
             }
             
+            const discovered = await discover_github_url(html_url.value);
+            console.log(discovered);
+            
             html_signinout.className = html_token.value ? 'signout' : 'signin';
             
             const [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
@@ -828,10 +839,9 @@ TODO: onclick_open with token should not sign in / change sign button text
 
             if(!html_url.value)
             {
-                const metas1 = Array.from(document.querySelectorAll('meta')).filter(meta => meta.name == 'moncms');
-                const metas2 = Array.from(document.querySelectorAll('meta')).filter(meta => meta.name == 'moncmsdefault');
-                const prep = github_api_prepare_params(window.location.protocol != 'file:' ? window.location.href : (metas1.length > 0 ? metas1.pop().content : ''));
-                html_url.value = metas2.length > 0 ? metas2.pop().content : prep.github_repo_url;
+                const metas = Array.from(document.querySelectorAll('meta')).filter(meta => meta.name == 'moncmsdefault');
+                const prep = github_api_prepare_params(window.location.protocol != 'file:' ? window.location.href : await discover_github_url(window.location.href));
+                html_url.value = metas.length > 0 ? metas.pop().content : prep.github_repo_url;
             }
 
             if(!html_token.value)
