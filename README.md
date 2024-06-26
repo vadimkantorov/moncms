@@ -13,10 +13,9 @@ Test:
 wget https://github.com/facebook/lexical/archive/refs/tags/v0.16.0.tar.gz && tar -xf v0.16.0.tar.gz --strip-components=1 lexical-0.16.0/packages/lexical-playground lexical-0.16.0/packages/shared && git add -A -f packages
 ```
 
-# Important
-Modified [`packages/lexical-playground/src/plugins/ToolbarPlugin/index.tsx`](packages/lexical-playground/src/plugins/ToolbarPlugin/index.tsx)
-
-Modified [packages/lexical-playground/src/plugins/ToolbarPlugin/index.tsx](packages/lexical-playground/src/plugins/ToolbarPlugin/index.tsx)
+# Modified
+- [packages/lexical-playground/src/plugins/ToolbarPlugin/index.tsx](packages/lexical-playground/src/plugins/ToolbarPlugin/index.tsx)
+- [packages/lexical-playground/src/plugins/ActionsPlugin/index.tsx](packages/lexical-playground/src/plugins/ActionsPlugin/index.tsx)
 
 # References
 
