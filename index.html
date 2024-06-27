@@ -117,7 +117,7 @@ TODO: simplify op checks, use sha only if for the same url
                 let doc = document;
                 if(url != window.location.href)
                 {
-                    const resp = await fetch(url);
+                    const resp = await fetch(url).catch(err => ({ok: false, e : err}));
                     if(!resp.ok)
                         return '';
 
@@ -829,8 +829,6 @@ TODO: simplify op checks, use sha only if for the same url
         {
             await onload_editor();
             
-            console.log(await discover_github_url('https://github.com/vadimkantorov/moncms'));
-
             if(window.location.search)
             {
                 const query_string = new URLSearchParams(window.location.search);
