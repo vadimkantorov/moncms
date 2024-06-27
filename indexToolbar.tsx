@@ -75,7 +75,7 @@ import * as React from 'react';
 import {IS_APPLE} from 'shared/environment';
 
 import useModal from '../../hooks/useModal';
-import catTypingGif from '../../images/cat-typing.gif';
+//import catTypingGif from '../../images/cat-typing.gif';
 import {$createStickyNode} from '../../nodes/StickyNode';
 import DropDown, {DropDownItem} from '../../ui/DropDown';
 import DropdownColorPicker from '../../ui/DropdownColorPicker';
@@ -96,6 +96,52 @@ import {INSERT_PAGE_BREAK} from '../PageBreakPlugin';
 import {InsertPollDialog} from '../PollPlugin';
 import {InsertTableDialog} from '../TablePlugin';
 import FontSize from './fontSize';
+
+
+
+
+import type {LexicalEditor} from 'lexical';
+
+import {$createCodeNode, $isCodeNode} from '@lexical/code';
+import {
+  editorStateFromSerializedDocument,
+  exportFile,
+  importFile,
+  SerializedDocument,
+  serializedDocumentFromEditorState,
+} from '@lexical/file';
+import {
+  $convertFromMarkdownString,
+  $convertToMarkdownString,
+} from '@lexical/markdown';
+import {useCollaborationContext} from '@lexical/react/LexicalCollaborationContext';
+import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext';
+import {mergeRegister} from '@lexical/utils';
+import {CONNECTED_COMMAND, TOGGLE_CONNECT_COMMAND} from '@lexical/yjs';
+import {
+  $createTextNode,
+  $getRoot,
+  $isParagraphNode,
+  CLEAR_EDITOR_COMMAND,
+  CLEAR_HISTORY_COMMAND,
+  COMMAND_PRIORITY_EDITOR,
+} from 'lexical';
+import {useCallback, useEffect, useState} from 'react';
+
+import {INITIAL_SETTINGS} from '../../appSettings';
+import useFlashMessage from '../../hooks/useFlashMessage';
+import useModal from '../../hooks/useModal';
+import Button from '../../ui/Button';
+import {docFromHash, docToHash} from '../../utils/docSerialization';
+import {PLAYGROUND_TRANSFORMERS} from '../MarkdownTransformers';
+import {
+  SPEECH_TO_TEXT_COMMAND,
+  SUPPORT_SPEECH_RECOGNITION,
+} from '../SpeechToTextPlugin';
+
+
+
+
 
 const blockTypeToBlockName = {
   bullet: 'Bulleted List',
@@ -546,6 +592,16 @@ export default function ToolbarPlugin({
   const [codeLanguage, setCodeLanguage] = useState<string>('');
   const [isEditable, setIsEditable] = useState(() => editor.isEditable());
 
+
+
+  const [isSpeechToText, setIsSpeechToText] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [isEditorEmpty, setIsEditorEmpty] = useState(true);
+  const showFlashMessage = useFlashMessage();
+  const {isCollabActive} = useCollaborationContext();
+
+
+
   const $updateToolbar = useCallback(() => {
     const selection = $getSelection();
     if ($isRangeSelection(selection)) {
@@ -835,9 +891,47 @@ export default function ToolbarPlugin({
   const insertGifOnClick = (payload: InsertImagePayload) => {
     activeEditor.dispatchCommand(INSERT_IMAGE_COMMAND, payload);
   };
+  
+  const shouldPreserveNewLinesInMarkdown = false;
+
+  const handleMarkdownToggle = useCallback(() => {
+    editor.update(() => {
+      const root = $getRoot();
+      const firstChild = root.getFirstChild();
+      if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'markdown') {
+        $convertFromMarkdownString(
+          firstChild.getTextContent(),
+          PLAYGROUND_TRANSFORMERS,
+          undefined, // node
+          shouldPreserveNewLinesInMarkdown,
+        );
+      } else {
+        const markdown = $convertToMarkdownString(
+          PLAYGROUND_TRANSFORMERS,
+          undefined, //node
+          shouldPreserveNewLinesInMarkdown,
+        );
+        root
+          .clear()
+          .append(
+            $createCodeNode('markdown').append($createTextNode(markdown)),
+          );
+      }
+      root.selectEnd();
+    });
+  }, [editor, shouldPreserveNewLinesInMarkdown]);
 
   return (
     <div className="toolbar">
+      <button
+        className="toolbar-item spaced"
+        onClick={handleMarkdownToggle}
+        title="Convert From Markdown"
+        type="button"
+        aria-label="Convert from markdown">
+        <i className="format markdown" />
+      </button>
+      
       <button
         disabled={!canUndo || !isEditable}
         onClick={() => {
@@ -1052,14 +1146,14 @@ export default function ToolbarPlugin({
               <i className="icon horizontal-rule" />
               <span className="text">Horizontal Rule</span>
             </DropDownItem>
-            <DropDownItem
+            {/*<DropDownItem
               onClick={() => {
                 activeEditor.dispatchCommand(INSERT_PAGE_BREAK, undefined);
               }}
               className="item">
               <i className="icon page-break" />
               <span className="text">Page Break</span>
-            </DropDownItem>
+            </DropDownItem>*/}
             <DropDownItem
               onClick={() => {
                 showModal('Insert Image', (onClose) => (
@@ -1086,7 +1180,7 @@ export default function ToolbarPlugin({
               <i className="icon image" />
               <span className="text">Inline Image</span>
             </DropDownItem>
-            <DropDownItem
+            {/*<DropDownItem
               onClick={() =>
                 insertGifOnClick({
                   altText: 'Cat typing on a laptop',
@@ -1097,7 +1191,7 @@ export default function ToolbarPlugin({
               <i className="icon gif" />
               <span className="text">GIF</span>
             </DropDownItem>
-            <DropDownItem
+            {<DropDownItem
               onClick={() => {
                 activeEditor.dispatchCommand(
                   INSERT_EXCALIDRAW_COMMAND,
@@ -1107,7 +1201,7 @@ export default function ToolbarPlugin({
               className="item">
               <i className="icon diagram-2" />
               <span className="text">Excalidraw</span>
-            </DropDownItem>
+            </DropDownItem>*/}
             <DropDownItem
               onClick={() => {
                 showModal('Insert Table', (onClose) => (
@@ -1121,7 +1215,7 @@ export default function ToolbarPlugin({
               <i className="icon table" />
               <span className="text">Table</span>
             </DropDownItem>
-            <DropDownItem
+            {/*<DropDownItem
               onClick={() => {
                 showModal('Insert Poll', (onClose) => (
                   <InsertPollDialog
@@ -1133,7 +1227,7 @@ export default function ToolbarPlugin({
               className="item">
               <i className="icon poll" />
               <span className="text">Poll</span>
-            </DropDownItem>
+            </DropDownItem>*/}
             <DropDownItem
               onClick={() => {
                 showModal('Insert Columns Layout', (onClose) => (
@@ -1161,7 +1255,7 @@ export default function ToolbarPlugin({
               <i className="icon equation" />
               <span className="text">Equation</span>
             </DropDownItem>
-            <DropDownItem
+            {/*<DropDownItem
               onClick={() => {
                 editor.update(() => {
                   const root = $getRoot();
@@ -1172,7 +1266,7 @@ export default function ToolbarPlugin({
               className="item">
               <i className="icon sticky" />
               <span className="text">Sticky Note</span>
-            </DropDownItem>
+            </DropDownItem>*/}
             <DropDownItem
               onClick={() => {
                 editor.dispatchCommand(INSERT_COLLAPSIBLE_COMMAND, undefined);

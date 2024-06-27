@@ -53,6 +53,7 @@ assets:
 	sed -i "s@alias: moduleResolution('production')@alias: [ { find: 'shared', replacement: path.resolve('../shared/src') } ]@" packages/lexical-playground/vite.prod.config.ts
 	#
 	sed -i "s@FigmaEmbedConfig,@@" packages/lexical-playground/src/plugins/AutoEmbedPlugin/index.tsx
+	cp indexToolbar.tsx packages/lexical-playground/src/plugins/ToolbarPlugin/index.tsx
 	#
 	npm install --force --prefix packages/lexical-playground @rollup/plugin-babel @babel/plugin-transform-flow-strip-types @babel/preset-react 
 	npm run --prefix packages/lexical-playground build-prod
