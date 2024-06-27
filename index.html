@@ -272,31 +272,23 @@ TODO: onclick_open with token should not sign in / change sign button text
             return [res_file, res_dir];
         }
         
-        async function github_api_update_file(prep, retrieved_contents, base64, moncms_log, message = 'no commit message')
+        async function github_api_update_file(prep, retrieved_contents_sha, base64, moncms_log, message = 'no commit message')
         {
-            const req = {
-                message : message,
-                content : base64,
-            };
+            const req = { message : message, content : base64 };
             if(prep.github_branch)
                 req.branch = prep.github_branch;
-            if(retrieved_contents.sha)
-                req.sha = retrieved_contents.sha;
+            if(retrieved_contents_sha)
+                req.sha = retrieved_contents_sha;
             const resp = await fetch(prep.contents_api_url_put, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
             const res = await resp.json();
             return [resp, res];
         }
         
-        async function github_api_create_file(prep, retrieved_contents, base64, moncms_log, message = 'no commit message')
+        async function github_api_create_file(prep, base64, moncms_log, message = 'no commit message')
         {
-            const req = {
-                message : message,
-                content : base64,
-            };
+            const req = { message : message, content : base64 };
             if(prep.github_branch)
                 req.branch = prep.github_branch;
-            if(retrieved_contents.sha)
-                req.sha = retrieved_contents.sha;
             const resp_put = await fetch(prep.contents_api_url_put, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
             const res_put = await resp_put.json();
             moncms_log('PUT ' + github_api_format_error(resp_put, res_put));
@@ -307,7 +299,7 @@ TODO: onclick_open with token should not sign in / change sign button text
         {
             const contents_api_url_put = join2(prep.contents_api_dir_url_put, new_file_name);
             const contents_api_url_get = join2(prep.contents_api_dir_url_put, new_file_name) + (prep.github_branch ? `?ref=${prep.github_branch}` : '');
-            let [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put }, {}, base64, moncms_log);
+            let [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put }, null, base64, moncms_log);
             if(resp_put.status == HTTP_CREATED)
                 add_file_tree(res_put.content);
             
@@ -315,7 +307,7 @@ TODO: onclick_open with token should not sign in / change sign button text
             {
                 const res_get = await github_api_get_file({...prep, contents_api_url_get : contents_api_url_get}, moncms_log);
                 
-                [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put}, res_get, base64, moncms_log);
+                [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put}, res_get.sha, base64, moncms_log);
             }
             return res_put;
         }
@@ -323,7 +315,7 @@ TODO: onclick_open with token should not sign in / change sign button text
         async function github_api_rename_file(prep, new_file_name, base64, retrieved_contents, moncms_log, message = 'no commit message')
         {
             const _retrieved_contents = retrieved_contents;
-            const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, {}, base64, moncms_log);
+            const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, null, base64, moncms_log);
             retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
             await github_api_delete_file(prep, _retrieved_contents, moncms_log);
             return retrieved_contents;
@@ -558,16 +550,21 @@ TODO: onclick_open with token should not sign in / change sign button text
             const now = new Date().toISOString();
             const date = now.slice(0, '0000-00-00'.length);
             const time = now.slice('0000-00-00'.length, '0000-00-00'.length + 'T00:00:00'.length).toLowerCase().replaceAll(':', '');
+            retrieved_contents = {};
             html_file_name.value = `${date}-new-post-draft-a${time}.md`; 
             html_file_name.focus();
         }
         
         async function onclick_createdir()
         {
-            await clear(false, html_createdir.dataset.message);
+            const prep = github_api_prepare_params(html_url.value, html_token.value, true);
+            if(prep.error)
+                return moncms_log(prep.error);
             
+            await clear(false, html_createdir.dataset.message);
             const now = new Date().toISOString();
             const time = now.slice('0000-00-00'.length, '0000-00-00'.length + 'T00:00:00'.length).toLowerCase().replaceAll(':', '');
+            retrieved_contents = {};
             html_file_name.value = `new-dir-a${time}/.gitignore`;
             html_file_name.focus();
         }
@@ -634,12 +631,12 @@ TODO: onclick_open with token should not sign in / change sign button text
 
             if(should_update)
             {
-                const res_put = await github_api_update_file(prep, retrieved_contents, base64, moncms_log).pop();
+                const res_put = await github_api_update_file(prep, retrieved_contents.sha, base64, moncms_log).pop();
                 retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
             }
             else if(should_create)
             {
-                const res_put = await github_api_create_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, {}, base64, moncms_log).pop();
+                const res_put = await github_api_create_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, base64, moncms_log).pop();
                 retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
             }
             else if(should_rename)
