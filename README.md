@@ -1,3 +1,42 @@
+# Google Docs toolbar
+- Search Menus
+- Undo
+- Redo
+- Print
+- Spellcheck
+- Print format
+- Zoom
+- DIVIDER
+- Format style
+- DIVIDER
+- Font family
+- DIVIDER
+- Font weight -size+
+- DIVIDER
+- Bold
+- Italic
+- Underscore
+- Text color
+- Highlight color
+- DIVIDER
+- Insert link
+- Add comment
+- Insert image
+- DIVIDER
+- Align
+- Line & paragraph spacing
+- Checklist
+- Bulleted list
+- Numbered list
+- Decrease indent
+- Increase list
+- Clear formatting
+- DIVIDER
+- Editing mode: Editing/Viewing
+- DIVIDER
+- Hiding the menus
+
+# Links
 - [https://vadimkantorov.github.io/moncms/?html_url=https://github.com/vadimkantorov/moncms/blob/gh-pages/README.md](https://vadimkantorov.github.io/moncms/?html_url=https://github.com/vadimkantorov/moncms/blob/gh-pages/README.md)
 - [https://vadimkantorov.github.io/moncms/?html_url=https://github.com/vadimkantorov/moncms/tree/gh-pages](https://vadimkantorov.github.io/moncms/?html_url=https://github.com/vadimkantorov/moncms/tree/gh-pages)
 - [https://vadimkantorov.github.io/moncms/?html_url=https://github.com/vadimkantorov/moncms/tree/gh-pages/assets](https://vadimkantorov.github.io/moncms/?html_url=https://github.com/vadimkantorov/moncms/tree/gh-pages/assets)
