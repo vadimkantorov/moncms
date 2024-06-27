@@ -14,6 +14,7 @@ TODO: discover settings from a json file moncms.json (assets dir?) next to the i
 TODO: do not load from cache token if deleted it? what to do if outdated token is there and changed the url? what to do with signed-in status when changing url? (set after get on onclick_load?)
 
 TODO: onclick_open with token should not sign in / change sign button text
+TODO: simplify op checks, use sha only if for the same url
 
 -->
 
@@ -827,6 +828,8 @@ TODO: onclick_open with token should not sign in / change sign button text
         async function onload_body()
         {
             await onload_editor();
+            
+            console.log(await discover_github_url('https://github.com/vadimkantorov/moncms'));
 
             if(window.location.search)
             {
