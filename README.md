@@ -1,3 +1,26 @@
+# Lexical toolbar
+- Markdown
+- Undo
+- Redo
+- DIVIDER
+- Format style
+- DIVIDER
+- Font family
+- DIVIDER
+- Font weight -size+
+- DIVIDER
+- Bold
+- Italic
+- Underscore
+- Insert code block
+- Insert link
+- Text color
+- Highlight color
+- Text style: strikethrough, subscript, suprescript, clear formatting
+- DIVIDER
+- Insert block
+- Align
+
 # Google Docs toolbar
 - Search Menus
 - Undo
