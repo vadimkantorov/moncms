@@ -547,7 +547,6 @@ TODO: simplify op checks, use sha only if for the same url
         async function onclick_createfile()
         {
             await clear(false, html_createfile.dataset.message);
-            
             const now = new Date().toISOString();
             const date = now.slice(0, '0000-00-00'.length);
             const time = now.slice('0000-00-00'.length, '0000-00-00'.length + 'T00:00:00'.length).toLowerCase().replaceAll(':', '');
@@ -558,10 +557,6 @@ TODO: simplify op checks, use sha only if for the same url
         
         async function onclick_createdir()
         {
-            const prep = github_api_prepare_params(html_url.value, html_token.value, true);
-            if(prep.error)
-                return moncms_log(prep.error);
-            
             await clear(false, html_createdir.dataset.message);
             const now = new Date().toISOString();
             const time = now.slice('0000-00-00'.length, '0000-00-00'.length + 'T00:00:00'.length).toLowerCase().replaceAll(':', '');
