@@ -104,6 +104,9 @@ wget https://github.com/facebook/lexical/archive/refs/tags/v0.16.0.tar.gz && tar
 - https://stackoverflow.com/questions/61742164/label-inside-of-button-click-button-and-activate-the-label
 - https://stackoverflow.com/questions/37504383/button-inside-a-label
 - https://stackoverflow.com/questions/572768/styling-an-input-type-file-button/25825731#25825731
+- https://finnian.io/blog/lexical-integration-actiontext-rails/
+- https://www.facebook.com/MetaOpenSource/videos/847531169669308/
+
 # lexical-playground-only
 ```html
 <html>
