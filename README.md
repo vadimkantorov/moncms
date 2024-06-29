@@ -146,3 +146,11 @@ Based on the broken release https://github.com/facebook/lexical/releases/tag/v0.
 - https://github.com/mmistakes/minimal-mistakes
 - https://github.com/richardtallent/vite-plugin-singlefile
 - https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
+- https://davidensinger.com/2013/04/adding-open-graph-tags-to-jekyll/
+- https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet
+- https://markdown-it.github.io/
+- https://github.com/executablebooks/markdown-it-py
+- https://github.com/daattali/beautiful-jekyll
+- https://github.com/allejo/jekyll-anchor-headings
+- https://github.com/jg-rp/liquid
+- https://www.google.com/search?q=%22%D0%A0%D0%B0%D0%B1%D0%BE%D1%82%D0%B0%D0%B5%D1%82+%D0%BD%D0%B0+%D0%9A%D0%B0%D0%BD%D0%B4%D0%B8%D0%BD%D1%81%D0%BA%D0%BE%D0%BC%22&rlz=1C1CHBD_enFR1001FR1001&oq=%22%D0%A0%D0%B0%D0%B1%D0%BE%D1%82%D0%B0%D0%B5%D1%82+%D0%BD%D0%B0+%D0%9A%D0%B0%D0%BD%D0%B4%D0%B8%D0%BD%D1%81%D0%BA%D0%BE%D0%BC%22&gs_lcrp=EgZjaHJvbWUyBggAEEUYOTIHCAEQIRigATIHCAIQIRigATIHCAMQIRigAdIBCDcyMTVqMGo0qAIAsAIA&sourceid=chrome&ie=UTF-8
