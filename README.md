@@ -145,3 +145,4 @@ Based on the broken release https://github.com/facebook/lexical/releases/tag/v0.
 - https://www.facebook.com/MetaOpenSource/videos/847531169669308/
 - https://github.com/mmistakes/minimal-mistakes
 - https://github.com/richardtallent/vite-plugin-singlefile
+- https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
