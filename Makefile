@@ -52,7 +52,7 @@ assets:
 	sed -i "s@import moduleResolution from '../shared/viteModuleResolution';@import * as path from 'node:path';@" packages/lexical-playground/vite.prod.config.ts
 	sed -i "s@alias: moduleResolution('production')@alias: [ { find: 'shared', replacement: path.resolve('../shared/src') } ]@" packages/lexical-playground/vite.prod.config.ts
 	sed -i "s@split: new URL('./split/index.html', import.meta.url).pathname,@},output: { format: 'iife',/*'es',*/ compact: false, manualChunks: false, inlineDynamicImports: true, entryFileNames: '[name].js',   /* currently does not work for the legacy bundle*/ assetFileNames: '[name].[ext]', /* currently does not work for images*/@" packages/lexical-playground/vite.prod.config.ts
-	#sed -i "s@minify: 'terser'@minify: false@" packages/lexical-playground/vite.prod.config.ts
+	sed -i "s@minify: 'terser'@minify: false@" packages/lexical-playground/vite.prod.config.ts
 	#
 	npm install --force --prefix packages/lexical-playground @rollup/plugin-babel @babel/plugin-transform-flow-strip-types @babel/preset-react 
 	npm run --prefix packages/lexical-playground build-prod
