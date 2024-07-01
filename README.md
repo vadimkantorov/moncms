@@ -157,3 +157,13 @@ Based on the broken release https://github.com/facebook/lexical/releases/tag/v0.
 - https://github.com/jeffreytse/jekyll-spaceship#6-hybrid-html-with-markdown
 - https://medium.com/markdown-monster-blog/getting-images-into-markdown-documents-and-weblog-posts-with-markdown-monster-9ec6f353d8ec
 - https://jekyllthemes.io/
+- https://github.com/jekyll/jekyll-import/blob/v0.14.0/lib/jekyll-import/importers/wordpress.rb
+- https://import.jekyllrb.com/docs/wordpress/
+- https://wordpress.com/plugins/jekyll-exporter
+- https://www.cnil.fr/sites/cnil/files/atoms/files/cnil-gdpr_practical_guide_data-protection-officers.pdf
+- https://www.maxxq.org/jekyll/2023/05/14/jekyll-gdpr.html
+- https://jekyllcodex.org/without-plugin/cookie-consent/
+- https://peateasea.de/enabling-cookie-consent-with-jekyll-minimal-mistakes/
+- https://ramezanpour.net/post/2021/02/09/gdpr
+- https://wowthemes.net/we-are-gdpr-compliant-practical-guide/
+- https://littlebigtech.net/posts/hugo-gdpr-cookie-consent-banner/
