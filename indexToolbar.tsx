@@ -1039,26 +1039,6 @@ export default function ToolbarPlugin({
             }`}>
             <i className="format underline" />
           </button>
-          <button
-            disabled={!isEditable}
-            onClick={() => {
-              activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'code');
-            }}
-            className={'toolbar-item spaced ' + (isCode ? 'active' : '')}
-            title="Insert code block"
-            type="button"
-            aria-label="Insert code block">
-            <i className="format code" />
-          </button>
-          <button
-            disabled={!isEditable}
-            onClick={insertLink}
-            className={'toolbar-item spaced ' + (isLink ? 'active' : '')}
-            aria-label="Insert link"
-            title="Insert link"
-            type="button">
-            <i className="format link" />
-          </button>
           <DropdownColorPicker
             disabled={!isEditable}
             buttonClassName="toolbar-item color-picker"
@@ -1077,6 +1057,27 @@ export default function ToolbarPlugin({
             onChange={onBgColorSelect}
             title="bg color"
           />
+          <Divider />
+          <button
+            disabled={!isEditable}
+            onClick={insertLink}
+            className={'toolbar-item spaced ' + (isLink ? 'active' : '')}
+            aria-label="Insert link"
+            title="Insert link"
+            type="button">
+            <i className="format link" />
+          </button>
+          <button
+            disabled={!isEditable}
+            onClick={() => {
+              activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'code');
+            }}
+            className={'toolbar-item spaced ' + (isCode ? 'active' : '')}
+            title="Insert code block"
+            type="button"
+            aria-label="Insert code block">
+            <i className="format code" />
+          </button>
           <DropDown
             disabled={!isEditable}
             buttonClassName="toolbar-item spaced"

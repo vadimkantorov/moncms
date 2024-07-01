@@ -154,3 +154,6 @@ Based on the broken release https://github.com/facebook/lexical/releases/tag/v0.
 - https://github.com/allejo/jekyll-anchor-headings
 - https://github.com/jg-rp/liquid
 - https://www.google.com/search?q=%22%D0%A0%D0%B0%D0%B1%D0%BE%D1%82%D0%B0%D0%B5%D1%82+%D0%BD%D0%B0+%D0%9A%D0%B0%D0%BD%D0%B4%D0%B8%D0%BD%D1%81%D0%BA%D0%BE%D0%BC%22&rlz=1C1CHBD_enFR1001FR1001&oq=%22%D0%A0%D0%B0%D0%B1%D0%BE%D1%82%D0%B0%D0%B5%D1%82+%D0%BD%D0%B0+%D0%9A%D0%B0%D0%BD%D0%B4%D0%B8%D0%BD%D1%81%D0%BA%D0%BE%D0%BC%22&gs_lcrp=EgZjaHJvbWUyBggAEEUYOTIHCAEQIRigATIHCAIQIRigATIHCAMQIRigAdIBCDcyMTVqMGo0qAIAsAIA&sourceid=chrome&ie=UTF-8
+- https://github.com/jeffreytse/jekyll-spaceship#6-hybrid-html-with-markdown
+- https://medium.com/markdown-monster-blog/getting-images-into-markdown-documents-and-weblog-posts-with-markdown-monster-9ec6f353d8ec
+- https://jekyllthemes.io/
