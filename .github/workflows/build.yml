@@ -10,8 +10,8 @@ jobs:
           node-version: 22
       
       - run: npm install && npm run build
-      #- uses: actions/upload-artifact@v4
-      #  with:
-      #    name: lexicalplaygroundonlyassets
-      #    path: packages/lexical-playground/build/
-
+      
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lexicalplaygroundonlyassets
+          path: dist/
