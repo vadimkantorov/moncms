@@ -1,8 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
+<!--
+
+TODO: at repo root . and .. have title like /tree//
+TODO: do not re-load from cache token if deleted the token manually? what to do if outdated token is there and changed the url? what to do with signed-in status when changing url? (set after get on onclick_load?)
+TODO: onclick_open with token should not sign in / change sign button text
+TODO: simplify op checks, use sha only if for the same url
+TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README.md instead of API by default (need to somehow fix for cache and maybe important for help button)
+TODO: when closing with changes from the initial state, prevent?
+
+TODO: handle all fetch errors (resp.ok and TypeError - check handling of CrossDomain error)
+TODO: query string actions: new, edit/delete
+TODO: when navigating, update html_url in search. what to do with password: make some url with all creds? reload after onclick_del at the opened file?
+TODO: support some sort of frontmatter scheme: https://jekyllrb.com/docs/front-matter/
+TODO: discover settings from a json file moncms.json (assets dir?) next to the index.html
+
+-->
+
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="moncmsdefault" content="https://github.com/vadimkantorov/moncms" foo="/blob/gh-pages/README.md" />
+        
+    <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon" />
     <title>Lexical React Example</title>
   </head>
   <body>
