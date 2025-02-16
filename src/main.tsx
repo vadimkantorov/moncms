@@ -15,7 +15,11 @@ import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import { join2 } from './filepathutils.ts';
 import { github_api_prepare_params } from './github.ts';
-import { format_frontmatter, parse_frontmatter } from './frontmatter.ts';
+import { format_frontmatter, parse_frontmatter, update_frontmatter } from './frontmatter.ts';
+import { cache_load, cache_save } from './cacheutils.ts';
+import { add_file_tree, delete_file_tree, rename_file_tree, update_file_tree } from './filetreeutils.ts';
+
+let retrieved_contents = {}; 
 
 function update_location(path)
 {
@@ -159,27 +163,12 @@ async function github_api_delete_file(prep, retrieved_contents, moncms_log, mess
     return res_del;
 }
 
-let retrieved_contents = {}; 
-
 function moncms_log(text)
 {
     const html_log = document.getElementById('html_log');
     const now = new Date().toISOString();
     html_log.value = `${now}: ${text}`;
     //html_log.value += '\n' + text; html_log.scrollTop = html_log.scrollHeight;
-}
-
-function cache_load(key)
-{
-    return localStorage.getItem("moncms_" + key);
-}
-
-function cache_save(key, value)
-{
-    if(value)
-        localStorage.setItem("moncms_" + key, value);
-    else
-        localStorage.removeItem("moncms_" + key);
 }
 
 function clear(file_tree = true, msg = '')
@@ -195,95 +184,6 @@ function clear(file_tree = true, msg = '')
     }
     //FIXME: return window.editor_setMarkdown(msg);
 }
-
-function update_frontmatter(frontmatter)
-{
-    const html_frontmatter = document.getElementById('html_frontmatter');
-    html_frontmatter.dataset.empty = frontmatter == null ? 'true' : 'false';
-
-    const html_header = html_frontmatter.getElementsByTagName('tr')[0];
-    Array.from(html_header.getElementsByTagName('input')).forEach(input => input.value = '');
-    
-    const entries = Object.entries(frontmatter || {});
-    
-    let i = 0;
-    for(; i < entries.length; i++)
-    {
-        const [k, v] = entries[i];
-        let html_row = html_frontmatter.rows[1 + i];
-        if(html_row == null)
-        {
-            html_row = html_header.cloneNode(true);
-            html_frontmatter.appendChild(html_row);
-        }
-
-        const [html_inputkey, html_inputval] = Array.from(html_row.getElementsByTagName('input'));
-        [html_inputkey.value, html_inputval.value] = [`${k}`, `${v}`];
-    }
-    for(let j = html_frontmatter.rows.length - 1; j > i; j--)
-        html_frontmatter.deleteRow(j);
-}
-
-function update_file_tree(files_and_dirs, curdir_url, parentdir_url, selected_file_name, ext = ['.gif','.jpg','.png','.svg'])
-{
-    const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
-    const files = files_and_dirs.filter(j => j.type == 'file' && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
-    const dirs  = files_and_dirs.filter(j => j.type == 'dir'  && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
-    const images = files_and_dirs.filter(j =>j.type == 'file' &&  ext.some(e => j.name.endsWith(e))).sort(key_by_name);
-
-    const html_url = document.getElementById('html_url');
-    const html_file_tree = document.getElementById('html_file_tree');
-    const file_tree = [ {name : '.', type : 'dir', html_url : curdir_url}, {name : '..', type: 'dir', html_url : parentdir_url ? parentdir_url : curdir_url}, ...dirs, ...files, ...images]; 
-    let i = 0;
-    for(; i < file_tree.length; i++)
-    {
-        let html_option = html_file_tree.options[i];
-        if(html_option == null)
-        {
-            html_option = document.createElement('option');
-            html_file_tree.options.add(html_option);
-        }
-        html_option.text = file_tree[i].name + (file_tree[i].type == 'dir' ? '/' : '' );
-        html_option.selected = file_tree[i].name == selected_file_name;
-        html_option.value = file_tree[i].html_url;
-        html_option.title = html_option.value;
-        html_option.dataset.type = file_tree[i].type;
-    }
-    for(let j = html_file_tree.length - 1; j >= i; j--)
-        html_file_tree.options.remove(j);
-}
-
-function rename_file_tree(selected_file_name, retrieved_contents)
-{
-    const html_url = document.getElementById('html_url');
-    const html_file_tree = document.getElementById('html_file_tree');
-    for(const html_option of html_file_tree.querySelectorAll(`option[title="${selected_file_name}"]`))
-    {
-        html_option.text = retrieved_contents.name;
-        html_option.value = retrieved_contents.html_url;
-        html_option.title = html_option.value;
-    }
-}
-
-function add_file_tree(res)
-{
-    const html_url = document.getElementById('html_url');
-    const html_file_tree = document.getElementById('html_file_tree');
-    const html_option = document.createElement('option');
-    html_option.text = res.name;
-    html_option.dataset.type = 'file';
-    html_option.value = res.html_url;
-    html_option.title = html_option.value;
-    html_file_tree.options.add(html_option);
-}
-
-function delete_file_tree(selected_file_name)
-{
-    const html_file_tree = document.getElementById('html_file_tree');
-    for(const html_option of html_file_tree.querySelectorAll(`option[title="${selected_file_name}"]`))
-        html_file_tree.removeChild(html_option);
-}
-
 function onchange_files()
 {
     // https://stackoverflow.com/questions/572768/styling-an-input-type-file-button/25825731#25825731
@@ -421,6 +321,7 @@ async function onclick_open(HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'
     const html_token = document.getElementById('html_token');
     const html_signinout = document.getElementById('html_signinout');
     const html_file_tree = document.getElementById('html_file_tree');
+    const html_frontmatter = document.getElementById('html_frontmatter');
     let prep = github_api_prepare_params(html_url.value, html_token.value);
     if(prep.error)
     {
@@ -461,7 +362,7 @@ async function onclick_open(HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'
         html_file_name.title = prep.github_repo_path;
 
         update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
-        update_frontmatter(null);
+        update_frontmatter(html_frontmatter, null);
         
         html_file_tree.selectedIndex = 0;
         //FIXME: window.editor_setMarkdown(image_listing);
@@ -477,7 +378,7 @@ async function onclick_open(HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'
         [text, frontmatter] = parse_frontmatter(text); 
         
         update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
-        update_frontmatter(frontmatter);
+        update_frontmatter(html_frontmatter, frontmatter);
         //FIXME: window.editor_setMarkdown(text);
         //FIXME: window.editor_setEditable(true);
     }
@@ -487,7 +388,7 @@ async function onclick_open(HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'
         html_file_name.title = prep.github_repo_path;
 
         update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
-        update_frontmatter(null);
+        update_frontmatter(html_frontmatter, null);
         //FIXME: window.editor_setMarkdown(`# ${res_file.name}\n![${res_file.name}](${res_file.download_url})`);
         //window.editor_setMarkdown(`<img src="${res_file.download_url}" height="100px"/>`);
         //FIXME: window.editor_setEditable(false);
@@ -674,6 +575,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <button onClick={onclick_help} id="html_help" data-message="https://github.com/vadimkantorov/moncms/blob/gh-pages/README.md">Help</button>
       <button id="html_signinout" className="signin" onClick={onclick_signinout}></button>
       <button id="html_togglecompactview" onClick={onclick_togglecompactview}>Toggle Compact View</button>
+      
       <App />
 
     </div>

@@ -1,15 +1,5 @@
 // @ts-nocheck
 
-export function format_frontmatter(html_frontmatter) {
-    const frontmatter_str_inside = Array.from(html_frontmatter.rows).filter(html_tr => html_tr.querySelectorAll('input')[0].value).map(html_tr => html_tr.querySelectorAll('input')[0].value + ': "' + html_tr.querySelectorAll('input')[1].value + '"').join('\n');
-    const frontmatter_str = `---\n${frontmatter_str_inside}\n---\n\n`;
-
-    if (html_frontmatter.dataset.empty == 'false')
-        return frontmatter_str;
-
-    return frontmatter_str_inside ? frontmatter_str : '';
-}
-
 export function parse_frontmatter(text : String) : [String, Object]
 {
     const m = text.match(/^---\n(.*?)\n---\n*/s);
@@ -49,4 +39,41 @@ export function parse_frontmatter(text : String) : [String, Object]
         }
     }
     return [text, frontmatter];
+}
+
+export function format_frontmatter(html_frontmatter) {
+    const frontmatter_str_inside = Array.from(html_frontmatter.rows).filter(html_tr => html_tr.querySelectorAll('input')[0].value).map(html_tr => html_tr.querySelectorAll('input')[0].value + ': "' + html_tr.querySelectorAll('input')[1].value + '"').join('\n');
+    const frontmatter_str = `---\n${frontmatter_str_inside}\n---\n\n`;
+
+    if (html_frontmatter.dataset.empty == 'false')
+        return frontmatter_str;
+
+    return frontmatter_str_inside ? frontmatter_str : '';
+}
+
+function update_frontmatter(html_frontmatter, frontmatter)
+{
+    html_frontmatter.dataset.empty = frontmatter == null ? 'true' : 'false';
+
+    const html_header = html_frontmatter.getElementsByTagName('tr')[0];
+    Array.from(html_header.getElementsByTagName('input')).forEach(input => input.value = '');
+    
+    const entries = Object.entries(frontmatter || {});
+    
+    let i = 0;
+    for(; i < entries.length; i++)
+    {
+        const [k, v] = entries[i];
+        let html_row = html_frontmatter.rows[1 + i];
+        if(html_row == null)
+        {
+            html_row = html_header.cloneNode(true);
+            html_frontmatter.appendChild(html_row);
+        }
+
+        const [html_inputkey, html_inputval] = Array.from(html_row.getElementsByTagName('input'));
+        [html_inputkey.value, html_inputval.value] = [`${k}`, `${v}`];
+    }
+    for(let j = html_frontmatter.rows.length - 1; j > i; j--)
+        html_frontmatter.deleteRow(j);
 }
