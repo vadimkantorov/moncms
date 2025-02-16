@@ -13,7 +13,8 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 
 import App from './App.tsx';
-import { dirname, join2 } from './filepathutils.ts';
+import { join2 } from './filepathutils.ts';
+import { github_api_prepare_params } from './github.ts';
 
 function update_location(path)
 {
@@ -49,99 +50,6 @@ function github_api_format_error(resp, res = {})
     const resp_status = resp.status || '000';
     const res_message = (res || {}).message || '';
     return `${resp_status}: ` + ({200: 'OK', 201: 'OK Created', 404: 'Resource not found', 409: 'Conflict', 422: 'Already Exists. Validation failed, or the endpoint has been spammed.', 401: 'Unauthorized', 403: 'Forbidden: ' + res_message}[resp_status] || '');
-}
-
-function github_api_prepare_params(github_url, github_token = '', must_have_token = false)
-{
-    const prep = {
-        headers : {}, 
-        error : '', 
-    
-        github_repo_path : '', 
-        github_branch : '',         
-        github_repo_url : '',       
-        contents_api_url_get : '',  
-        contents_api_url_put : '',  
-        contents_api_dir_url_put : '',  
-        contents_api_dir_url_get : '',  
-        curdir_url : '',     
-        parentdir_url : '',  
-    };
-    if(!github_url)
-    {
-        prep.error = 'no github_url provided';
-        return prep;
-    }
-    if(must_have_token && !github_token)
-    {
-        prep.error = 'no github_token provided';
-        return prep;
-    }
-    
-    // https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28
-    const github_url_normalized = github_url.replace('https://raw.githubusercontent.com', 'https://github.com');
-    
-    let github_repo_username = '', github_repo_name = '', github_repo_tag = '', github_repo_file_path = '', github_repo_dir_path = '';
-
-    const m1 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/blob\/(.+?)\/(.+)/i);
-    const m2 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/tree\/(.+?)\/(.+)/i);
-    const m3 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/tree\/(.+)/i);
-    const m4 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/?/i);
-    const m5 = github_url_normalized.match(/https:\/\/(.+)\.github.io\/(.+)\/?/i);
-    const m6 = github_url_normalized.match(/https:\/\/(.+)\.github.io\/?/i);
-    
-    if(m1)
-        [, github_repo_username, github_repo_name, github_repo_tag, github_repo_file_path] = m1;
-    else if(m2)
-        [, github_repo_username, github_repo_name, github_repo_tag, github_repo_dir_path] = m2;
-    else if(m3)
-        [, github_repo_username, github_repo_name, github_repo_tag] = m3;
-    else if(m4)
-        [, github_repo_username, github_repo_name] = m4;
-    else if(m5)
-        [, github_repo_username, github_repo_name] = m5;
-    else if(m6)
-        [github_repo_username, github_repo_name] = m6[1], (m6[1] + '.github.io');
-    else
-    {
-        prep.error = 'github_url could not be matched';
-        return prep;
-    }
-    github_repo_name = github_repo_name.replace(/\/$/g, '');
-    github_repo_dir_path = github_repo_dir_path.replace(/\/$/g, '');
-    github_repo_tag = github_repo_tag.replace(/\/$/g, '');
-
-    const github_repo_path = github_repo_file_path || github_repo_dir_path;
-    const github_repo_parent_path = !github_repo_path ? '' : github_repo_path.includes('/') ? dirname(github_repo_path) : '';
-    
-    prep.github_repo_path = github_repo_path;
-    prep.github_branch = github_repo_tag;
-    prep.github_repo_url = `https://github.com/${github_repo_username}/${github_repo_name}`;
-    prep.contents_api_url_get = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : ''); 
-    prep.contents_api_url_put = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_path}`;
-    prep.contents_api_dir_url_put = github_repo_dir_path ? prep.contents_api_url_put : `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${dirname(github_repo_path)}`; 
-
-    prep.contents_api_dir_url_get = github_repo_dir_path ? prep.contents_api_url_get : (`https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_parent_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : ''));
-    
-    const slashIdx2 = github_repo_path.lastIndexOf('/');
-    const slashIdx1 = github_repo_path.slice(0, slashIdx2).lastIndexOf('/');
-    
-    const github_repo_curdir_path = github_repo_dir_path ? github_repo_path : github_repo_file_path ? (slashIdx2 != -1 ? github_repo_path.slice(0, slashIdx2) : '') : null;
-    
-    const github_repo_parentdir_path = github_repo_dir_path ? (slashIdx2 != -1 ? github_repo_path.slice(0, slashIdx2) : '') : github_repo_file_path ? ((slashIdx2 != -1 && slashIdx1 != -1) ? github_repo_path.slice(0, slashIdx1) : (slashIdx2 != -1 && slashIdx1 == -1) ? '' : null) : null;
-
-    prep.curdir_url = `https://github.com/${github_repo_username}/${github_repo_name}/tree/${github_repo_tag}/${github_repo_curdir_path || ""}`;
-    prep.parentdir_url = github_repo_parentdir_path != null ? `https://github.com/${github_repo_username}/${github_repo_name}/tree/${github_repo_tag}/${github_repo_parentdir_path}` : prep.curdir_url;
-    
-    // https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28
-    prep.headers = {
-        'X-GitHub-Api-Version' : '2022-11-28',
-        'Accept': 'application/vnd.github+json',
-        'If-None-Match' : '',
-        'Authorization' : github_token ? `Bearer ${github_token}` : ''
-    };
-    
-    return prep;
 }
 
 async function github_api_get_file(prep, moncms_log)
@@ -291,10 +199,6 @@ function parse_frontmatter(text)
     return [text, frontmatter];
 }
 
-window.editor_getMarkdown = (text = '') => '';
-window.editor_setMarkdown = (text = '') => '';
-window.editor_setEditable = (editable) => null;
-
 let retrieved_contents = {}; 
 
 function moncms_log(text)
@@ -329,7 +233,7 @@ function clear(file_tree = true, msg = '')
         for(let i = html_file_tree.options.length - 1; i >= 0; i--)
             html_file_tree.options.remove(i);
     }
-    return window.editor_setMarkdown(msg);
+    //FIXME: return window.editor_setMarkdown(msg);
 }
 
 function format_frontmatter()
@@ -428,17 +332,6 @@ function delete_file_tree(selected_file_name)
     const html_file_tree = document.getElementById('html_file_tree');
     for(const html_option of html_file_tree.querySelectorAll(`option[title="${selected_file_name}"]`))
         html_file_tree.removeChild(html_option);
-}
-
-async function onload_editor()
-{
-    if(window.LexicalMarkdownEditor)
-    {
-        const editor = await window.LexicalMarkdownEditor('#editor');
-        window.editor_getMarkdown = () => editor.getMarkdown();
-        window.editor_setMarkdown = md => editor.setMarkdown(md);
-        window.editor_setEditable = editable => editor._getRawEditorInstance().setEditable(editable);
-    }
 }
 
 function onchange_files()
@@ -543,7 +436,7 @@ async function onclick_savefile()
         return moncms_log(prep.error);
 
     const frontmatter_str = format_frontmatter();
-    const text = await editor_getMarkdown();
+    const text = ''; //FIXME: await editor_getMarkdown();
     const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(frontmatter_str + text)))).replaceAll('\n', '');
 
     if(retrieved_contents.encoding == 'base64' && retrieved_contents.content.replaceAll('\n', '') == base64 && html_file_name.value == retrieved_contents.name && html_frontmatter.dataset.empty == 'true' && !frontmatter_str)
@@ -620,8 +513,8 @@ async function onclick_open(HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'
         update_frontmatter(null);
         
         html_file_tree.selectedIndex = 0;
-        window.editor_setMarkdown(image_listing);
-        window.editor_setEditable(false);
+        //FIXME: window.editor_setMarkdown(image_listing);
+        //FIXME: window.editor_setEditable(false);
         html_file_tree.focus();
     }
     else if(!is_image)
@@ -634,8 +527,8 @@ async function onclick_open(HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'
         
         update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
         update_frontmatter(frontmatter);
-        window.editor_setMarkdown(text);
-        window.editor_setEditable(true);
+        //FIXME: window.editor_setMarkdown(text);
+        //FIXME: window.editor_setEditable(true);
     }
     else if(is_image)
     {
@@ -644,9 +537,9 @@ async function onclick_open(HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'
 
         update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
         update_frontmatter(null);
-        window.editor_setMarkdown(`# ${res_file.name}\n![${res_file.name}](${res_file.download_url})`);
+        //FIXME: window.editor_setMarkdown(`# ${res_file.name}\n![${res_file.name}](${res_file.download_url})`);
         //window.editor_setMarkdown(`<img src="${res_file.download_url}" height="100px"/>`);
-        window.editor_setEditable(false);
+        //FIXME: window.editor_setEditable(false);
     }
 }
 
@@ -763,8 +656,6 @@ async function onclick_signinout()
 
 async function onload_body()
 {
-    await onload_editor();
-    
     if(window.location.search)
     {
         const query_string = new URLSearchParams(window.location.search);
