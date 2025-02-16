@@ -15,6 +15,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import { join2 } from './filepathutils.ts';
 import { github_api_prepare_params } from './github.ts';
+import { format_frontmatter, parse_frontmatter } from './frontmatter.ts';
 
 function update_location(path)
 {
@@ -158,47 +159,6 @@ async function github_api_delete_file(prep, retrieved_contents, moncms_log, mess
     return res_del;
 }
 
-function parse_frontmatter(text)
-{
-    const m = text.match(/^---\n(.*?)\n---\n*/s);
-    const frontmatter = null;
-    if(m)
-    {
-        const frontmatter_str = m[1];
-        text = text.substring(m[0].length);
-
-        const procval = s => (s.length >= 2 && s[0] == '"' && s[s.length - 1] == '"') ? s.slice(1, s.length - 1) : (s.length >= 2 && s[0] == "'" && s[s.length - 1] == "'") ? s.slice(1, s.length - 1) : s;
-
-        for(const line of frontmatter_str.split('\n'))
-        {
-            const line_strip = line.trim();
-            const is_list_item = line_strip.startsWith('- ');
-            if(!line || line.startsWith('#'))
-                continue;
-
-            const colonIdx = line.indexOf(':');
-            const key = colonIdx != -1 ? line.slice(0, colonIdx).trim() : '';
-            const val = colonIdx != -1 ? line.substring(1 + colonIdx).trim() : is_list_item ? line_strip.substring(2).trim() : '';
-            
-            if(colonIdx != -1)
-            {
-                if(!frontmatter)
-                    frontmatter = {};
-                frontmatter[key] = val ? procval(val) : [];
-            }
-            else if(is_list_item)
-            {
-                if(!frontmatter)
-                    frontmatter = {};
-                if(!front_matter[key])
-                    front_matter[key] = [];
-                front_matter[key].push(procval(val));
-            }
-        }
-    }
-    return [text, frontmatter];
-}
-
 let retrieved_contents = {}; 
 
 function moncms_log(text)
@@ -236,19 +196,9 @@ function clear(file_tree = true, msg = '')
     //FIXME: return window.editor_setMarkdown(msg);
 }
 
-function format_frontmatter()
-{
-    const frontmatter_str_inside = Array.from(html_frontmatter.rows).filter(html_tr => html_tr.querySelectorAll('input')[0].value).map(html_tr => html_tr.querySelectorAll('input')[0].value + ': "' + html_tr.querySelectorAll('input')[1].value + '"' ).join('\n');
-    const frontmatter_str = `---\n${frontmatter_str_inside}\n---\n\n`;
-
-    if(html_frontmatter.dataset.empty == 'false')
-        return frontmatter_str;
-
-    return frontmatter_str_inside ? frontmatter_str : '';
-}
-
 function update_frontmatter(frontmatter)
 {
+    const html_frontmatter = document.getElementById('html_frontmatter');
     html_frontmatter.dataset.empty = frontmatter == null ? 'true' : 'false';
 
     const html_header = html_frontmatter.getElementsByTagName('tr')[0];
@@ -429,13 +379,14 @@ async function onclick_savefile()
     const html_url = document.getElementById('html_url');
     const html_token = document.getElementById('html_token');
     const html_file_name = document.getElementById('html_file_name');
+    const html_frontmatter = document.getElementById('html_frontmatter');
     if(!html_file_name.value)
         return moncms_log('cannot save a file without file name');
     const prep = github_api_prepare_params(html_url.value, html_token.value, true);
     if(prep.error)
         return moncms_log(prep.error);
 
-    const frontmatter_str = format_frontmatter();
+    const frontmatter_str = format_frontmatter(html_frontmatter);
     const text = ''; //FIXME: await editor_getMarkdown();
     const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(frontmatter_str + text)))).replaceAll('\n', '');
 
@@ -545,6 +496,7 @@ async function onclick_open(HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'
 
 function onclick_addrow(event)
 {
+    const html_frontmatter = document.getElementById('html_frontmatter');
     const html_row = event.target.parentElement.parentElement;
     const rowIdx = html_row.rowIndex;
     
@@ -565,6 +517,7 @@ function onclick_addrow(event)
 
 function onclick_delrow(event)
 {
+    const html_frontmatter = document.getElementById('html_frontmatter');
     const html_row = event.target.parentElement.parentElement;
     const rowIdx = html_row.rowIndex;
 
@@ -606,6 +559,7 @@ function onclick_togglecompactview()
     const html_token = document.getElementById('html_token');
     const html_file_tree = document.getElementById('html_file_tree');
     const html_log = document.getElementById('html_log');
+    const html_frontmatter = document.getElementById('html_frontmatter');
     const hidden = !html_file_tree.hidden;
     html_file_tree.hidden = html_log.hidden = html_token.hidden = html_frontmatter.hidden = html_file_name.hidden = hidden;
 }
