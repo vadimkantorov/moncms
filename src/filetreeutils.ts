@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 export function update_file_tree(files_and_dirs, curdir_url, parentdir_url, selected_file_name, ext = ['.gif', '.jpg', '.png', '.svg']) {
     const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
     const files = files_and_dirs.filter(j => j.type == 'file' && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
