@@ -51,7 +51,7 @@ export function format_frontmatter(html_frontmatter) {
     return frontmatter_str_inside ? frontmatter_str : '';
 }
 
-function update_frontmatter(html_frontmatter, frontmatter)
+export function update_frontmatter(html_frontmatter, frontmatter)
 {
     html_frontmatter.dataset.empty = frontmatter == null ? 'true' : 'false';
 
