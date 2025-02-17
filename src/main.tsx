@@ -21,6 +21,16 @@ import { add_file_tree, delete_file_tree, rename_file_tree, update_file_tree } f
 
 let retrieved_contents = {}; 
 
+function window_editor_setMarkdown(text : string)
+{
+
+}
+
+function window_editor_setEditable(editable : boolean)
+{
+
+}
+
 function update_location(path)
 {
     // https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
@@ -182,7 +192,7 @@ function clear(file_tree = true, msg = '')
         for(let i = html_file_tree.options.length - 1; i >= 0; i--)
             html_file_tree.options.remove(i);
     }
-    //FIXME: return window.editor_setMarkdown(msg);
+    return window_editor_setMarkdown(msg);
 }
 function onchange_files()
 {
@@ -365,8 +375,8 @@ async function onclick_open(HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'
         update_frontmatter(html_frontmatter, null);
         
         html_file_tree.selectedIndex = 0;
-        //FIXME: window.editor_setMarkdown(image_listing);
-        //FIXME: window.editor_setEditable(false);
+        window_editor_setMarkdown(image_listing);
+        window_editor_setEditable(false);
         html_file_tree.focus();
     }
     else if(!is_image)
@@ -379,8 +389,8 @@ async function onclick_open(HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'
         
         update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
         update_frontmatter(html_frontmatter, frontmatter);
-        //FIXME: window.editor_setMarkdown(text);
-        //FIXME: window.editor_setEditable(true);
+        window_editor_setMarkdown(text);
+        window_editor_setEditable(true);
     }
     else if(is_image)
     {
@@ -389,9 +399,9 @@ async function onclick_open(HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'
 
         update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
         update_frontmatter(html_frontmatter, null);
-        //FIXME: window.editor_setMarkdown(`# ${res_file.name}\n![${res_file.name}](${res_file.download_url})`);
-        //window.editor_setMarkdown(`<img src="${res_file.download_url}" height="100px"/>`);
-        //FIXME: window.editor_setEditable(false);
+        window_editor_setMarkdown(`# ${res_file.name}\n![${res_file.name}](${res_file.download_url})`);
+        window_editor_setMarkdown(`<img src="${res_file.download_url}" height="100px"/>`);
+        window_editor_setEditable(false);
     }
 }
 
