@@ -44,419 +44,6 @@ import { format_frontmatter, parse_frontmatter, update_frontmatter } from './fro
 import { cache_load, cache_save } from './cacheutils.ts';
 import { add_file_tree, delete_file_tree, rename_file_tree, update_file_tree } from './filetreeutils.ts';
 
-let retrieved_contents = {}; 
-
-function window_editor_setMarkdown(text : string)
-{
-
-}
-
-function window_editor_setEditable(editable : boolean)
-{
-
-}
-
-function moncms_log(text)
-{
-    const html_log = document.getElementById('html_log');
-    const now = new Date().toISOString();
-    html_log.value = `${now}: ${text}`;
-    //html_log.value += '\n' + text; html_log.scrollTop = html_log.scrollHeight;
-}
-
-function update_location(path)
-{
-    // https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
-    window.history.replaceState({}, document.title, path );
-}
-
-async function github_api_rename_file(prep, new_file_name, base64, retrieved_contents, moncms_log, message = 'no commit message')
-{
-    const _retrieved_contents = retrieved_contents;
-    const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, null, base64, moncms_log);
-    retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
-    await github_api_delete_file(prep, _retrieved_contents, moncms_log);
-    return retrieved_contents;
-}
-
-function clear(file_tree = true, msg = '')
-{
-    const html_file_tree = document.getElementById('html_file_tree');
-    const html_file_name = document.getElementById('html_file_name');
-    retrieved_contents = {};
-    html_file_name.value = html_file_name.title = '';
-    if(file_tree)
-    {
-        for(let i = html_file_tree.options.length - 1; i >= 0; i--)
-            html_file_tree.options.remove(i);
-    }
-    return window_editor_setMarkdown(msg);
-}
-function onchange_files()
-{
-    // https://stackoverflow.com/questions/572768/styling-an-input-type-file-button/25825731#25825731
-    const html_files = document.getElementById('html_files');
-    for(const file of html_files.files)
-    {
-        const new_file_name = file.name;
-        const reader = new FileReader();
-        reader.onload = () => github_api_upsert_file(prep, new_file_name, reader.result.split(',')[1], add_file_tree, moncms_log);
-        reader.onerror = () => moncms_log('FILELOAD error');
-        reader.readAsDataURL(file);
-    }
-    html_files.value = '';
-}
-
-async function onclick_createfile()
-{
-    const html_createfile = document.getElementById('html_createfile');
-    const html_file_name = document.getElementById('html_file_name');
-
-    await clear(false, html_createfile.dataset.message);
-    const now = new Date().toISOString();
-    const date = now.slice(0, '0000-00-00'.length);
-    const time = now.slice('0000-00-00'.length, '0000-00-00'.length + 'T00:00:00'.length).toLowerCase().replaceAll(':', '');
-    html_file_name.value = `${date}-new-post-draft-a${time}.md`; 
-    html_file_name.focus();
-}
-
-async function onclick_createdir()
-{
-    const html_createdir = document.getElementById('html_createdir');
-    const html_file_name = document.getElementById('html_file_name');
-    await clear(false, html_createdir.dataset.message);
-    const now = new Date().toISOString();
-    const time = now.slice('0000-00-00'.length, '0000-00-00'.length + 'T00:00:00'.length).toLowerCase().replaceAll(':', '');
-    html_file_name.value = `new-dir-a${time}/.gitignore`;
-    html_file_name.focus();
-}
-
-async function onclick_help()
-{
-    const html_url = document.getElementById('html_url');
-    const html_token = document.getElementById('html_token');
-    const html_help = document.getElementById('html_help');
-    html_url.value = html_help.dataset.message;
-    html_token.value = '';
-    onclick_open();
-}
-
-async function onclick_delfile()
-{
-    const html_url = document.getElementById('html_url');
-    const html_token = document.getElementById('html_token');
-    const html_delfile = document.getElementById('html_delfile');
-    const html_file_name = document.getElementById('html_file_name');
-    if(Object.entries(retrieved_contents || {}).length == 0)
-    {
-        await clear(false);
-        html_file_name.value = '';
-        return html_file_name.focus();
-    }
-    const prep = github_api_prepare_params(html_url.value, html_token.value, true);
-    if(prep.error)
-        return moncms_log(prep.error);
-    if(!html_file_name.value || !window.confirm(html_delfile.dataset.message))
-        return;
-
-    await github_api_delete_file(prep, retrieved_contents, moncms_log);
-    delete_file_tree(html_file_name.value);
-    html_url.value = prep.curdir_url;
-    clear(false);
-}
-
-function onclick_upload()
-{
-    const html_url = document.getElementById('html_url');
-    const html_token = document.getElementById('html_token');
-    const html_files = document.getElementById('html_files');
-    const prep = github_api_prepare_params(html_url.value, html_token.value, true);
-    if(prep.error)
-        return moncms_log(prep.error);
-    
-    html_files.click();
-}
-
-async function onclick_savefile()
-{
-    // https://stackoverflow.com/questions/37504383/button-inside-a-label
-    // https://stackoverflow.com/questions/31563444/rename-a-file-with-github-api
-    // https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
-    // https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
-
-    const html_url = document.getElementById('html_url');
-    const html_token = document.getElementById('html_token');
-    const html_file_name = document.getElementById('html_file_name');
-    const html_frontmatter = document.getElementById('html_frontmatter');
-    if(!html_file_name.value)
-        return moncms_log('cannot save a file without file name');
-    const prep = github_api_prepare_params(html_url.value, html_token.value, true);
-    if(prep.error)
-        return moncms_log(prep.error);
-
-    const frontmatter_str = format_frontmatter(html_frontmatter);
-    const text = ''; //FIXME: await editor_getMarkdown();
-    const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(frontmatter_str + text)))).replaceAll('\n', '');
-
-    if(retrieved_contents.encoding == 'base64' && retrieved_contents.content.replaceAll('\n', '') == base64 && html_file_name.value == retrieved_contents.name && html_frontmatter.dataset.empty == 'true' && !frontmatter_str)
-        return moncms_log('no changes');
-    
-    const new_file_name = html_file_name.value;
-    const should_rename = retrieved_contents && new_file_name != retrieved_contents.name;
-    const should_update = retrieved_contents && new_file_name == retrieved_contents.name;
-    const should_create = Object.entries(retrieved_contents || {}).length == 0 && new_file_name;
-
-    if(should_update)
-    {
-        const res_put = await github_api_update_file(prep, retrieved_contents.sha, base64, moncms_log).pop();
-        retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
-    }
-    else if(should_create)
-    {
-        const res_put = await github_api_create_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, base64, moncms_log).pop();
-        retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
-    }
-    else if(should_rename)
-    {
-        retrieved_contents = await github_api_rename_file(prep, new_file_name, base64, retrieved_contents, moncms_log);
-        rename_file_tree(_retrieved_contents.name, retrieved_contents);
-    }
-}
-
-async function onclick_open(HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
-{
-    const html_url = document.getElementById('html_url');
-    const html_token = document.getElementById('html_token');
-    const html_signinout = document.getElementById('html_signinout');
-    const html_file_tree = document.getElementById('html_file_tree');
-    const html_frontmatter = document.getElementById('html_frontmatter');
-    let prep = github_api_prepare_params(html_url.value, html_token.value);
-    if(prep.error)
-    {
-        clear();
-        return moncms_log(prep.error);
-    }
-    if(!html_token.value)
-    {
-        html_token.value = cache_load(prep.github_repo_url);
-        prep = github_api_prepare_params(html_url.value, html_token.value); 
-        if(html_token.value)
-            moncms_log('got from cache for ' + prep.github_repo_url);
-    }
-    
-    html_signinout.className = html_token.value ? 'signout' : 'signin';
-    
-    const [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
-
-    const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
-    const is_dir = res_file.content === undefined;
-    const is_err = Object.entries(res_file).length == 0 && res_dir == null;
-    const is_image = !is_dir && ext.some(e => res_file.name.endsWith(e));
-    const images = res_dir.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
-    const image_listing = images.map(j => `# ${j.name}\n![${j.name}](${j.download_url})`).join('\n\n');
-    // https://lexical.dev/docs/concepts/read-only
-
-    retrieved_contents = res_file;
-    
-    if(is_err)
-    {
-        html_file_name.value = '';
-        html_file_name.title = '';
-        clear();
-    }
-    else if(is_dir)
-    {
-        html_file_name.value = '';
-        html_file_name.title = prep.github_repo_path;
-
-        update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
-        update_frontmatter(html_frontmatter, null);
-        
-        html_file_tree.selectedIndex = 0;
-        window_editor_setMarkdown(image_listing);
-        window_editor_setEditable(false);
-        html_file_tree.focus();
-    }
-    else if(!is_image)
-    {
-        html_file_name.value = res_file.name;
-        html_file_name.title = prep.github_repo_path;
-
-        let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
-        [text, frontmatter] = parse_frontmatter(text); 
-        
-        update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
-        update_frontmatter(html_frontmatter, frontmatter);
-        window_editor_setMarkdown(text);
-        window_editor_setEditable(true);
-    }
-    else if(is_image)
-    {
-        html_file_name.value = res_file.name;
-        html_file_name.title = prep.github_repo_path;
-
-        update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
-        update_frontmatter(html_frontmatter, null);
-        window_editor_setMarkdown(`# ${res_file.name}\n![${res_file.name}](${res_file.download_url})`);
-        window_editor_setMarkdown(`<img src="${res_file.download_url}" height="100px"/>`);
-        window_editor_setEditable(false);
-    }
-}
-
-function onclick_addrow(event)
-{
-    const html_frontmatter = document.getElementById('html_frontmatter');
-    const html_row = event.target.parentElement.parentElement;
-    const rowIdx = html_row.rowIndex;
-    
-    const html_header = html_row.cloneNode(true);
-    const [html_inputkey, html_inputval] = Array.from(html_header.getElementsByTagName('input'));
-    if(!html_inputkey.value)
-        return;
-
-    [html_inputkey.value, html_inputval.value] = ['', ''];
-    
-    if(rowIdx == 0)
-        html_row.parentNode.insertBefore(html_header, html_row);
-    else if(rowIdx < html_frontmatter.children.length - 1)
-        html_row.parentNode.insertBefore(html_header, html_row.nextSibling);
-    else
-        html_frontmatter.appendChild(html_header);
-}
-
-function onclick_delrow(event)
-{
-    const html_frontmatter = document.getElementById('html_frontmatter');
-    const html_row = event.target.parentElement.parentElement;
-    const rowIdx = html_row.rowIndex;
-
-    if(rowIdx == 0)
-    {
-        const [html_inputkey, html_inputval] = Array.from(html_row.getElementsByTagName('input'));
-        [html_inputkey.value, html_inputval.value] = ['', ''];
-    }
-    else
-        html_frontmatter.deleteRow(rowIdx);
-}
-
-function onkeypress_save(event)
-{
-    if(event.code == 'Enter')
-        onclick_savefile();
-}
-
-function onkeypress_enter_url(event)
-{
-    if (event.code === 'Enter')
-        onclick_open();
-}
-
-function ondblclick_enter_file_tree(event)
-{
-    const html_file_tree = document.getElementById('html_file_tree');
-    if (event.type == 'dblclick' || event.code == 'Space' || event.code == 'Enter')
-    {
-        const html_option = html_file_tree.options[html_file_tree.selectedIndex];
-        const html_url = document.getElementById('html_url');
-        html_url.value = html_option.value;
-        onclick_open();
-    }
-}
-
-function onclick_togglecompactview()
-{
-    const html_token = document.getElementById('html_token');
-    const html_file_tree = document.getElementById('html_file_tree');
-    const html_log = document.getElementById('html_log');
-    const html_frontmatter = document.getElementById('html_frontmatter');
-    const hidden = !html_file_tree.hidden;
-    html_file_tree.hidden = html_log.hidden = html_token.hidden = html_frontmatter.hidden = html_file_name.hidden = hidden;
-}
-
-async function onclick_signinout()
-{
-    const html_url = document.getElementById('html_url');
-    const html_token = document.getElementById('html_token');
-    const html_signinout = document.getElementById('html_signinout');
-    if(html_signinout.className == 'signin')
-    {
-        if(!html_token.value)
-            return moncms_log('cannot signin, no token provided');
-
-        const prep = github_api_prepare_params(html_url.value, html_token.value);
-        if(!prep.github_repo_url || prep.error)
-        {
-            if(!prep.error) moncms_log(prep.error);
-            return;
-        }
-
-        cache_save(prep.github_repo_url, null);
-
-        if(await github_api_signin(prep, moncms_log))
-        {
-            cache_save(prep.github_repo_url, html_token.value);
-            html_signinout.className = 'signout';
-            moncms_log('saved to cache for ' + prep.github_repo_url);
-            onclick_open();
-        }
-        else
-            clear();
-    }
-    else if(html_signinout.className == 'signout')
-    {
-        clear();
-        html_token.value = '';
-        html_signinout.className = 'signin';
-        
-        const prep = github_api_prepare_params(html_url.value);
-        if(prep.github_repo_url)
-        {
-            cache_save(prep.github_repo_url, null);
-            moncms_log('cleared and purged cache for ' + prep.github_repo_url);
-        }
-    }
-}
-
-async function onload_body()
-{
-    if(window.location.search)
-    {
-        const query_string = new URLSearchParams(window.location.search);
-        for(const k of ['html_url', 'html_token'])
-            if(query_string.has(k))
-                document.getElementById(k).value = query_string.get(k);
-
-        console.log(github_api_prepare_params(html_url.value));
-    }
-
-    const html_url = document.getElementById('html_url');
-    const html_token = document.getElementById('html_token');
-
-    if(!html_url.value)
-    {
-        const discovered = await github_discover_url(window.location.href);
-        moncms_log('discovered url:' + discovered);
-        const prep = github_api_prepare_params(window.location.protocol != 'file:' ? window.location.href : discovered);
-        html_url.value = discovered || prep.github_repo_url;
-    }
-
-    if(!html_token.value)
-    {
-        const prep = github_api_prepare_params(html_url.value);
-        if(prep.github_repo_url)
-        {
-            html_token.value = cache_load(prep.github_repo_url);
-            if(html_token.value)
-                moncms_log('got from cache for ' + prep.github_repo_url);
-        }
-    }
-
-    if(html_url.value)
-        onclick_open();
-    else
-        html_url.focus();
-}
-
 const removeStylesExportDOM = (
   editor: LexicalEditor,
   target: LexicalNode,
@@ -604,13 +191,421 @@ const editorConfig = {
 
 const placeholder = 'Enter some rich text...';
 
-export default function App() {
-  const editor = useRef(null);
-  const divRef = useRef(null);
-  function onClick()
-  {
-    divRef.current.style = "background-color: red"
-  }
+function App() {
+    const editor = useRef(null);
+    const btn_signinout = useRef(null);
+    const btn_help = useRef(null);
+
+    let retrieved_contents = {}; 
+
+    function window_editor_setMarkdown(text : string)
+    {
+
+    }
+
+    function window_editor_setEditable(editable : boolean)
+    {
+
+    }
+
+    function moncms_log(text)
+    {
+        const html_log = document.getElementById('html_log');
+        const now = new Date().toISOString();
+        html_log.value = `${now}: ${text}`;
+        //html_log.value += '\n' + text; html_log.scrollTop = html_log.scrollHeight;
+    }
+
+    function update_location(path)
+    {
+        // https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
+        window.history.replaceState({}, document.title, path );
+    }
+
+    async function github_api_rename_file(prep, new_file_name, base64, retrieved_contents, moncms_log, message = 'no commit message')
+    {
+        const _retrieved_contents = retrieved_contents;
+        const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, null, base64, moncms_log);
+        retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
+        await github_api_delete_file(prep, _retrieved_contents, moncms_log);
+        return retrieved_contents;
+    }
+
+    function clear(file_tree = true, msg = '')
+    {
+        const html_file_tree = document.getElementById('html_file_tree');
+        const html_file_name = document.getElementById('html_file_name');
+        retrieved_contents = {};
+        html_file_name.value = html_file_name.title = '';
+        if(file_tree)
+        {
+            for(let i = html_file_tree.options.length - 1; i >= 0; i--)
+                html_file_tree.options.remove(i);
+        }
+        return window_editor_setMarkdown(msg);
+    }
+    function onchange_files()
+    {
+        // https://stackoverflow.com/questions/572768/styling-an-input-type-file-button/25825731#25825731
+        const html_files = document.getElementById('html_files');
+        for(const file of html_files.files)
+        {
+            const new_file_name = file.name;
+            const reader = new FileReader();
+            reader.onload = () => github_api_upsert_file(prep, new_file_name, reader.result.split(',')[1], add_file_tree, moncms_log);
+            reader.onerror = () => moncms_log('FILELOAD error');
+            reader.readAsDataURL(file);
+        }
+        html_files.value = '';
+    }
+
+    async function onclick_createfile()
+    {
+        const html_createfile = document.getElementById('html_createfile');
+        const html_file_name = document.getElementById('html_file_name');
+
+        await clear(false, html_createfile.dataset.message);
+        const now = new Date().toISOString();
+        const date = now.slice(0, '0000-00-00'.length);
+        const time = now.slice('0000-00-00'.length, '0000-00-00'.length + 'T00:00:00'.length).toLowerCase().replaceAll(':', '');
+        html_file_name.value = `${date}-new-post-draft-a${time}.md`; 
+        html_file_name.focus();
+    }
+
+    async function onclick_createdir()
+    {
+        const html_createdir = document.getElementById('html_createdir');
+        const html_file_name = document.getElementById('html_file_name');
+        await clear(false, html_createdir.dataset.message);
+        const now = new Date().toISOString();
+        const time = now.slice('0000-00-00'.length, '0000-00-00'.length + 'T00:00:00'.length).toLowerCase().replaceAll(':', '');
+        html_file_name.value = `new-dir-a${time}/.gitignore`;
+        html_file_name.focus();
+    }
+
+    async function onclick_help()
+    {
+        const html_url = document.getElementById('html_url');
+        const html_token = document.getElementById('html_token');
+        html_url.value = btn_help.current.dataset.message;
+        html_token.value = '';
+        onclick_open();
+    }
+
+    async function onclick_delfile()
+    {
+        const html_url = document.getElementById('html_url');
+        const html_token = document.getElementById('html_token');
+        const html_delfile = document.getElementById('html_delfile');
+        const html_file_name = document.getElementById('html_file_name');
+        if(Object.entries(retrieved_contents || {}).length == 0)
+        {
+            await clear(false);
+            html_file_name.value = '';
+            return html_file_name.focus();
+        }
+        const prep = github_api_prepare_params(html_url.value, html_token.value, true);
+        if(prep.error)
+            return moncms_log(prep.error);
+        if(!html_file_name.value || !window.confirm(html_delfile.dataset.message))
+            return;
+
+        await github_api_delete_file(prep, retrieved_contents, moncms_log);
+        delete_file_tree(html_file_name.value);
+        html_url.value = prep.curdir_url;
+        clear(false);
+    }
+
+    function onclick_upload()
+    {
+        const html_url = document.getElementById('html_url');
+        const html_token = document.getElementById('html_token');
+        const html_files = document.getElementById('html_files');
+        const prep = github_api_prepare_params(html_url.value, html_token.value, true);
+        if(prep.error)
+            return moncms_log(prep.error);
+        
+        html_files.click();
+    }
+
+    async function onclick_savefile()
+    {
+        // https://stackoverflow.com/questions/37504383/button-inside-a-label
+        // https://stackoverflow.com/questions/31563444/rename-a-file-with-github-api
+        // https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
+        // https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
+
+        const html_url = document.getElementById('html_url');
+        const html_token = document.getElementById('html_token');
+        const html_file_name = document.getElementById('html_file_name');
+        const html_frontmatter = document.getElementById('html_frontmatter');
+        if(!html_file_name.value)
+            return moncms_log('cannot save a file without file name');
+        const prep = github_api_prepare_params(html_url.value, html_token.value, true);
+        if(prep.error)
+            return moncms_log(prep.error);
+
+        const frontmatter_str = format_frontmatter(html_frontmatter);
+        const text = ''; //FIXME: await editor_getMarkdown();
+        const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(frontmatter_str + text)))).replaceAll('\n', '');
+
+        if(retrieved_contents.encoding == 'base64' && retrieved_contents.content.replaceAll('\n', '') == base64 && html_file_name.value == retrieved_contents.name && html_frontmatter.dataset.empty == 'true' && !frontmatter_str)
+            return moncms_log('no changes');
+        
+        const new_file_name = html_file_name.value;
+        const should_rename = retrieved_contents && new_file_name != retrieved_contents.name;
+        const should_update = retrieved_contents && new_file_name == retrieved_contents.name;
+        const should_create = Object.entries(retrieved_contents || {}).length == 0 && new_file_name;
+
+        if(should_update)
+        {
+            const res_put = await github_api_update_file(prep, retrieved_contents.sha, base64, moncms_log).pop();
+            retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
+        }
+        else if(should_create)
+        {
+            const res_put = await github_api_create_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, base64, moncms_log).pop();
+            retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
+        }
+        else if(should_rename)
+        {
+            retrieved_contents = await github_api_rename_file(prep, new_file_name, base64, retrieved_contents, moncms_log);
+            rename_file_tree(_retrieved_contents.name, retrieved_contents);
+        }
+    }
+
+    async function onclick_open(HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
+    {
+        const html_url = document.getElementById('html_url');
+        const html_token = document.getElementById('html_token');
+        const html_file_tree = document.getElementById('html_file_tree');
+        const html_frontmatter = document.getElementById('html_frontmatter');
+        let prep = github_api_prepare_params(html_url.value, html_token.value);
+        if(prep.error)
+        {
+            clear();
+            return moncms_log(prep.error);
+        }
+        if(!html_token.value)
+        {
+            html_token.value = cache_load(prep.github_repo_url);
+            prep = github_api_prepare_params(html_url.value, html_token.value); 
+            if(html_token.value)
+                moncms_log('got from cache for ' + prep.github_repo_url);
+        }
+        
+        btn_signinout.current.className = html_token.value ? 'signout' : 'signin';
+        
+        const [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
+
+        const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+        const is_dir = res_file.content === undefined;
+        const is_err = Object.entries(res_file).length == 0 && res_dir == null;
+        const is_image = !is_dir && ext.some(e => res_file.name.endsWith(e));
+        const images = res_dir.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
+        const image_listing = images.map(j => `# ${j.name}\n![${j.name}](${j.download_url})`).join('\n\n');
+        // https://lexical.dev/docs/concepts/read-only
+
+        retrieved_contents = res_file;
+        
+        if(is_err)
+        {
+            html_file_name.value = '';
+            html_file_name.title = '';
+            clear();
+        }
+        else if(is_dir)
+        {
+            html_file_name.value = '';
+            html_file_name.title = prep.github_repo_path;
+
+            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
+            update_frontmatter(html_frontmatter, null);
+            
+            html_file_tree.selectedIndex = 0;
+            window_editor_setMarkdown(image_listing);
+            window_editor_setEditable(false);
+            html_file_tree.focus();
+        }
+        else if(!is_image)
+        {
+            html_file_name.value = res_file.name;
+            html_file_name.title = prep.github_repo_path;
+
+            let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
+            [text, frontmatter] = parse_frontmatter(text); 
+            
+            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
+            update_frontmatter(html_frontmatter, frontmatter);
+            window_editor_setMarkdown(text);
+            window_editor_setEditable(true);
+        }
+        else if(is_image)
+        {
+            html_file_name.value = res_file.name;
+            html_file_name.title = prep.github_repo_path;
+
+            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
+            update_frontmatter(html_frontmatter, null);
+            window_editor_setMarkdown(`# ${res_file.name}\n![${res_file.name}](${res_file.download_url})`);
+            window_editor_setMarkdown(`<img src="${res_file.download_url}" height="100px"/>`);
+            window_editor_setEditable(false);
+        }
+    }
+
+    function onclick_addrow(event)
+    {
+        const html_frontmatter = document.getElementById('html_frontmatter');
+        const html_row = event.target.parentElement.parentElement;
+        const rowIdx = html_row.rowIndex;
+        
+        const html_header = html_row.cloneNode(true);
+        const [html_inputkey, html_inputval] = Array.from(html_header.getElementsByTagName('input'));
+        if(!html_inputkey.value)
+            return;
+
+        [html_inputkey.value, html_inputval.value] = ['', ''];
+        
+        if(rowIdx == 0)
+            html_row.parentNode.insertBefore(html_header, html_row);
+        else if(rowIdx < html_frontmatter.children.length - 1)
+            html_row.parentNode.insertBefore(html_header, html_row.nextSibling);
+        else
+            html_frontmatter.appendChild(html_header);
+    }
+
+    function onclick_delrow(event)
+    {
+        const html_frontmatter = document.getElementById('html_frontmatter');
+        const html_row = event.target.parentElement.parentElement;
+        const rowIdx = html_row.rowIndex;
+
+        if(rowIdx == 0)
+        {
+            const [html_inputkey, html_inputval] = Array.from(html_row.getElementsByTagName('input'));
+            [html_inputkey.value, html_inputval.value] = ['', ''];
+        }
+        else
+            html_frontmatter.deleteRow(rowIdx);
+    }
+
+    function onkeypress_save(event)
+    {
+        if(event.code == 'Enter')
+            onclick_savefile();
+    }
+
+    function onkeypress_enter_url(event)
+    {
+        if (event.code === 'Enter')
+            onclick_open();
+    }
+
+    function ondblclick_enter_file_tree(event)
+    {
+        const html_file_tree = document.getElementById('html_file_tree');
+        if (event.type == 'dblclick' || event.code == 'Space' || event.code == 'Enter')
+        {
+            const html_option = html_file_tree.options[html_file_tree.selectedIndex];
+            const html_url = document.getElementById('html_url');
+            html_url.value = html_option.value;
+            onclick_open();
+        }
+    }
+
+    function onclick_togglecompactview()
+    {
+        const html_token = document.getElementById('html_token');
+        const html_file_tree = document.getElementById('html_file_tree');
+        const html_log = document.getElementById('html_log');
+        const html_frontmatter = document.getElementById('html_frontmatter');
+        const hidden = !html_file_tree.hidden;
+        html_file_tree.hidden = html_log.hidden = html_token.hidden = html_frontmatter.hidden = html_file_name.hidden = hidden;
+    }
+
+    async function onclick_signinout()
+    {
+        const html_url = document.getElementById('html_url');
+        const html_token = document.getElementById('html_token');
+        if(btn_signinout.current.className == 'signin')
+        {
+            if(!html_token.value)
+                return moncms_log('cannot signin, no token provided');
+
+            const prep = github_api_prepare_params(html_url.value, html_token.value);
+            if(!prep.github_repo_url || prep.error)
+            {
+                if(!prep.error) moncms_log(prep.error);
+                return;
+            }
+
+            cache_save(prep.github_repo_url, null);
+
+            if(await github_api_signin(prep, moncms_log))
+            {
+                cache_save(prep.github_repo_url, html_token.value);
+                btn_signinout.current.className = 'signout';
+                moncms_log('saved to cache for ' + prep.github_repo_url);
+                onclick_open();
+            }
+            else
+                clear();
+        }
+        else if(btn_signinout.current.className == 'signout')
+        {
+            clear();
+            html_token.value = '';
+            btn_signinout.current.className = 'signin';
+            
+            const prep = github_api_prepare_params(html_url.value);
+            if(prep.github_repo_url)
+            {
+                cache_save(prep.github_repo_url, null);
+                moncms_log('cleared and purged cache for ' + prep.github_repo_url);
+            }
+        }
+    }
+
+    async function onload_body()
+    {
+        if(window.location.search)
+        {
+            const query_string = new URLSearchParams(window.location.search);
+            for(const k of ['html_url', 'html_token'])
+                if(query_string.has(k))
+                    document.getElementById(k).value = query_string.get(k);
+
+            console.log(github_api_prepare_params(html_url.value));
+        }
+
+        const html_url = document.getElementById('html_url');
+        const html_token = document.getElementById('html_token');
+
+        if(!html_url.value)
+        {
+            const discovered = await github_discover_url(window.location.href);
+            moncms_log('discovered url:' + discovered);
+            const prep = github_api_prepare_params(window.location.protocol != 'file:' ? window.location.href : discovered);
+            html_url.value = discovered || prep.github_repo_url;
+        }
+
+        if(!html_token.value)
+        {
+            const prep = github_api_prepare_params(html_url.value);
+            if(prep.github_repo_url)
+            {
+                html_token.value = cache_load(prep.github_repo_url);
+                if(html_token.value)
+                    moncms_log('got from cache for ' + prep.github_repo_url);
+            }
+        }
+
+        if(html_url.value)
+            onclick_open();
+        else
+            html_url.focus();
+    }
+  
   return (
     <>
     <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" type="text"  onKeyPress={onkeypress_enter_url} />
@@ -633,14 +628,13 @@ export default function App() {
       <button onClick={onclick_upload}>Upload Files</button>
       <input type="file" id="html_files" onChange={onchange_files} multiple hidden />
       
-      <button onClick={onclick_help} id="html_help" data-message="https://github.com/vadimkantorov/moncms/blob/gh-pages/README.md">Help</button>
-      <button id="html_signinout" className="signin" onClick={onclick_signinout}></button>
-      <button id="html_togglecompactview" onClick={onclick_togglecompactview}>Toggle Compact View</button>
+      <button onClick={onclick_help} ref={btn_help} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
+      <button onClick={onclick_signinout} ref={btn_signinout} className="signin" ></button>
+      <button onClick={onclick_togglecompactview}>Toggle Compact View</button>
       
     <LexicalComposer initialConfig={editorConfig}>
       <EditorRefPlugin editorRef={editor} />
-      <div className="editor-container" ref={divRef}>
-        <button onClick={onClick}>Click Me</button>
+      <div className="editor-container">
         <ToolbarPlugin />
         <div className="editor-inner">
           <RichTextPlugin
