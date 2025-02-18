@@ -13,6 +13,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 
 import {useRef, useState} from 'react';
+import {useRef, useState} from 'react';
 import {EditorRefPlugin} from "@lexical/react/LexicalEditorRefPlugin";
 import {AutoFocusPlugin} from '@lexical/react/LexicalAutoFocusPlugin';
 import {LexicalComposer} from '@lexical/react/LexicalComposer';
@@ -21,6 +22,7 @@ import {LexicalErrorBoundary} from '@lexical/react/LexicalErrorBoundary';
 import {HistoryPlugin} from '@lexical/react/LexicalHistoryPlugin';
 import {RichTextPlugin} from '@lexical/react/LexicalRichTextPlugin';
 import {
+  EditorState, $getRoot, $createParagraphNode,$createTextNode,
   $isTextNode,
   DOMConversionMap,
   DOMExportOutput,
@@ -32,6 +34,8 @@ import {
   ParagraphNode,
   TextNode,
 } from 'lexical';
+import { $convertToMarkdownString, $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
+//import {PLAYGROUND_TRANSFORMERS} from './plugins/MarkdownTransformers';
 
 import ToolbarPlugin from './plugins/ToolbarPlugin';
 import TreeViewPlugin from './plugins/TreeViewPlugin';
@@ -192,27 +196,55 @@ const editorConfig = {
 const placeholder = 'Enter some rich text...';
 
 function App() {
-    const editor = useRef(null);
-    const btn_signinout = useRef(null);
+    const editorRef = useRef(null);
     const btn_help = useRef(null);
     const [log, setLog] = useState('');
     const [isCompact, setIsCompact] = useState(false);
+    const [isSignedIn, setIsSignedIn] = useState(false);
 
     let retrieved_contents = {}; 
 
-    function window_editor_setMarkdown(text : string)
+    function window_editor_setMarkdown(markdown : string)
     {
+        editorRef.current?.update(() => {
+            const editorState = editorRef.current?.getEditorState();
+            if (editorState != null) {
+                // $convertFromMarkdownString(markdown, PLAYGROUND_TRANSFORMERS) 
+                const root = $getRoot();
+                //if (root.getFirstChild() === null)
+                {
+                    const paragraph = $createParagraphNode();
+                    paragraph.append(
+                    $createTextNode("The playground is a demo environment built with "),
+                    $createTextNode(markdown),
+                    $createTextNode("Bye")
+                    );
+                    root.append(paragraph);
+                }
+                $getRoot().selectStart();
+            }                                                                                                                       })
+    }
 
+    function window_editor_getMarkdown()
+    {
+        return new Promise(resolve => {
+            editorRef.current?.update(() => {
+                //const md = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS);
+                const md = '';
+                resolve(md);
+            })
+        });
     }
 
     function window_editor_setEditable(editable : boolean)
     {
-
+        console.log(editorRef);
     }
 
     function moncms_log(text)
     {
         const now = new Date().toISOString();
+        setLog(`${now}: ${text}`);
         setLog(`${now}: ${text}`);
         //html_log.value += '\n' + text; html_log.scrollTop = html_log.scrollHeight;
     }
@@ -394,9 +426,8 @@ function App() {
             if(html_token.value)
                 moncms_log('got from cache for ' + prep.github_repo_url);
         }
-        
-        btn_signinout.current.className = html_token.value ? 'signout' : 'signin';
-        
+        setIsSignedIn(html_token.value ? true : false);
+
         const [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
 
         const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
@@ -514,22 +545,11 @@ function App() {
         }
     }
 
-    function onclick_togglecompactview()
-    {
-        const html_token = document.getElementById('html_token');
-        const html_file_tree = document.getElementById('html_file_tree');
-        const html_log = document.getElementById('html_log');
-        const html_frontmatter = document.getElementById('html_frontmatter');
-        const hidden = !html_file_tree.hidden;
-        html_file_tree.hidden = html_log.hidden = html_token.hidden = html_frontmatter.hidden = html_file_name.hidden = hidden;
-        setIsCompact(hidden);
-    }
-
     async function onclick_signinout()
     {
         const html_url = document.getElementById('html_url');
         const html_token = document.getElementById('html_token');
-        if(btn_signinout.current.className == 'signin')
+        if(!isSignedIn)
         {
             if(!html_token.value)
                 return moncms_log('cannot signin, no token provided');
@@ -546,18 +566,18 @@ function App() {
             if(await github_api_signin(prep, moncms_log))
             {
                 cache_save(prep.github_repo_url, html_token.value);
-                btn_signinout.current.className = 'signout';
+                setIsSignedIn(true);
                 moncms_log('saved to cache for ' + prep.github_repo_url);
                 onclick_open();
             }
             else
                 clear();
         }
-        else if(btn_signinout.current.className == 'signout')
+        else if(isSignedIn)
         {
             clear();
             html_token.value = '';
-            btn_signinout.current.className = 'signin';
+            setIsSignedIn(false);
             
             const prep = github_api_prepare_params(html_url.value);
             if(prep.github_repo_url)
@@ -611,11 +631,11 @@ function App() {
   return (
     <>
     <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" type="text"  onKeyPress={onkeypress_enter_url} />
-      <input placeholder="GitHub token:" title="GitHub token:" id="html_token" type="text" onKeyPress={onkeypress_enter_url} />
-      <input placeholder="File name:" title="File name:" id="html_file_name" type="text" onKeyPress={onkeypress_save} />
-      <input placeholder="Log:" title="Log:" id="html_log" value={log} readOnly />
-      <select id="html_file_tree" size="10" onKeyPress={ondblclick_enter_file_tree} onDoubleClick={ondblclick_enter_file_tree}></select>
-      <table id="html_frontmatter">
+      <input hidden={isCompact} placeholder="GitHub token:" title="GitHub token:" id="html_token" type="text" onKeyPress={onkeypress_enter_url} />
+      <input hidden={isCompact} placeholder="File name:" title="File name:" id="html_file_name" type="text" onKeyPress={onkeypress_save} />
+      <input hidden={isCompact} placeholder="Log:" title="Log:" id="html_log" value={log} readOnly />
+      <select hidden={isCompact} id="html_file_tree" size="10" onKeyPress={ondblclick_enter_file_tree} onDoubleClick={ondblclick_enter_file_tree}></select>
+      <table hidden={isCompact} id="html_frontmatter">
         <tbody>
           <tr><td><input type="text" placeholder="Frontmatter key:" /></td><td><input type="text" placeholder="Frontmatter value:" /></td><td><button onClick={onclick_addrow}>Add another row</button><button onClick={onclick_delrow}>Delete this row</button></td></tr>
         </tbody>
@@ -631,11 +651,11 @@ function App() {
       <input type="file" id="html_files" onChange={onchange_files} multiple hidden />
       
       <button onClick={onclick_help} ref={btn_help} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
-      <button onClick={onclick_signinout} ref={btn_signinout} className="signin" ></button>
-      <button onClick={onclick_togglecompactview}>Toggle Compact View</button>
+      <button onClick={onclick_signinout} className={isSignedIn ? "signout" : "signin"} ></button>
+      <button onClick={() => setIsCompact(!isCompact)}>Toggle Compact View</button>
       
     <LexicalComposer initialConfig={editorConfig}>
-      <EditorRefPlugin editorRef={editor} />
+      <EditorRefPlugin editorRef={editorRef} />
       <div className="editor-container">
         <ToolbarPlugin />
         <div className="editor-inner">
