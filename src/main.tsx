@@ -39,7 +39,7 @@ import {parseAllowedColor, parseAllowedFontSize} from './styleConfig';
 
 
 import { join2 } from './filepathutils.ts';
-import { github_api_prepare_params } from './github.ts';
+import { github_api_format_error, github_discover_url, github_api_prepare_params, github_api_update_file, github_api_get_file, github_api_signin, github_api_create_file, github_api_delete_file } from './github.ts';
 import { format_frontmatter, parse_frontmatter, update_frontmatter } from './frontmatter.ts';
 import { cache_load, cache_save } from './cacheutils.ts';
 import { add_file_tree, delete_file_tree, rename_file_tree, update_file_tree } from './filetreeutils.ts';
@@ -60,51 +60,6 @@ function update_location(path)
 {
     // https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
     window.history.replaceState({}, document.title, path );
-}
-
-async function discover_github_url(url, key = 'moncmsdefault', HTTP_OK = 200)
-{
-    if(!url)
-        return '';
-
-    if(url == window.location.href || !url.startsWith('file:'))
-    {
-        let doc = document;
-        if(url != window.location.href)
-        {
-            const resp = await fetch(url).catch(err => ({ok: false, e : err}));
-            if(!resp.ok)
-                return '';
-
-            const html = await resp.text();
-            const parser = new DOMParser();
-            doc = parser.parseFromString(html, 'text/html');
-        }
-        return (Array.from(doc.querySelectorAll('meta')).filter(meta => meta.name == key).pop() || {}).content || '';
-    }
-    return '';
-}
-
-function github_api_format_error(resp, res = {})
-{
-    const resp_status = resp.status || '000';
-    const res_message = (res || {}).message || '';
-    return `${resp_status}: ` + ({200: 'OK', 201: 'OK Created', 404: 'Resource not found', 409: 'Conflict', 422: 'Already Exists. Validation failed, or the endpoint has been spammed.', 401: 'Unauthorized', 403: 'Forbidden: ' + res_message}[resp_status] || '');
-}
-
-async function github_api_get_file(prep, moncms_log)
-{
-    const resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
-    const res_file = await resp_file.json();
-    moncms_log('GET ' + github_api_format_error(resp_get, res_get));
-    return res_file;
-}
-
-async function github_api_signin(prep, moncms_log, HTTP_OK = 200)
-{
-    const resp_get = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
-    moncms_log('GET ' + github_api_format_error(resp_get));
-    return resp_get.status == HTTP_OK;
 }
 
 async function github_api_get_file_dir(prep, moncms_log, HTTP_OK = 200)
@@ -135,29 +90,6 @@ async function github_api_get_file_dir(prep, moncms_log, HTTP_OK = 200)
     return [res_file, res_dir];
 }
 
-async function github_api_update_file(prep, retrieved_contents_sha, base64, moncms_log, message = 'no commit message')
-{
-    const req = { message : message, content : base64 };
-    if(prep.github_branch)
-        req.branch = prep.github_branch;
-    if(retrieved_contents_sha)
-        req.sha = retrieved_contents_sha;
-    const resp = await fetch(prep.contents_api_url_put, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
-    const res = await resp.json();
-    return [resp, res];
-}
-
-async function github_api_create_file(prep, base64, moncms_log, message = 'no commit message')
-{
-    const req = { message : message, content : base64 };
-    if(prep.github_branch)
-        req.branch = prep.github_branch;
-    const resp_put = await fetch(prep.contents_api_url_put, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
-    const res_put = await resp_put.json();
-    moncms_log('PUT ' + github_api_format_error(resp_put, res_put));
-    return [resp_put, res_put];
-}
-
 async function github_api_upsert_file(prep, new_file_name, base64, moncms_log, message = 'no commit message', HTTP_CREATED = 201, HTTP_EXISTS = 422)
 {
     const contents_api_url_put = join2(prep.contents_api_dir_url_put, new_file_name);
@@ -182,20 +114,6 @@ async function github_api_rename_file(prep, new_file_name, base64, retrieved_con
     retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
     await github_api_delete_file(prep, _retrieved_contents, moncms_log);
     return retrieved_contents;
-}
-
-async function github_api_delete_file(prep, retrieved_contents, moncms_log, message = 'no commit message')
-{
-    const req = {
-        sha: retrieved_contents.sha,
-        message : message,
-    };
-    if(prep.github_branch)
-        req.branch = prep.github_branch;
-    const resp_del = await fetch(prep.contents_api_url_put, { method: 'DELETE', headers: prep.headers, body: JSON.stringify(req) });
-    const res_del = await resp.json();
-    moncms_log('DEL ' + github_api_format_error(resp_del, res_del));
-    return res_del;
 }
 
 function moncms_log(text)
@@ -561,7 +479,7 @@ async function onload_body()
 
     if(!html_url.value)
     {
-        const discovered = await discover_github_url(window.location.href);
+        const discovered = await github_discover_url(window.location.href);
         moncms_log('discovered url:' + discovered);
         const prep = github_api_prepare_params(window.location.protocol != 'file:' ? window.location.href : discovered);
         html_url.value = discovered || prep.github_repo_url;
