@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { dirname } from './filepathutils';
+import { dirname, join2 } from './filepathutils';
 
 export function github_api_format_error(resp, res = {})
 {
@@ -164,4 +164,49 @@ export async function github_api_delete_file(prep, retrieved_contents, moncms_lo
     const res_del = await resp.json();
     moncms_log('DEL ' + github_api_format_error(resp_del, res_del));
     return res_del;
+}
+
+export async function github_api_upsert_file(prep, new_file_name, base64, add_file_tree, moncms_log, message = 'no commit message', HTTP_CREATED = 201, HTTP_EXISTS = 422)
+{
+    const contents_api_url_put = join2(prep.contents_api_dir_url_put, new_file_name);
+    const contents_api_url_get = join2(prep.contents_api_dir_url_put, new_file_name) + (prep.github_branch ? `?ref=${prep.github_branch}` : '');
+    let [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put }, null, base64, moncms_log);
+    if(resp_put.status == HTTP_CREATED)
+        add_file_tree(res_put.content);
+    
+    if(resp_put.status == HTTP_EXISTS)
+    {
+        const res_get = await github_api_get_file({...prep, contents_api_url_get : contents_api_url_get}, moncms_log);
+        // TODO: update file tree?
+        [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put}, res_get.sha, base64, moncms_log);
+    }
+    return res_put;
+}
+
+export async function github_api_get_file_dir(prep, moncms_log, HTTP_OK = 200)
+{
+    let resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
+    let res_file = await resp_file.json();
+    
+    const resp_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await fetch(prep.contents_api_dir_url_get, { method: 'GET', headers: prep.headers })) : resp_file;
+    const res_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await resp_dir.json()) : res_file;
+    
+    if(!prep.github_branch && res_file == res_dir)
+    {
+        for(const j of res_dir.filter(j => j.name.toLowerCase() == 'README.md'.toLowerCase()))
+        {
+            resp_file = await fetch(j.git_url, { method: 'GET', headers: prep.headers });
+            res_file = {...j, ...await resp_file.json()};
+        }
+    }
+    
+    if(resp_file.status != HTTP_OK || resp_dir.status != HTTP_OK)
+    {
+        moncms_log('error ' + github_api_format_error(resp_file, res_file) + ' | dir: ' + github_api_format_error(resp_dir, res_dir));
+        return [{}, null];
+    }
+    
+    moncms_log('GET file: ' + github_api_format_error(resp_file, res_file) + ' | dir: ' + github_api_format_error(resp_dir, res_dir));
+    
+    return [res_file, res_dir];
 }

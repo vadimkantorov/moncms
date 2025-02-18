@@ -39,7 +39,7 @@ import {parseAllowedColor, parseAllowedFontSize} from './styleConfig';
 
 
 import { join2 } from './filepathutils.ts';
-import { github_api_format_error, github_discover_url, github_api_prepare_params, github_api_update_file, github_api_get_file, github_api_signin, github_api_create_file, github_api_delete_file } from './github.ts';
+import { github_api_get_file_dir, github_api_upsert_file, github_api_format_error, github_discover_url, github_api_prepare_params, github_api_update_file, github_api_get_file, github_api_signin, github_api_create_file, github_api_delete_file } from './github.ts';
 import { format_frontmatter, parse_frontmatter, update_frontmatter } from './frontmatter.ts';
 import { cache_load, cache_save } from './cacheutils.ts';
 import { add_file_tree, delete_file_tree, rename_file_tree, update_file_tree } from './filetreeutils.ts';
@@ -56,55 +56,18 @@ function window_editor_setEditable(editable : boolean)
 
 }
 
+function moncms_log(text)
+{
+    const html_log = document.getElementById('html_log');
+    const now = new Date().toISOString();
+    html_log.value = `${now}: ${text}`;
+    //html_log.value += '\n' + text; html_log.scrollTop = html_log.scrollHeight;
+}
+
 function update_location(path)
 {
     // https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
     window.history.replaceState({}, document.title, path );
-}
-
-async function github_api_get_file_dir(prep, moncms_log, HTTP_OK = 200)
-{
-    let resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
-    let res_file = await resp_file.json();
-    
-    const resp_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await fetch(prep.contents_api_dir_url_get, { method: 'GET', headers: prep.headers })) : resp_file;
-    const res_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await resp_dir.json()) : res_file;
-    
-    if(!prep.github_branch && res_file == res_dir)
-    {
-        for(const j of res_dir.filter(j => j.name.toLowerCase() == 'README.md'.toLowerCase()))
-        {
-            resp_file = await fetch(j.git_url, { method: 'GET', headers: prep.headers });
-            res_file = {...j, ...await resp_file.json()};
-        }
-    }
-    
-    if(resp_file.status != HTTP_OK || resp_dir.status != HTTP_OK)
-    {
-        moncms_log('error ' + github_api_format_error(resp_file, res_file) + ' | dir: ' + github_api_format_error(resp_dir, res_dir));
-        return [{}, null];
-    }
-    
-    moncms_log('GET file: ' + github_api_format_error(resp_file, res_file) + ' | dir: ' + github_api_format_error(resp_dir, res_dir));
-    
-    return [res_file, res_dir];
-}
-
-async function github_api_upsert_file(prep, new_file_name, base64, moncms_log, message = 'no commit message', HTTP_CREATED = 201, HTTP_EXISTS = 422)
-{
-    const contents_api_url_put = join2(prep.contents_api_dir_url_put, new_file_name);
-    const contents_api_url_get = join2(prep.contents_api_dir_url_put, new_file_name) + (prep.github_branch ? `?ref=${prep.github_branch}` : '');
-    let [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put }, null, base64, moncms_log);
-    if(resp_put.status == HTTP_CREATED)
-        add_file_tree(res_put.content);
-    
-    if(resp_put.status == HTTP_EXISTS)
-    {
-        const res_get = await github_api_get_file({...prep, contents_api_url_get : contents_api_url_get}, moncms_log);
-        
-        [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put}, res_get.sha, base64, moncms_log);
-    }
-    return res_put;
 }
 
 async function github_api_rename_file(prep, new_file_name, base64, retrieved_contents, moncms_log, message = 'no commit message')
@@ -114,14 +77,6 @@ async function github_api_rename_file(prep, new_file_name, base64, retrieved_con
     retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
     await github_api_delete_file(prep, _retrieved_contents, moncms_log);
     return retrieved_contents;
-}
-
-function moncms_log(text)
-{
-    const html_log = document.getElementById('html_log');
-    const now = new Date().toISOString();
-    html_log.value = `${now}: ${text}`;
-    //html_log.value += '\n' + text; html_log.scrollTop = html_log.scrollHeight;
 }
 
 function clear(file_tree = true, msg = '')
@@ -145,7 +100,7 @@ function onchange_files()
     {
         const new_file_name = file.name;
         const reader = new FileReader();
-        reader.onload = () => github_api_upsert_file(prep, new_file_name, reader.result.split(',')[1], moncms_log);
+        reader.onload = () => github_api_upsert_file(prep, new_file_name, reader.result.split(',')[1], add_file_tree, moncms_log);
         reader.onerror = () => moncms_log('FILELOAD error');
         reader.readAsDataURL(file);
     }
@@ -502,8 +457,6 @@ async function onload_body()
         html_url.focus();
 }
 
-const placeholder = 'Enter some rich text...';
-
 const removeStylesExportDOM = (
   editor: LexicalEditor,
   target: LexicalNode,
@@ -649,40 +602,18 @@ const editorConfig = {
   theme: ExampleTheme,
 };
 
+const placeholder = 'Enter some rich text...';
+
 export default function App() {
   const editor = useRef(null);
+  const divRef = useRef(null);
+  function onClick()
+  {
+    divRef.current.style = "background-color: red"
+  }
   return (
-    <LexicalComposer initialConfig={editorConfig}>
-      <EditorRefPlugin editorRef={editor} />
-      <div className="editor-container">
-        <ToolbarPlugin />
-        <div className="editor-inner">
-          <RichTextPlugin
-            contentEditable={
-              <ContentEditable
-                className="editor-input"
-                aria-placeholder={placeholder}
-                placeholder={
-                  <div className="editor-placeholder">{placeholder}</div>
-                }
-              />
-            }
-            ErrorBoundary={LexicalErrorBoundary}
-          />
-          <HistoryPlugin />
-          <AutoFocusPlugin />
-          <TreeViewPlugin />
-        </div>
-      </div>
-    </LexicalComposer>
-  );
-}
-
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <div className="App">
-      <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" type="text"  onKeyPress={onkeypress_enter_url} />
+    <>
+    <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" type="text"  onKeyPress={onkeypress_enter_url} />
       <input placeholder="GitHub token:" title="GitHub token:" id="html_token" type="text" onKeyPress={onkeypress_enter_url} />
       <input placeholder="File name:" title="File name:" id="html_file_name" type="text" onKeyPress={onkeypress_save} />
       <input placeholder="Log:" title="Log:" id="html_log" readOnly />
@@ -706,8 +637,40 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <button id="html_signinout" className="signin" onClick={onclick_signinout}></button>
       <button id="html_togglecompactview" onClick={onclick_togglecompactview}>Toggle Compact View</button>
       
-      <App />
+    <LexicalComposer initialConfig={editorConfig}>
+      <EditorRefPlugin editorRef={editor} />
+      <div className="editor-container" ref={divRef}>
+        <button onClick={onClick}>Click Me</button>
+        <ToolbarPlugin />
+        <div className="editor-inner">
+          <RichTextPlugin
+            contentEditable={
+              <ContentEditable
+                className="editor-input"
+                aria-placeholder={placeholder}
+                placeholder={
+                  <div className="editor-placeholder">{placeholder}</div>
+                }
+              />
+            }
+            ErrorBoundary={LexicalErrorBoundary}
+          />
+          <HistoryPlugin />
+          <AutoFocusPlugin />
+          <TreeViewPlugin />
+        </div>
+      </div>
+    </LexicalComposer>
 
+    </>
+  );
+}
+
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <div className="App">
+        <App />
     </div>
-  </React.StrictMode>,
+  </React.StrictMode>
 );
