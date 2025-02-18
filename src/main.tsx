@@ -12,7 +12,7 @@ import './styles.css';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 
-import {useRef} from 'react';
+import {useRef, useState} from 'react';
 import {EditorRefPlugin} from "@lexical/react/LexicalEditorRefPlugin";
 import {AutoFocusPlugin} from '@lexical/react/LexicalAutoFocusPlugin';
 import {LexicalComposer} from '@lexical/react/LexicalComposer';
@@ -195,6 +195,8 @@ function App() {
     const editor = useRef(null);
     const btn_signinout = useRef(null);
     const btn_help = useRef(null);
+    const [log, setLog] = useState('');
+    const [isCompact, setIsCompact] = useState(false);
 
     let retrieved_contents = {}; 
 
@@ -210,9 +212,8 @@ function App() {
 
     function moncms_log(text)
     {
-        const html_log = document.getElementById('html_log');
         const now = new Date().toISOString();
-        html_log.value = `${now}: ${text}`;
+        setLog(`${now}: ${text}`);
         //html_log.value += '\n' + text; html_log.scrollTop = html_log.scrollHeight;
     }
 
@@ -521,6 +522,7 @@ function App() {
         const html_frontmatter = document.getElementById('html_frontmatter');
         const hidden = !html_file_tree.hidden;
         html_file_tree.hidden = html_log.hidden = html_token.hidden = html_frontmatter.hidden = html_file_name.hidden = hidden;
+        setIsCompact(hidden);
     }
 
     async function onclick_signinout()
@@ -611,7 +613,7 @@ function App() {
     <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" type="text"  onKeyPress={onkeypress_enter_url} />
       <input placeholder="GitHub token:" title="GitHub token:" id="html_token" type="text" onKeyPress={onkeypress_enter_url} />
       <input placeholder="File name:" title="File name:" id="html_file_name" type="text" onKeyPress={onkeypress_save} />
-      <input placeholder="Log:" title="Log:" id="html_log" readOnly />
+      <input placeholder="Log:" title="Log:" id="html_log" value={log} readOnly />
       <select id="html_file_tree" size="10" onKeyPress={ondblclick_enter_file_tree} onDoubleClick={ondblclick_enter_file_tree}></select>
       <table id="html_frontmatter">
         <tbody>
