@@ -39,7 +39,6 @@ import { join2 } from './filepathutils.ts';
 import { github_api_rename_file, github_api_get_file_dir, github_api_upsert_file, github_api_format_error, github_discover_url, github_api_prepare_params, github_api_update_file, github_api_get_file, github_api_signin, github_api_create_file, github_api_delete_file } from './github.ts';
 import { format_frontmatter, parse_frontmatter, update_frontmatter } from './frontmatter.ts';
 import { cache_load, cache_save } from './cacheutils.ts';
-//import { get_selected_file_tree, clear_file_tree, add_file_tree, delete_file_tree, rename_file_tree, update_file_tree } from './filetreeutils.ts';
 
 const removeStylesExportDOM = (
   editor: LexicalEditor,
@@ -188,7 +187,6 @@ function App() {
     const editorRef = useRef(null);
     const fileNameRef = useRef(null);
     const urlRef = useRef(null);
-    const fileTreeRef = useRef(null);
 
     const [log, setLog] = useState('');
     const [token, setToken] = useState('');
@@ -198,6 +196,7 @@ function App() {
     const [isCompact, setIsCompact] = useState(false);
     const [isSignedIn, setIsSignedIn] = useState(false);
     const [fileTree, setFileTree] = useState([]);
+    const [fileTreeValue, setFileTreeValue] = useState('');
 
     let retrieved_contents = {};
 
@@ -301,7 +300,7 @@ function App() {
 
         await github_api_delete_file(prep, retrieved_contents, moncms_log);
         delete_file_tree(fileName);
-        setUrl(prep.curdir_url)
+        setUrl(prep.curdir_url);
         clear(false);
     }
 
@@ -337,7 +336,8 @@ function App() {
             && retrieved_contents.content.replaceAll('\n', '') == base64
             && fileName == retrieved_contents.name
             && html_frontmatter.dataset.empty == 'true'
-            && !frontmatter_str)
+            && !frontmatter_str
+        )
             return moncms_log('no changes');
         
         const should_rename = retrieved_contents && fileName != retrieved_contents.name;
@@ -357,7 +357,7 @@ function App() {
         else if(should_rename)
         {
             retrieved_contents = await github_api_rename_file(prep, fileName, base64, retrieved_contents, moncms_log);
-            //FIXME: rename_file_tree(_retrieved_contents.name, retrieved_contents);
+            rename_file_tree(_retrieved_contents.name, retrieved_contents);
         }
     }
 
@@ -374,32 +374,29 @@ function App() {
             ...files, 
             ...images
         ];
-        if(!selected_file_name)
-            file_tree[0].selected = true;
-        else for(const f of file_tree)
-        {
-            if(f.name == selected_file_name)
-                f.selected = true;
-        }
-        
+        const file_tree_value = ['', ...file_tree.filter(j => j.name == selected_file_name).map(j => j.html_url)].pop();
         setFileTree(file_tree);
+        setFileTreeValue(file_tree_value);
     }
 
-    export function add_file_tree(res_name, url)
+    function add_file_tree(res_name, url)
     {
         setFileTree([...fileTree, { name: res_name, type: 'file', html_url: url }]);
+        setFileTreeValue(url);
     }
 
     function delete_file_tree(selected_file_name)
     {
-        //const html_file_tree = document.getElementById('html_file_tree');
-        //for (const html_option of html_file_tree.querySelectorAll(`option[title="${selected_file_name}"]`))
-        //    html_file_tree.removeChild(html_option);
+        //TODO: add some early exit to disallow delete of . and ..
+        const file_tree = fileTree.filter(j => j.name != selected_file_name);
+        setFileTree(file_tree);
+        setFileTreeValue(file_tree.length > 0 ? file_tree[0].html_url : '');
     }
 
-    function get_selected_file_tree()
+    function rename_file_tree(selected_file_name, retrieved_contents)
     {
-        return fileTree[fileTreeRef.current.selectedIndex].html_url;
+        setFileTree(fileTree.map(j => j.name == selected_file_name ? retrieved_contents : j));
+        setFileTreeValue(retrieved_contents.html_url);
     }
 
     async function open_file_or_dir(url_value = '', token_value = '', HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
@@ -515,9 +512,8 @@ function App() {
     {
         if (event.type == 'dblclick' || event.code == 'Space' || event.code == 'Enter')
         {
-            const url_value = get_selected_file_tree();
-            setUrl(url_value);
-            open_file_or_dir(url_value, token);
+            setUrl(fileTreeValue);
+            open_file_or_dir(fileTreeValue, token);
         }
     }
 
@@ -609,11 +605,11 @@ function App() {
   return (
     <>
     <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" ref={urlRef} type="text" value={url} onChange={(event) => setUrl(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
-    <input  hidden={isCompact} id="html_token" placeholder="GitHub token:" title="GitHub token:" type="text" value={token} onChange={(event) => setToken(event.target.value)} onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
-    <input  hidden={isCompact} id="html_file_name" placeholder="File name:" title="File name:" type="text" ref={fileNameRef} value={fileName} title={fileNameTitle} onChange={(event) => setFileName(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && onclick_savefile()} />
+    <input  hidden={isCompact} id="html_token" placeholder="GitHub token:"  type="text" value={token} onChange={(event) => setToken(event.target.value)} onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
+    <input  hidden={isCompact} id="html_file_name" placeholder="File name:" type="text" ref={fileNameRef} value={fileName} title={fileNameTitle} onChange={(event) => setFileName(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && onclick_savefile()} />
     <input  hidden={isCompact} id="html_log" placeholder="Log:" title="Log:" value={log} readOnly />
-    <select hidden={isCompact} id="html_file_tree" size="10" ref={fileTreeRef} onKeyPress={ondblclick_enter_file_tree} onDoubleClick={ondblclick_enter_file_tree}>
-        {fileTree.map(j => (<option selected={j.selected} value={j.html_url} title={j.html_url} data-type={j.type}>{j.name}</option>))}
+    <select hidden={isCompact} id="html_file_tree" size="10" value={fileTreeValue} onChange={(event) => setFileTreeValue(event.target.value)} onKeyPress={ondblclick_enter_file_tree} onDoubleClick={ondblclick_enter_file_tree}>
+        {fileTree.map(j => (<option value={j.html_url} title={j.html_url}>{j.name + (j.type == 'dir' ? '/' : '')}</option>))}
     </select>
     <table  hidden={isCompact} id="html_frontmatter">
         <tbody>
@@ -630,7 +626,7 @@ function App() {
     <button onClick={onclick_upload}>Upload Files</button>
     <input type="file" id="html_files" onChange={onchange_files} multiple hidden />
       
-    <button onClick={(event) => {console.log(this); setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
+    <button onClick={(event) => {setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
     <button onClick={onclick_signinout} className={isSignedIn ? "signout" : "signin"} ></button>
     <button onClick={() => setIsCompact(!isCompact)}>Toggle Compact View</button>
       
