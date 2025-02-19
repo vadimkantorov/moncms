@@ -20,18 +20,9 @@ import {ContentEditable} from '@lexical/react/LexicalContentEditable';
 import {LexicalErrorBoundary} from '@lexical/react/LexicalErrorBoundary';
 import {HistoryPlugin} from '@lexical/react/LexicalHistoryPlugin';
 import {RichTextPlugin} from '@lexical/react/LexicalRichTextPlugin';
-import {
-  EditorState, $getRoot, $createParagraphNode,$createTextNode,
-  $isTextNode,
-  DOMConversionMap,
-  DOMExportOutput,
-  DOMExportOutputMap,
-  isHTMLElement,
-  Klass,
-  LexicalEditor,
-  LexicalNode,
-  ParagraphNode,
-  TextNode,
+import {EditorState, $getRoot, $createParagraphNode,$createTextNode, $isTextNode,
+    DOMConversionMap, DOMExportOutput, DOMExportOutputMap, isHTMLElement, Klass, LexicalEditor,
+    LexicalNode, ParagraphNode, TextNode,
 } from 'lexical';
 import { $convertToMarkdownString, $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 //import {PLAYGROUND_TRANSFORMERS} from './plugins/MarkdownTransformers';
@@ -49,7 +40,7 @@ import { join2 } from './filepathutils.ts';
 import { github_api_rename_file, github_api_get_file_dir, github_api_upsert_file, github_api_format_error, github_discover_url, github_api_prepare_params, github_api_update_file, github_api_get_file, github_api_signin, github_api_create_file, github_api_delete_file } from './github.ts';
 import { format_frontmatter, parse_frontmatter, update_frontmatter } from './frontmatter.ts';
 import { cache_load, cache_save } from './cacheutils.ts';
-import { add_file_tree, delete_file_tree, rename_file_tree, update_file_tree } from './filetreeutils.ts';
+import { clear_file_tree, add_file_tree, delete_file_tree, rename_file_tree, update_file_tree } from './filetreeutils.ts';
 
 const removeStylesExportDOM = (
   editor: LexicalEditor,
@@ -254,11 +245,8 @@ function App() {
         retrieved_contents = {};
         setFileName('')
         if(file_tree)
-        {
-            const html_file_tree = document.getElementById('html_file_tree');
-            for(let i = html_file_tree.options.length - 1; i >= 0; i--)
-                html_file_tree.options.remove(i);
-        }
+            clear_file_tree();
+        
         return window_editor_setMarkdown(msg);
     }
     function onchange_files()
@@ -269,7 +257,7 @@ function App() {
         {
             const new_file_name = file.name;
             const reader = new FileReader();
-            reader.onload = () => github_api_upsert_file(prep, new_file_name, reader.result.split(',')[1], add_file_tree, moncms_log);
+            reader.onload = () => github_api_upsert_file(prep, new_file_name, reader.result.split(',')[1], (res) => add_file_tree(res, url), moncms_log);
             reader.onerror = () => moncms_log('FILELOAD error');
             reader.readAsDataURL(file);
         }
