@@ -35,6 +35,10 @@ import {
 } from 'lexical';
 import { $convertToMarkdownString, $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 //import {PLAYGROUND_TRANSFORMERS} from './plugins/MarkdownTransformers';
+import { HeadingNode, QuoteNode } from "@lexical/rich-text";
+import { LinkNode } from "@lexical/link";
+import { HashtagNode } from "@lexical/hashtag";
+import { ListNode, ListItemNode } from "@lexical/list";
 
 import ToolbarPlugin from './plugins/ToolbarPlugin';
 import TreeViewPlugin from './plugins/TreeViewPlugin';
@@ -185,7 +189,7 @@ const editorConfig = {
     import: constructImportMap(),
   },
   namespace: 'React.js Demo',
-  nodes: [ParagraphNode, TextNode],
+  nodes: [ParagraphNode, TextNode, HeadingNode],
   onError(error: Error) {
     throw error;
   },
@@ -210,8 +214,10 @@ function App() {
         editorRef.current?.update(() => {
             const editorState = editorRef.current?.getEditorState();
             if (editorState != null) {
-                // $convertFromMarkdownString(markdown, PLAYGROUND_TRANSFORMERS) 
+                $convertFromMarkdownString(markdown, TRANSFORMERS);//PLAYGROUND_TRANSFORMERS) 
+                
                 const root = $getRoot();
+                /*
                 //if (root.getFirstChild() === null)
                 {
                     const paragraph = $createParagraphNode();
@@ -222,7 +228,9 @@ function App() {
                     );
                     root.append(paragraph);
                 }
-                $getRoot().selectStart();
+                */
+
+                root.selectStart();
             }                                                                                                                       })
     }
 
