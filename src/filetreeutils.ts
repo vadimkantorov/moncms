@@ -1,5 +1,19 @@
 // @ts-nocheck
 
+export function set_selected_file_tree(idx)
+{
+    const html_file_tree = document.getElementById('html_file_tree');
+    html_file_tree.selectedIndex = 0;
+    html_file_tree.focus();
+}
+
+export function get_selected_file_tree()
+{
+    const html_file_tree = document.getElementById('html_file_tree');
+    const html_option = html_file_tree.options[html_file_tree.selectedIndex];
+    return html_option.value;
+}
+
 export function clear_file_tree()
 {
     const html_file_tree = document.getElementById('html_file_tree');

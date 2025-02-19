@@ -39,7 +39,7 @@ import { join2 } from './filepathutils.ts';
 import { github_api_rename_file, github_api_get_file_dir, github_api_upsert_file, github_api_format_error, github_discover_url, github_api_prepare_params, github_api_update_file, github_api_get_file, github_api_signin, github_api_create_file, github_api_delete_file } from './github.ts';
 import { format_frontmatter, parse_frontmatter, update_frontmatter } from './frontmatter.ts';
 import { cache_load, cache_save } from './cacheutils.ts';
-import { clear_file_tree, add_file_tree, delete_file_tree, rename_file_tree, update_file_tree } from './filetreeutils.ts';
+//import { get_selected_file_tree, clear_file_tree, add_file_tree, delete_file_tree, rename_file_tree, update_file_tree } from './filetreeutils.ts';
 
 const removeStylesExportDOM = (
   editor: LexicalEditor,
@@ -184,8 +184,6 @@ const editorConfig = {
     onError(error: Error) { throw error; },
 };
 
-const placeholder = 'Enter some rich text...';
-
 function App() {
     const editorRef = useRef(null);
     const fileNameRef = useRef(null);
@@ -198,6 +196,7 @@ function App() {
     const [fileNameTitle, setFileNameTitle] = useState('');
     const [isCompact, setIsCompact] = useState(false);
     const [isSignedIn, setIsSignedIn] = useState(false);
+    const [fileTree, setFileTree] = useState([]);
 
     let retrieved_contents = {};
 
@@ -248,7 +247,9 @@ function App() {
         retrieved_contents = {};
         setFileName('')
         if(file_tree)
-            clear_file_tree();
+        {
+            //FIXME: clear_file_tree();
+        }
         
         return window_editor_setMarkdown(msg);
     }
@@ -260,7 +261,14 @@ function App() {
         {
             const new_file_name = file.name;
             const reader = new FileReader();
-            reader.onload = () => github_api_upsert_file(prep, new_file_name, reader.result.split(',')[1], (res) => add_file_tree(res, url), moncms_log);
+            reader.onload = () => github_api_upsert_file(
+                prep, 
+                new_file_name, 
+                reader.result.split(',')[1],
+                (res) => {}, 
+                //FIXME: (res) => add_file_tree(res, url), 
+                moncms_log
+            );
             reader.onerror = () => moncms_log('FILELOAD error');
             reader.readAsDataURL(file);
         }
@@ -294,7 +302,7 @@ function App() {
             return;
 
         await github_api_delete_file(prep, retrieved_contents, moncms_log);
-        delete_file_tree(fileName);
+        //FIXME: delete_file_tree(fileName);
         setUrl(prep.curdir_url)
         clear(false);
     }
@@ -351,13 +359,12 @@ function App() {
         else if(should_rename)
         {
             retrieved_contents = await github_api_rename_file(prep, fileName, base64, retrieved_contents, moncms_log);
-            rename_file_tree(_retrieved_contents.name, retrieved_contents);
+            //FIXME: rename_file_tree(_retrieved_contents.name, retrieved_contents);
         }
     }
 
     async function open_file_or_dir(url_value = '', token_value = '', HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
     {
-        const html_file_tree = document.getElementById('html_file_tree');
         const html_frontmatter = document.getElementById('html_frontmatter');
         let prep = github_api_prepare_params(url_value, token_value);
         if(prep.error)
@@ -394,7 +401,7 @@ function App() {
         }
         else if(is_dir)
         {
-            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, '');
+            //FIXME: update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, '');
             update_frontmatter(html_frontmatter, null);
             
             setFileName('');
@@ -402,15 +409,14 @@ function App() {
             window_editor_setMarkdown(image_listing);
             window_editor_setEditable(false);
 
-            html_file_tree.selectedIndex = 0;
-            html_file_tree.focus();
+            //FIXME: set_selected_file_tree(0);
         }
         else if(!is_image)
         {
             let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
             [text, frontmatter] = parse_frontmatter(text);
 
-            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
+            //FIXME: update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
             update_frontmatter(html_frontmatter, frontmatter);
 
             setFileName(res_file.name);
@@ -420,7 +426,7 @@ function App() {
         }
         else if(is_image)
         {
-            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
+            //FIXME: update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
             update_frontmatter(html_frontmatter, null);
 
             setFileName(res_file.name);
@@ -470,12 +476,12 @@ function App() {
 
     function ondblclick_enter_file_tree(event)
     {
-        const html_file_tree = document.getElementById('html_file_tree');
         if (event.type == 'dblclick' || event.code == 'Space' || event.code == 'Enter')
         {
-            const html_option = html_file_tree.options[html_file_tree.selectedIndex];
-            setUrl(html_option.value);
-            open_file_or_dir(html_option.value, token);
+            //FIXME: const url_value = get_selected_file_tree();
+            const url_value = '';
+            setUrl(url_value);
+            open_file_or_dir(url_value, token);
         }
     }
 
@@ -562,6 +568,7 @@ function App() {
             urlRef.focus();
     }
   
+  //const placeholder = 'Enter some rich text...';
   return (
     <>
     <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" ref={urlRef} type="text" value={url} onChange={(event) => setUrl(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
@@ -597,10 +604,10 @@ function App() {
             contentEditable={
               <ContentEditable
                 className="editor-input"
-                aria-placeholder={placeholder}
+                {/*aria-placeholder={placeholder}
                 placeholder={
                   <div className="editor-placeholder">{placeholder}</div>
-                }
+                }*/}
               />
             }
             ErrorBoundary={LexicalErrorBoundary}
