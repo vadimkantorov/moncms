@@ -569,6 +569,7 @@ function App() {
     }
   
   //const placeholder = 'Enter some rich text...';
+  // aria-placeholder={placeholder} placeholder={<div className="editor-placeholder">{placeholder}</div>} 
   return (
     <>
     <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" ref={urlRef} type="text" value={url} onChange={(event) => setUrl(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
@@ -604,10 +605,6 @@ function App() {
             contentEditable={
               <ContentEditable
                 className="editor-input"
-                {/*aria-placeholder={placeholder}
-                placeholder={
-                  <div className="editor-placeholder">{placeholder}</div>
-                }*/}
               />
             }
             ErrorBoundary={LexicalErrorBoundary}
