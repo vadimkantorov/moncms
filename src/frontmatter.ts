@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-export function parse_frontmatter(text : String) : [String, Object]
+export function parse_frontmatter(text : string) : [string, Object]
 {
     const m = text.match(/^---\n(.*?)\n---\n*/s);
     let frontmatter = null;
@@ -41,7 +41,7 @@ export function parse_frontmatter(text : String) : [String, Object]
     return [text, frontmatter];
 }
 
-export function format_frontmatter(html_frontmatter) {
+export function format_frontmatter(html_frontmatter) : string {
     const frontmatter_str_inside = Array.from(html_frontmatter.rows).filter(html_tr => html_tr.querySelectorAll('input')[0].value).map(html_tr => html_tr.querySelectorAll('input')[0].value + ': "' + html_tr.querySelectorAll('input')[1].value + '"').join('\n');
     const frontmatter_str = `---\n${frontmatter_str_inside}\n---\n\n`;
 

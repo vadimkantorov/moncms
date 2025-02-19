@@ -198,10 +198,14 @@ const placeholder = 'Enter some rich text...';
 
 function App() {
     const editorRef = useRef(null);
+    const fileNameRef = useRef(null);
+    const urlRef = useRef(null);
+
     const [log, setLog] = useState('');
     const [token, setToken] = useState('');
     const [url, setUrl] = useState('');
     const [fileName, setFileName] = useState('');
+    const [fileNameTitle, setFileNameTitle] = useState('');
     const [isCompact, setIsCompact] = useState(false);
     const [isSignedIn, setIsSignedIn] = useState(false);
 
@@ -247,12 +251,11 @@ function App() {
 
     function clear(file_tree = true, msg = '')
     {
-        const html_file_tree = document.getElementById('html_file_tree');
-        const html_file_name = document.getElementById('html_file_name');
         retrieved_contents = {};
-        html_file_name.value = html_file_name.title = '';
+        setFileName('')
         if(file_tree)
         {
+            const html_file_tree = document.getElementById('html_file_tree');
             for(let i = html_file_tree.options.length - 1; i >= 0; i--)
                 html_file_tree.options.remove(i);
         }
@@ -273,58 +276,40 @@ function App() {
         html_files.value = '';
     }
 
-    async function onclick_createfile()
+    async function onclick_createfiledir(event, date_fmt = '0000-00-00', time_fmt = 'T00:00:00')
     {
-        const html_createfile = document.getElementById('html_createfile');
-        const html_file_name = document.getElementById('html_file_name');
-
-        await clear(false, html_createfile.dataset.message);
+        await clear(false, event.target.dataset.message);
         const now = new Date().toISOString();
-        const date = now.slice(0, '0000-00-00'.length);
-        const time = now.slice('0000-00-00'.length, '0000-00-00'.length + 'T00:00:00'.length).toLowerCase().replaceAll(':', '');
-        html_file_name.value = `${date}-new-post-draft-a${time}.md`; 
-        html_file_name.focus();
+        const time = now.slice(date_fmt.length, date_fmt.length + time_fmt.length).toLowerCase().replaceAll(':', '');
+        const date = now.slice(0, date_fmt.length);
+        
+        const new_path = event.target.dataset.newpath.replaceAll('${date}', date.toString()).replaceAll('${time}', time.toString());
+        setFileName(new_path);
+        fileNameRef.current.focus();
     }
 
-    async function onclick_createdir()
+    async function onclick_delfile(event)
     {
-        const html_createdir = document.getElementById('html_createdir');
-        const html_file_name = document.getElementById('html_file_name');
-        await clear(false, html_createdir.dataset.message);
-        const now = new Date().toISOString();
-        const time = now.slice('0000-00-00'.length, '0000-00-00'.length + 'T00:00:00'.length).toLowerCase().replaceAll(':', '');
-        html_file_name.value = `new-dir-a${time}/.gitignore`;
-        html_file_name.focus();
-    }
-
-    async function onclick_delfile()
-    {
-        const html_url = document.getElementById('html_url');
-        const html_token = document.getElementById('html_token');
-        const html_delfile = document.getElementById('html_delfile');
-        const html_file_name = document.getElementById('html_file_name');
         if(Object.entries(retrieved_contents || {}).length == 0)
         {
             await clear(false);
-            html_file_name.value = '';
-            return html_file_name.focus();
+            setFileName('');
+            return btnFileName.focus();
         }
         const prep = github_api_prepare_params(url, token, true);
         if(prep.error)
             return moncms_log(prep.error);
-        if(!html_file_name.value || !window.confirm(html_delfile.dataset.message))
+        if(!fileName || !window.confirm(event.target.dataset.message))
             return;
 
         await github_api_delete_file(prep, retrieved_contents, moncms_log);
-        delete_file_tree(html_file_name.value);
+        delete_file_tree(fileName);
         setUrl(prep.curdir_url)
         clear(false);
     }
 
     function onclick_upload()
     {
-        const html_url = document.getElementById('html_url');
-        const html_token = document.getElementById('html_token');
         const html_files = document.getElementById('html_files');
         const prep = github_api_prepare_params(url, value, true);
         if(prep.error)
@@ -340,27 +325,27 @@ function App() {
         // https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
         // https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
 
-        const html_url = document.getElementById('html_url');
-        const html_token = document.getElementById('html_token');
-        const html_file_name = document.getElementById('html_file_name');
-        const html_frontmatter = document.getElementById('html_frontmatter');
-        if(!html_file_name.value)
+        if(!fileName)
             return moncms_log('cannot save a file without file name');
         const prep = github_api_prepare_params(url, token, true);
         if(prep.error)
             return moncms_log(prep.error);
 
+        const html_frontmatter = document.getElementById('html_frontmatter');
         const frontmatter_str = format_frontmatter(html_frontmatter);
-        const text = ''; //FIXME: await editor_getMarkdown();
+        const text = await window_editor_getMarkdown();
         const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(frontmatter_str + text)))).replaceAll('\n', '');
 
-        if(retrieved_contents.encoding == 'base64' && retrieved_contents.content.replaceAll('\n', '') == base64 && html_file_name.value == retrieved_contents.name && html_frontmatter.dataset.empty == 'true' && !frontmatter_str)
+        if(retrieved_contents.encoding == 'base64'
+            && retrieved_contents.content.replaceAll('\n', '') == base64
+            && fileName == retrieved_contents.name
+            && html_frontmatter.dataset.empty == 'true'
+            && !frontmatter_str)
             return moncms_log('no changes');
         
-        const new_file_name = html_file_name.value;
-        const should_rename = retrieved_contents && new_file_name != retrieved_contents.name;
-        const should_update = retrieved_contents && new_file_name == retrieved_contents.name;
-        const should_create = Object.entries(retrieved_contents || {}).length == 0 && new_file_name;
+        const should_rename = retrieved_contents && fileName != retrieved_contents.name;
+        const should_update = retrieved_contents && fileName == retrieved_contents.name;
+        const should_create = Object.entries(retrieved_contents || {}).length == 0 && fileName;
 
         if(should_update)
         {
@@ -369,21 +354,21 @@ function App() {
         }
         else if(should_create)
         {
-            const res_put = await github_api_create_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, base64, moncms_log).pop();
+            const res_put = await github_api_create_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, fileName)}, base64, moncms_log).pop();
             retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
         }
         else if(should_rename)
         {
-            retrieved_contents = await github_api_rename_file(prep, new_file_name, base64, retrieved_contents, moncms_log);
+            retrieved_contents = await github_api_rename_file(prep, fileName, base64, retrieved_contents, moncms_log);
             rename_file_tree(_retrieved_contents.name, retrieved_contents);
         }
     }
 
-    async function open_file_or_dir(html_url_value = '', html_token_value = '', HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
+    async function open_file_or_dir(url_value = '', token_value = '', HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
     {
         const html_file_tree = document.getElementById('html_file_tree');
         const html_frontmatter = document.getElementById('html_frontmatter');
-        let prep = github_api_prepare_params(html_url_value, html_token_value);
+        let prep = github_api_prepare_params(url_value, token_value);
         if(prep.error)
         {
             clear();
@@ -391,12 +376,12 @@ function App() {
         }
         if(!html_token_value)
         {
-            html_token_value = cache_load(prep.github_repo_url); // FIXME: set to html_token.value
-            prep = github_api_prepare_params(html_url_value, html_token_value); 
-            if(html_token_value)
+            token_value = cache_load(prep.github_repo_url); // FIXME: set to html_token.value
+            prep = github_api_prepare_params(url_value, token_value); 
+            if(token_value)
                 moncms_log('got from cache for ' + prep.github_repo_url);
         }
-        setIsSignedIn(html_token_value ? true : false);
+        setIsSignedIn(token_value ? true : false);
 
         const [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
 
@@ -412,45 +397,46 @@ function App() {
         
         if(is_err)
         {
-            html_file_name.value = '';
-            html_file_name.title = '';
+            setFileName('');
+            setFileNameTitle('');
             clear();
         }
         else if(is_dir)
         {
-            html_file_name.value = '';
-            html_file_name.title = prep.github_repo_path;
-
-            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
+            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, '');
             update_frontmatter(html_frontmatter, null);
             
-            html_file_tree.selectedIndex = 0;
+            setFileName('');
+            setFileNameTitle(prep.github_repo_path);
             window_editor_setMarkdown(image_listing);
             window_editor_setEditable(false);
+
+            html_file_tree.selectedIndex = 0;
             html_file_tree.focus();
         }
         else if(!is_image)
         {
-            html_file_name.value = res_file.name;
-            html_file_name.title = prep.github_repo_path;
-
             let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
-            [text, frontmatter] = parse_frontmatter(text); 
-            
-            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
+            [text, frontmatter] = parse_frontmatter(text);
+
+            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
             update_frontmatter(html_frontmatter, frontmatter);
+
+            setFileName(res_file.name);
+            setFileNameTitle(prep.github_repo_path);
             window_editor_setMarkdown(text);
             window_editor_setEditable(true);
         }
         else if(is_image)
         {
-            html_file_name.value = res_file.name;
-            html_file_name.title = prep.github_repo_path;
-
-            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, html_file_name.value);
+            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
             update_frontmatter(html_frontmatter, null);
+
+            setFileName(res_file.name);
+            setFileNameTitle(prep.github_repo_path);
             window_editor_setMarkdown(`# ${res_file.name}\n![${res_file.name}](${res_file.download_url})`);
             window_editor_setMarkdown(`<img src="${res_file.download_url}" height="100px"/>`);
+
             window_editor_setEditable(false);
         }
     }
@@ -504,8 +490,6 @@ function App() {
 
     async function onclick_signinout()
     {
-        const html_url = document.getElementById('html_url');
-        const html_token = document.getElementById('html_token');
         if(!isSignedIn)
         {
             if(!token)
@@ -555,7 +539,6 @@ function App() {
                 url_value = query_string.get('html_url');    
             if(query_string.has('html_token'))
                 token_value = query_string.get('html_token');
-
             console.log(github_api_prepare_params(url_value));
         }
 
@@ -580,39 +563,39 @@ function App() {
         }
 
         setUrl(url_value);
-        setToken(url_value);
+        setToken(token_value);
 
         if(url_value)
             open_file_or_dir(url_value, token_value);
         else
-            document.getElementById('html_url').focus();
+            urlRef.focus();
     }
   
   return (
     <>
-      <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" type="text" value={url} onChange={(event) => setUrl(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
-      <input hidden={isCompact} placeholder="GitHub token:" title="GitHub token:" id="html_token" type="text" value={token} onChange={(event) => setToken(event.target.value)} onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
-      <input hidden={isCompact} placeholder="File name:" title="File name:" id="html_file_name" type="text" onKeyPress={(event) => event.code == 'Enter' && onclick_savefile()} />
-      <input hidden={isCompact} placeholder="Log:" title="Log:" id="html_log" value={log} readOnly />
-      <select hidden={isCompact} id="html_file_tree" size="10" onKeyPress={ondblclick_enter_file_tree} onDoubleClick={ondblclick_enter_file_tree}></select>
-      <table hidden={isCompact} id="html_frontmatter">
+    <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" ref={urlRef} type="text" value={url} onChange={(event) => setUrl(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
+    <input  hidden={isCompact} id="html_token" placeholder="GitHub token:" title="GitHub token:" type="text" value={token} onChange={(event) => setToken(event.target.value)} onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
+    <input  hidden={isCompact} id="html_file_name" placeholder="File name:" title="File name:" type="text" ref={fileNameRef} value={fileName} title={fileNameTitle} onChange={(event) => setFileName(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && onclick_savefile()} />
+    <input  hidden={isCompact} id="html_log" placeholder="Log:" title="Log:" value={log} readOnly />
+    <select hidden={isCompact} id="html_file_tree" size="10" onKeyPress={ondblclick_enter_file_tree} onDoubleClick={ondblclick_enter_file_tree}></select>
+    <table  hidden={isCompact} id="html_frontmatter">
         <tbody>
-          <tr><td><input type="text" placeholder="Frontmatter key:" /></td><td><input type="text" placeholder="Frontmatter value:" /></td><td><button onClick={onclick_addrow}>Add another row</button><button onClick={onclick_delrow}>Delete this row</button></td></tr>
+            <tr><td><input type="text" placeholder="Frontmatter key:" /></td><td><input type="text" placeholder="Frontmatter value:" /></td><td><button onClick={onclick_addrow}>Add another row</button><button onClick={onclick_delrow}>Delete this row</button></td></tr>
         </tbody>
-      </table>
+    </table>
 
-      <button onClick={() => open_file_or_dir(url, token)}>Open</button>
-      <button onClick={onclick_savefile}>Save File</button>
-      <button onClick={onclick_delfile} id="html_delfile" data-message="Do you really want to delete this file?">Delete File</button>
-      <button onClick={onclick_createfile} id="html_createfile" data-message="### modify the file name, modify this content and click Save to actually create and save the file">New File</button>
-      <button onClick={onclick_createdir} id="html_createdir" data-message="### modify the directory name, and then click Save to create the file and the directory">New Folder</button>
+    <button onClick={() => open_file_or_dir(url, token)}>Open</button>
+    <button onClick={onclick_savefile}>Save File</button>
+    <button onClick={onclick_delfile} id="html_delfile" data-message="Do you really want to delete this file?">Delete File</button>
+    <button onClick={onclick_createfiledir} id="html_createfile" data-newpath="${date}-new-post-draft-a${time}.md" data-message="### modify the file name, modify this content and click Save to actually create and save the file">New File</button>
+    <button onClick={onclick_createfiledir} id="html_createdir" data-newpath="new-dir-a${time}/.gitignore" data-message="### modify the directory name, and then click Save to create the file and the directory">New Folder</button>
       
-      <button onClick={onclick_upload}>Upload Files</button>
-      <input type="file" id="html_files" onChange={onchange_files} multiple hidden />
+    <button onClick={onclick_upload}>Upload Files</button>
+    <input type="file" id="html_files" onChange={onchange_files} multiple hidden />
       
-      <button onClick={(event) => {console.log(this); setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
-      <button onClick={onclick_signinout} className={isSignedIn ? "signout" : "signin"} ></button>
-      <button onClick={() => setIsCompact(!isCompact)}>Toggle Compact View</button>
+    <button onClick={(event) => {console.log(this); setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
+    <button onClick={onclick_signinout} className={isSignedIn ? "signout" : "signin"} ></button>
+    <button onClick={() => setIsCompact(!isCompact)}>Toggle Compact View</button>
       
     <LexicalComposer initialConfig={editorConfig}>
       <EditorRefPlugin editorRef={editorRef} />
