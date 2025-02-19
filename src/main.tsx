@@ -189,7 +189,7 @@ const editorConfig = {
     import: constructImportMap(),
   },
   namespace: 'React.js Demo',
-  nodes: [ParagraphNode, TextNode, HeadingNode],
+  nodes: [ParagraphNode, TextNode, HeadingNode, ListNode, ListItemNode],
   onError(error: Error) {
     throw error;
   },
@@ -215,22 +215,7 @@ function App() {
             const editorState = editorRef.current?.getEditorState();
             if (editorState != null) {
                 $convertFromMarkdownString(markdown, TRANSFORMERS);//PLAYGROUND_TRANSFORMERS) 
-                
-                const root = $getRoot();
-                /*
-                //if (root.getFirstChild() === null)
-                {
-                    const paragraph = $createParagraphNode();
-                    paragraph.append(
-                    $createTextNode("The playground is a demo environment built with "),
-                    $createTextNode(markdown),
-                    $createTextNode("Bye")
-                    );
-                    root.append(paragraph);
-                }
-                */
-
-                root.selectStart();
+                $getRoot().selectStart();
             }                                                                                                                       })
     }
 
@@ -238,8 +223,7 @@ function App() {
     {
         return new Promise(resolve => {
             editorRef.current?.update(() => {
-                //const md = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS);
-                const md = '';
+                const md = $convertToMarkdownString(TRANSFORMERS);//PLAYGROUND_TRANSFORMERS);
                 resolve(md);
             })
         });
