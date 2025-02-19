@@ -202,14 +202,18 @@ function App() {
 
     let retrieved_contents = {};
 
-    function window_editor_setMarkdown(markdown : string)
+    function window_editor_setMarkdown(markdown : string) : Promise
     {
-        editorRef.current?.update(() => {
-            const editorState = editorRef.current?.getEditorState();
-            if (editorState != null) {
-                $convertFromMarkdownString(markdown, TRANSFORMERS);//PLAYGROUND_TRANSFORMERS) 
-                $getRoot().selectStart();
-            }                                                                                                                       })
+        return new Promise(resolve => {
+            editorRef.current?.update(() => {
+                const editorState = editorRef.current?.getEditorState();
+                if (editorState != null) {
+                    $convertFromMarkdownString(markdown, TRANSFORMERS);//PLAYGROUND_TRANSFORMERS) 
+                    $getRoot().selectStart();
+                }
+                resolve();
+            });
+        });
     }
 
     function window_editor_getMarkdown() : Promise<string>
