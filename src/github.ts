@@ -210,3 +210,12 @@ export async function github_api_get_file_dir(prep, moncms_log, HTTP_OK = 200)
     
     return [res_file, res_dir];
 }
+
+export async function github_api_rename_file(prep, new_file_name, base64, retrieved_contents, moncms_log, message = 'no commit message')
+{
+    const _retrieved_contents = retrieved_contents;
+    const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, null, base64, moncms_log);
+    retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
+    await github_api_delete_file(prep, _retrieved_contents, moncms_log);
+    return retrieved_contents;
+}

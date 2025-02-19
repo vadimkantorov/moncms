@@ -13,7 +13,6 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 
 import {useRef, useState} from 'react';
-import {useRef, useState} from 'react';
 import {EditorRefPlugin} from "@lexical/react/LexicalEditorRefPlugin";
 import {AutoFocusPlugin} from '@lexical/react/LexicalAutoFocusPlugin';
 import {LexicalComposer} from '@lexical/react/LexicalComposer';
@@ -43,7 +42,7 @@ import {parseAllowedColor, parseAllowedFontSize} from './styleConfig';
 
 
 import { join2 } from './filepathutils.ts';
-import { github_api_get_file_dir, github_api_upsert_file, github_api_format_error, github_discover_url, github_api_prepare_params, github_api_update_file, github_api_get_file, github_api_signin, github_api_create_file, github_api_delete_file } from './github.ts';
+import { github_api_rename_file, github_api_get_file_dir, github_api_upsert_file, github_api_format_error, github_discover_url, github_api_prepare_params, github_api_update_file, github_api_get_file, github_api_signin, github_api_create_file, github_api_delete_file } from './github.ts';
 import { format_frontmatter, parse_frontmatter, update_frontmatter } from './frontmatter.ts';
 import { cache_load, cache_save } from './cacheutils.ts';
 import { add_file_tree, delete_file_tree, rename_file_tree, update_file_tree } from './filetreeutils.ts';
@@ -197,12 +196,14 @@ const placeholder = 'Enter some rich text...';
 
 function App() {
     const editorRef = useRef(null);
-    const btn_help = useRef(null);
     const [log, setLog] = useState('');
+    const [token, setToken] = useState('');
+    const [url, setUrl] = useState('');
+    const [fileName, setFileName] = useState('');
     const [isCompact, setIsCompact] = useState(false);
     const [isSignedIn, setIsSignedIn] = useState(false);
 
-    let retrieved_contents = {}; 
+    let retrieved_contents = {};
 
     function window_editor_setMarkdown(markdown : string)
     {
@@ -225,7 +226,7 @@ function App() {
             }                                                                                                                       })
     }
 
-    function window_editor_getMarkdown()
+    function window_editor_getMarkdown() : Promise<string>
     {
         return new Promise(resolve => {
             editorRef.current?.update(() => {
@@ -238,30 +239,20 @@ function App() {
 
     function window_editor_setEditable(editable : boolean)
     {
-        console.log(editorRef);
+        editorRef.current.setEditable(editable);
     }
 
-    function moncms_log(text)
+    function moncms_log(text : string)
     {
         const now = new Date().toISOString();
-        setLog(`${now}: ${text}`);
         setLog(`${now}: ${text}`);
         //html_log.value += '\n' + text; html_log.scrollTop = html_log.scrollHeight;
     }
 
-    function update_location(path)
+    function update_location(path : string)
     {
         // https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
         window.history.replaceState({}, document.title, path );
-    }
-
-    async function github_api_rename_file(prep, new_file_name, base64, retrieved_contents, moncms_log, message = 'no commit message')
-    {
-        const _retrieved_contents = retrieved_contents;
-        const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, null, base64, moncms_log);
-        retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
-        await github_api_delete_file(prep, _retrieved_contents, moncms_log);
-        return retrieved_contents;
     }
 
     function clear(file_tree = true, msg = '')
@@ -316,11 +307,11 @@ function App() {
         html_file_name.focus();
     }
 
-    async function onclick_help()
+    async function onclick_help(event)
     {
         const html_url = document.getElementById('html_url');
         const html_token = document.getElementById('html_token');
-        html_url.value = btn_help.current.dataset.message;
+        html_url.value = event.target.dataset.message;
         html_token.value = '';
         onclick_open();
     }
@@ -521,18 +512,6 @@ function App() {
             html_frontmatter.deleteRow(rowIdx);
     }
 
-    function onkeypress_save(event)
-    {
-        if(event.code == 'Enter')
-            onclick_savefile();
-    }
-
-    function onkeypress_enter_url(event)
-    {
-        if (event.code === 'Enter')
-            onclick_open();
-    }
-
     function ondblclick_enter_file_tree(event)
     {
         const html_file_tree = document.getElementById('html_file_tree');
@@ -630,10 +609,10 @@ function App() {
   
   return (
     <>
-    <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" type="text"  onKeyPress={onkeypress_enter_url} />
-      <input hidden={isCompact} placeholder="GitHub token:" title="GitHub token:" id="html_token" type="text" onKeyPress={onkeypress_enter_url} />
-      <input hidden={isCompact} placeholder="File name:" title="File name:" id="html_file_name" type="text" onKeyPress={onkeypress_save} />
-      <input hidden={isCompact} placeholder="Log:" title="Log:" id="html_log" value={log} readOnly />
+      <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" type="text"  onKeyPress={(event) => event.code == 'Enter' && onclick_open()} />
+      <input hidden={isCompact} placeholder="GitHub token:" title="GitHub token:" id="html_token" type="text" onKeyPress={(event) => event.code == 'Enter' && onclick_open()} />
+      <input hidden={isCompact} placeholder="File name:" title="File name:" id="html_file_name" type="text" onKeyPress={(event) => event.code == 'Enter' && onclick_savefile()} />
+      <input hidden={isCompact} placeholder="Log:" title="Log:" value={log} readOnly />
       <select hidden={isCompact} id="html_file_tree" size="10" onKeyPress={ondblclick_enter_file_tree} onDoubleClick={ondblclick_enter_file_tree}></select>
       <table hidden={isCompact} id="html_frontmatter">
         <tbody>
@@ -650,7 +629,7 @@ function App() {
       <button onClick={onclick_upload}>Upload Files</button>
       <input type="file" id="html_files" onChange={onchange_files} multiple hidden />
       
-      <button onClick={onclick_help} ref={btn_help} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
+      <button onClick={onclick_help} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
       <button onClick={onclick_signinout} className={isSignedIn ? "signout" : "signin"} ></button>
       <button onClick={() => setIsCompact(!isCompact)}>Toggle Compact View</button>
       
