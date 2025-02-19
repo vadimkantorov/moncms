@@ -187,6 +187,7 @@ function App() {
     const editorRef = useRef(null);
     const fileNameRef = useRef(null);
     const urlRef = useRef(null);
+    const uploadsRef = useRef(null);
 
     const [log, setLog] = useState('');
     const [token, setToken] = useState('');
@@ -251,11 +252,11 @@ function App() {
         
         return window_editor_setMarkdown(msg);
     }
-    function onchange_files()
+    function onchange_files(event)
     {
+        console.log(event);
         // https://stackoverflow.com/questions/572768/styling-an-input-type-file-button/25825731#25825731
-        const html_files = document.getElementById('html_files');
-        for(const file of html_files.files)
+        for(const file of event.target.files)
         {
             const new_file_name = file.name;
             const reader = new FileReader();
@@ -269,7 +270,7 @@ function App() {
             reader.onerror = () => moncms_log('FILELOAD error');
             reader.readAsDataURL(file);
         }
-        html_files.value = '';
+        event.target.value = '';
     }
 
     async function onclick_createfiledir(event, date_fmt = '0000-00-00', time_fmt = 'T00:00:00')
@@ -374,6 +375,7 @@ function App() {
             ...files, 
             ...images
         ];
+        //TODO: add .key: Warning: Each child in a list should have a unique "key" prop: https://reactjs.org/link/warning-keys 
         const file_tree_value = ['', ...file_tree.filter(j => j.name == selected_file_name).map(j => j.html_url)].pop();
         setFileTree(file_tree);
         setFileTreeValue(file_tree_value);
@@ -624,7 +626,7 @@ function App() {
     <button onClick={onclick_createfiledir} id="html_createdir" data-newpath="new-dir-a${time}/.gitignore" data-message="### modify the directory name, and then click Save to create the file and the directory">New Folder</button>
       
     <button onClick={onclick_upload}>Upload Files</button>
-    <input type="file" id="html_files" onChange={onchange_files} multiple hidden />
+    <input type="file" id="html_files" ref={uploadsRef}  onChange={onchange_files} multiple hidden />
       
     <button onClick={(event) => {setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
     <button onClick={onclick_signinout} className={isSignedIn ? "signout" : "signin"} ></button>
