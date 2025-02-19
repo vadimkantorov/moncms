@@ -32,7 +32,6 @@ import { HashtagNode } from "@lexical/hashtag";
 import { ListNode, ListItemNode } from "@lexical/list";
 
 import ToolbarPlugin from './plugins/ToolbarPlugin';
-import TreeViewPlugin from './plugins/TreeViewPlugin';
 import {parseAllowedColor, parseAllowedFontSize} from './styleConfig';
 
 
@@ -366,7 +365,7 @@ function App() {
             clear();
             return moncms_log(prep.error);
         }
-        if(!html_token_value)
+        if(!token_value)
         {
             token_value = cache_load(prep.github_repo_url); // FIXME: set to html_token.value
             prep = github_api_prepare_params(url_value, token_value); 
@@ -608,7 +607,6 @@ function App() {
           />
           <HistoryPlugin />
           <AutoFocusPlugin />
-          <TreeViewPlugin />
         </div>
       </div>
     </LexicalComposer>
