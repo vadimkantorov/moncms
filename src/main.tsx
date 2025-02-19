@@ -188,6 +188,7 @@ function App() {
     const editorRef = useRef(null);
     const fileNameRef = useRef(null);
     const urlRef = useRef(null);
+    const fileTreeRef = useRef(null);
 
     const [log, setLog] = useState('');
     const [token, setToken] = useState('');
@@ -247,9 +248,7 @@ function App() {
         retrieved_contents = {};
         setFileName('')
         if(file_tree)
-        {
-            //FIXME: clear_file_tree();
-        }
+            setFileTree([]);
         
         return window_editor_setMarkdown(msg);
     }
@@ -265,8 +264,7 @@ function App() {
                 prep, 
                 new_file_name, 
                 reader.result.split(',')[1],
-                (res) => {}, 
-                //FIXME: (res) => add_file_tree(res, url), 
+                (res) => add_file_tree(res.name, url), 
                 moncms_log
             );
             reader.onerror = () => moncms_log('FILELOAD error');
@@ -302,7 +300,7 @@ function App() {
             return;
 
         await github_api_delete_file(prep, retrieved_contents, moncms_log);
-        //FIXME: delete_file_tree(fileName);
+        delete_file_tree(fileName);
         setUrl(prep.curdir_url)
         clear(false);
     }
@@ -363,6 +361,47 @@ function App() {
         }
     }
 
+    function update_file_tree(files_and_dirs, curdir_url, parentdir_url, selected_file_name, ext = ['.gif', '.jpg', '.png', '.svg'])
+    {
+        const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+        const files = files_and_dirs.filter(j => j.type == 'file' && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
+        const dirs = files_and_dirs.filter(j => j.type == 'dir' && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
+        const images = files_and_dirs.filter(j => j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
+        const file_tree = [
+            { name: '.', type: 'dir', html_url: curdir_url }, 
+            { name: '..', type: 'dir', html_url: parentdir_url ? parentdir_url : curdir_url }, 
+            ...dirs, 
+            ...files, 
+            ...images
+        ];
+        if(!selected_file_name)
+            file_tree[0].selected = true;
+        else for(const f of file_tree)
+        {
+            if(f.name == selected_file_name)
+                f.selected = true;
+        }
+        
+        setFileTree(file_tree);
+    }
+
+    export function add_file_tree(res_name, url)
+    {
+        setFileTree([...fileTree, { name: res_name, type: 'file', html_url: url }]);
+    }
+
+    function delete_file_tree(selected_file_name)
+    {
+        //const html_file_tree = document.getElementById('html_file_tree');
+        //for (const html_option of html_file_tree.querySelectorAll(`option[title="${selected_file_name}"]`))
+        //    html_file_tree.removeChild(html_option);
+    }
+
+    function get_selected_file_tree()
+    {
+        return fileTree[fileTreeRef.current.selectedIndex].html_url;
+    }
+
     async function open_file_or_dir(url_value = '', token_value = '', HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
     {
         const html_frontmatter = document.getElementById('html_frontmatter');
@@ -401,22 +440,20 @@ function App() {
         }
         else if(is_dir)
         {
-            //FIXME: update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, '');
+            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, '');
             update_frontmatter(html_frontmatter, null);
             
             setFileName('');
             setFileNameTitle(prep.github_repo_path);
             window_editor_setMarkdown(image_listing);
             window_editor_setEditable(false);
-
-            //FIXME: set_selected_file_tree(0);
         }
         else if(!is_image)
         {
             let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
             [text, frontmatter] = parse_frontmatter(text);
 
-            //FIXME: update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
+            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
             update_frontmatter(html_frontmatter, frontmatter);
 
             setFileName(res_file.name);
@@ -426,7 +463,7 @@ function App() {
         }
         else if(is_image)
         {
-            //FIXME: update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
+            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
             update_frontmatter(html_frontmatter, null);
 
             setFileName(res_file.name);
@@ -478,8 +515,7 @@ function App() {
     {
         if (event.type == 'dblclick' || event.code == 'Space' || event.code == 'Enter')
         {
-            //FIXME: const url_value = get_selected_file_tree();
-            const url_value = '';
+            const url_value = get_selected_file_tree();
             setUrl(url_value);
             open_file_or_dir(url_value, token);
         }
@@ -576,7 +612,9 @@ function App() {
     <input  hidden={isCompact} id="html_token" placeholder="GitHub token:" title="GitHub token:" type="text" value={token} onChange={(event) => setToken(event.target.value)} onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
     <input  hidden={isCompact} id="html_file_name" placeholder="File name:" title="File name:" type="text" ref={fileNameRef} value={fileName} title={fileNameTitle} onChange={(event) => setFileName(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && onclick_savefile()} />
     <input  hidden={isCompact} id="html_log" placeholder="Log:" title="Log:" value={log} readOnly />
-    <select hidden={isCompact} id="html_file_tree" size="10" onKeyPress={ondblclick_enter_file_tree} onDoubleClick={ondblclick_enter_file_tree}></select>
+    <select hidden={isCompact} id="html_file_tree" size="10" ref={fileTreeRef} onKeyPress={ondblclick_enter_file_tree} onDoubleClick={ondblclick_enter_file_tree}>
+        {fileTree.map(j => (<option selected={j.selected} value={j.html_url} title={j.html_url} data-type={j.type}>{j.name}</option>))}
+    </select>
     <table  hidden={isCompact} id="html_frontmatter">
         <tbody>
             <tr><td><input type="text" placeholder="Frontmatter key:" /></td><td><input type="text" placeholder="Frontmatter value:" /></td><td><button onClick={onclick_addrow}>Add another row</button><button onClick={onclick_delrow}>Delete this row</button></td></tr>

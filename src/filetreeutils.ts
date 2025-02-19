@@ -1,12 +1,5 @@
 // @ts-nocheck
 
-export function set_selected_file_tree(idx)
-{
-    const html_file_tree = document.getElementById('html_file_tree');
-    html_file_tree.selectedIndex = 0;
-    html_file_tree.focus();
-}
-
 export function get_selected_file_tree()
 {
     const html_file_tree = document.getElementById('html_file_tree');
@@ -38,13 +31,14 @@ export function update_file_tree(files_and_dirs, curdir_url, parentdir_url, sele
             html_file_tree.options.add(html_option);
         }
         html_option.text = file_tree[i].name + (file_tree[i].type == 'dir' ? '/' : '');
-        html_option.selected = file_tree[i].name == selected_file_name;
+        html_option.selected = (i == 0 && !selected_file_name) || (file_tree[i].name == selected_file_name);
         html_option.value = file_tree[i].html_url;
         html_option.title = html_option.value;
         html_option.dataset.type = file_tree[i].type;
     }
     for (let j = html_file_tree.length - 1; j >= i; j--)
         html_file_tree.options.remove(j);
+
 }
 export function rename_file_tree(selected_file_name, retrieved_contents) {
     const html_file_tree = document.getElementById('html_file_tree');
