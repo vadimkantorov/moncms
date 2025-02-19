@@ -147,7 +147,7 @@ const constructImportMap = (): DOMConversionMap => {
   return importMap;
 };
 
-const ExampleTheme = {
+const theme = {
   code: 'editor-code',
   heading: {
     h1: 'editor-heading-h1',
@@ -184,16 +184,14 @@ const ExampleTheme = {
 };
 
 const editorConfig = {
-  html: {
-    export: exportMap,
-    import: constructImportMap(),
-  },
-  namespace: 'React.js Demo',
-  nodes: [ParagraphNode, TextNode, HeadingNode, ListNode, ListItemNode],
-  onError(error: Error) {
-    throw error;
-  },
-  theme: ExampleTheme,
+    theme: theme,
+    html: {
+        export: exportMap,
+        import: constructImportMap(),
+    },
+    namespace: 'moncms',
+    nodes: [ParagraphNode, TextNode, HeadingNode, ListNode, ListItemNode],
+    onError(error: Error) { throw error; },
 };
 
 const placeholder = 'Enter some rich text...';
@@ -299,15 +297,6 @@ function App() {
         html_file_name.focus();
     }
 
-    async function onclick_help(event)
-    {
-        const html_url = document.getElementById('html_url');
-        const html_token = document.getElementById('html_token');
-        html_url.value = event.target.dataset.message;
-        html_token.value = '';
-        onclick_open();
-    }
-
     async function onclick_delfile()
     {
         const html_url = document.getElementById('html_url');
@@ -320,7 +309,7 @@ function App() {
             html_file_name.value = '';
             return html_file_name.focus();
         }
-        const prep = github_api_prepare_params(html_url.value, html_token.value, true);
+        const prep = github_api_prepare_params(url, token, true);
         if(prep.error)
             return moncms_log(prep.error);
         if(!html_file_name.value || !window.confirm(html_delfile.dataset.message))
@@ -328,7 +317,7 @@ function App() {
 
         await github_api_delete_file(prep, retrieved_contents, moncms_log);
         delete_file_tree(html_file_name.value);
-        html_url.value = prep.curdir_url;
+        setUrl(prep.curdir_url)
         clear(false);
     }
 
@@ -337,7 +326,7 @@ function App() {
         const html_url = document.getElementById('html_url');
         const html_token = document.getElementById('html_token');
         const html_files = document.getElementById('html_files');
-        const prep = github_api_prepare_params(html_url.value, html_token.value, true);
+        const prep = github_api_prepare_params(url, value, true);
         if(prep.error)
             return moncms_log(prep.error);
         
@@ -357,7 +346,7 @@ function App() {
         const html_frontmatter = document.getElementById('html_frontmatter');
         if(!html_file_name.value)
             return moncms_log('cannot save a file without file name');
-        const prep = github_api_prepare_params(html_url.value, html_token.value, true);
+        const prep = github_api_prepare_params(url, token, true);
         if(prep.error)
             return moncms_log(prep.error);
 
@@ -390,26 +379,24 @@ function App() {
         }
     }
 
-    async function onclick_open(HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
+    async function open_file_or_dir(html_url_value = '', html_token_value = '', HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
     {
-        const html_url = document.getElementById('html_url');
-        const html_token = document.getElementById('html_token');
         const html_file_tree = document.getElementById('html_file_tree');
         const html_frontmatter = document.getElementById('html_frontmatter');
-        let prep = github_api_prepare_params(html_url.value, html_token.value);
+        let prep = github_api_prepare_params(html_url_value, html_token_value);
         if(prep.error)
         {
             clear();
             return moncms_log(prep.error);
         }
-        if(!html_token.value)
+        if(!html_token_value)
         {
-            html_token.value = cache_load(prep.github_repo_url);
-            prep = github_api_prepare_params(html_url.value, html_token.value); 
-            if(html_token.value)
+            html_token_value = cache_load(prep.github_repo_url); // FIXME: set to html_token.value
+            prep = github_api_prepare_params(html_url_value, html_token_value); 
+            if(html_token_value)
                 moncms_log('got from cache for ' + prep.github_repo_url);
         }
-        setIsSignedIn(html_token.value ? true : false);
+        setIsSignedIn(html_token_value ? true : false);
 
         const [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
 
@@ -510,9 +497,8 @@ function App() {
         if (event.type == 'dblclick' || event.code == 'Space' || event.code == 'Enter')
         {
             const html_option = html_file_tree.options[html_file_tree.selectedIndex];
-            const html_url = document.getElementById('html_url');
-            html_url.value = html_option.value;
-            onclick_open();
+            setUrl(html_option.value);
+            open_file_or_dir(html_option.value, token);
         }
     }
 
@@ -522,10 +508,10 @@ function App() {
         const html_token = document.getElementById('html_token');
         if(!isSignedIn)
         {
-            if(!html_token.value)
+            if(!token)
                 return moncms_log('cannot signin, no token provided');
 
-            const prep = github_api_prepare_params(html_url.value, html_token.value);
+            const prep = github_api_prepare_params(url, token);
             if(!prep.github_repo_url || prep.error)
             {
                 if(!prep.error) moncms_log(prep.error);
@@ -536,10 +522,10 @@ function App() {
 
             if(await github_api_signin(prep, moncms_log))
             {
-                cache_save(prep.github_repo_url, html_token.value);
+                cache_save(prep.github_repo_url, token);
                 setIsSignedIn(true);
                 moncms_log('saved to cache for ' + prep.github_repo_url);
-                onclick_open();
+                open_file_or_dir(url, token);
             }
             else
                 clear();
@@ -547,10 +533,10 @@ function App() {
         else if(isSignedIn)
         {
             clear();
-            html_token.value = '';
+            setToken('');
             setIsSignedIn(false);
             
-            const prep = github_api_prepare_params(html_url.value);
+            const prep = github_api_prepare_params(url);
             if(prep.github_repo_url)
             {
                 cache_save(prep.github_repo_url, null);
@@ -561,50 +547,53 @@ function App() {
 
     async function onload_body()
     {
+        let url_value = '', token_value = '';
         if(window.location.search)
         {
             const query_string = new URLSearchParams(window.location.search);
-            for(const k of ['html_url', 'html_token'])
-                if(query_string.has(k))
-                    document.getElementById(k).value = query_string.get(k);
+            if(query_string.has('html_url'))
+                url_value = query_string.get('html_url');    
+            if(query_string.has('html_token'))
+                token_value = query_string.get('html_token');
 
-            console.log(github_api_prepare_params(html_url.value));
+            console.log(github_api_prepare_params(url_value));
         }
 
-        const html_url = document.getElementById('html_url');
-        const html_token = document.getElementById('html_token');
-
-        if(!html_url.value)
+        if(!url_value)
         {
-            const discovered = await github_discover_url(window.location.href);
+            const url_discovered = await github_discover_url(window.location.href);
             moncms_log('discovered url:' + discovered);
-            const prep = github_api_prepare_params(window.location.protocol != 'file:' ? window.location.href : discovered);
-            html_url.value = discovered || prep.github_repo_url;
+            const prep = github_api_prepare_params(window.location.protocol != 'file:' ? window.location.href : url_discovered);
+            url_value = url_discovered || prep.github_repo_url;
+            
         }
 
-        if(!html_token.value)
+        if(!token_value)
         {
-            const prep = github_api_prepare_params(html_url.value);
+            const prep = github_api_prepare_params(url_value);
             if(prep.github_repo_url)
             {
-                html_token.value = cache_load(prep.github_repo_url);
-                if(html_token.value)
+                token_value = cache_load(prep.github_repo_url);
+                if(token_value)
                     moncms_log('got from cache for ' + prep.github_repo_url);
             }
         }
 
-        if(html_url.value)
-            onclick_open();
+        setUrl(url_value);
+        setToken(url_value);
+
+        if(url_value)
+            open_file_or_dir(url_value, token_value);
         else
-            html_url.focus();
+            document.getElementById('html_url').focus();
     }
   
   return (
     <>
-      <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" type="text"  onKeyPress={(event) => event.code == 'Enter' && onclick_open()} />
-      <input hidden={isCompact} placeholder="GitHub token:" title="GitHub token:" id="html_token" type="text" onKeyPress={(event) => event.code == 'Enter' && onclick_open()} />
+      <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" type="text" value={url} onChange={(event) => setUrl(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
+      <input hidden={isCompact} placeholder="GitHub token:" title="GitHub token:" id="html_token" type="text" value={token} onChange={(event) => setToken(event.target.value)} onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
       <input hidden={isCompact} placeholder="File name:" title="File name:" id="html_file_name" type="text" onKeyPress={(event) => event.code == 'Enter' && onclick_savefile()} />
-      <input hidden={isCompact} placeholder="Log:" title="Log:" value={log} readOnly />
+      <input hidden={isCompact} placeholder="Log:" title="Log:" id="html_log" value={log} readOnly />
       <select hidden={isCompact} id="html_file_tree" size="10" onKeyPress={ondblclick_enter_file_tree} onDoubleClick={ondblclick_enter_file_tree}></select>
       <table hidden={isCompact} id="html_frontmatter">
         <tbody>
@@ -612,7 +601,7 @@ function App() {
         </tbody>
       </table>
 
-      <button onClick={onclick_open}>Open</button>
+      <button onClick={() => open_file_or_dir(url, token)}>Open</button>
       <button onClick={onclick_savefile}>Save File</button>
       <button onClick={onclick_delfile} id="html_delfile" data-message="Do you really want to delete this file?">Delete File</button>
       <button onClick={onclick_createfile} id="html_createfile" data-message="### modify the file name, modify this content and click Save to actually create and save the file">New File</button>
@@ -621,7 +610,7 @@ function App() {
       <button onClick={onclick_upload}>Upload Files</button>
       <input type="file" id="html_files" onChange={onchange_files} multiple hidden />
       
-      <button onClick={onclick_help} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
+      <button onClick={(event) => {console.log(this); setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
       <button onClick={onclick_signinout} className={isSignedIn ? "signout" : "signin"} ></button>
       <button onClick={() => setIsCompact(!isCompact)}>Toggle Compact View</button>
       

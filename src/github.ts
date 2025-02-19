@@ -7,7 +7,7 @@ export function github_api_format_error(resp, res = {})
     const res_message = (res || {}).message || '';
     return `${resp_status}: ` + ({200: 'OK', 201: 'OK Created', 404: 'Resource not found', 409: 'Conflict', 422: 'Already Exists. Validation failed, or the endpoint has been spammed.', 401: 'Unauthorized', 403: 'Forbidden: ' + res_message}[resp_status] || '');
 }
-export async function github_discover_url(url, key = 'moncmsdefault', HTTP_OK = 200)
+export async function github_discover_url(url : string, key = 'moncmsdefault', HTTP_OK = 200) : string
 {
     if(!url)
         return '';
