@@ -187,7 +187,6 @@ function App() {
     const editorRef = useRef(null);
     const fileNameRef = useRef(null);
     const urlRef = useRef(null);
-    const uploadsRef = useRef(null);
 
     const [log, setLog] = useState('');
     const [token, setToken] = useState('');
@@ -626,7 +625,7 @@ function App() {
     <button onClick={onclick_createfiledir} id="html_createdir" data-newpath="new-dir-a${time}/.gitignore" data-message="### modify the directory name, and then click Save to create the file and the directory">New Folder</button>
       
     <button onClick={onclick_upload}>Upload Files</button>
-    <input type="file" id="html_files" ref={uploadsRef}  onChange={onchange_files} multiple hidden />
+    <input type="file" id="html_files" onChange={onchange_files} multiple hidden />
       
     <button onClick={(event) => {setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
     <button onClick={onclick_signinout} className={isSignedIn ? "signout" : "signin"} ></button>
