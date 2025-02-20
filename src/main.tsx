@@ -225,13 +225,23 @@ function parse_frontmatter(text : string) : [string, Object]
 }
 
 function App() {
+    let url_value = '', token_value = '';
+    if(window.location.search)
+    {
+        const query_string = new URLSearchParams(window.location.search);
+        if(query_string.has('html_url'))
+            url_value = query_string.get('html_url');    
+        if(query_string.has('html_token'))
+            token_value = query_string.get('html_token');
+    }
+    
     const editorRef = useRef(null);
     const fileNameRef = useRef(null);
     const urlRef = useRef(null);
 
     const [log, setLog] = useState('');
-    const [token, setToken] = useState('');
-    const [url, setUrl] = useState('');
+    const [token, setToken] = useState(token_value);
+    const [url, setUrl] = useState(url_value);
     const [fileName, setFileName] = useState('');
     const [fileNameTitle, setFileNameTitle] = useState('');
     const [isCompact, setIsCompact] = useState(false);
@@ -641,15 +651,8 @@ function App() {
     async function onload_body()
     {
         let url_value = '', token_value = '';
-        if(window.location.search)
-        {
-            const query_string = new URLSearchParams(window.location.search);
-            if(query_string.has('html_url'))
-                url_value = query_string.get('html_url');    
-            if(query_string.has('html_token'))
-                token_value = query_string.get('html_token');
-            console.log(github_api_prepare_params(url_value));
-        }
+
+        //
 
         if(!url_value)
         {
