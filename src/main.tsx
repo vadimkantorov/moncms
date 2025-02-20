@@ -9,7 +9,7 @@
  */
 import './styles.css';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 
 import {useRef, useState} from 'react';
@@ -224,8 +224,29 @@ function parse_frontmatter(text : string) : [string, Object]
     return [text, frontmatter];
 }
 
+function update_location(path : string)
+{
+    // https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
+    window.history.replaceState({}, document.title, path );
+}
+
+function load_token(url_value)
+{
+    const prep = github_api_prepare_params(url_value);
+    return prep.github_repo_url ? cache_load(prep.github_repo_url) : '';
+}
+
+function fmt_log(text : string)
+{
+    const now = new Date().toISOString();
+    return `${now}: ${text}`;
+}
+
 function App() {
-    let url_value = '', token_value = '';
+    let url_value = '', token_value = '', log_value = '';
+    const [log, setLog] = useState(log_value);
+    setLog('hello');
+    
     if(window.location.search)
     {
         const query_string = new URLSearchParams(window.location.search);
@@ -233,13 +254,38 @@ function App() {
             url_value = query_string.get('html_url');    
         if(query_string.has('html_token'))
             token_value = query_string.get('html_token');
+        if(url_value && !token_value)
+            token_value = load_token(url_value);
+        if(token_value)
+            log_value = fmt_log('got from cache for ' + prep.github_repo_url);
     }
-    
+
+    /*
+    useEffect(() => 
+    {
+        if(!url_value)
+        {
+            const url_discovered = await github_discover_url(window.location.href);
+            moncms_log('discovered url:' + discovered);
+            const prep = github_api_prepare_params(window.location.protocol != 'file:' ? window.location.href : url_discovered);
+            url_value = url_discovered || prep.github_repo_url;
+            if(url_value && !token_value)
+                token_value = load_token(url_value);
+        }
+        setUrl(url_value);
+        setToken(token_value);
+        if(url_value)
+            open_file_or_dir(url_value, token_value);
+        else
+            urlRef.current.focus();
+    });
+    */
+
     const editorRef = useRef(null);
     const fileNameRef = useRef(null);
     const urlRef = useRef(null);
 
-    const [log, setLog] = useState('');
+
     const [token, setToken] = useState(token_value);
     const [url, setUrl] = useState(url_value);
     const [fileName, setFileName] = useState('');
@@ -282,15 +328,7 @@ function App() {
 
     function moncms_log(text : string)
     {
-        const now = new Date().toISOString();
-        setLog(`${now}: ${text}`);
-        //html_log.value += '\n' + text; html_log.scrollTop = html_log.scrollHeight;
-    }
-
-    function update_location(path : string)
-    {
-        // https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
-        window.history.replaceState({}, document.title, path );
+        setLog(fmt_log(text));
     }
 
     function clear(file_tree = true, msg = '')
@@ -646,41 +684,6 @@ function App() {
                 moncms_log('cleared and purged cache for ' + prep.github_repo_url);
             }
         }
-    }
-
-    async function onload_body()
-    {
-        let url_value = '', token_value = '';
-
-        //
-
-        if(!url_value)
-        {
-            const url_discovered = await github_discover_url(window.location.href);
-            moncms_log('discovered url:' + discovered);
-            const prep = github_api_prepare_params(window.location.protocol != 'file:' ? window.location.href : url_discovered);
-            url_value = url_discovered || prep.github_repo_url;
-            
-        }
-
-        if(!token_value)
-        {
-            const prep = github_api_prepare_params(url_value);
-            if(prep.github_repo_url)
-            {
-                token_value = cache_load(prep.github_repo_url);
-                if(token_value)
-                    moncms_log('got from cache for ' + prep.github_repo_url);
-            }
-        }
-
-        setUrl(url_value);
-        setToken(token_value);
-
-        if(url_value)
-            open_file_or_dir(url_value, token_value);
-        else
-            urlRef.current.focus();
     }
   
   //const placeholder = 'Enter some rich text...';
