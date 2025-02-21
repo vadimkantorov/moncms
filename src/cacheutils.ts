@@ -1,5 +1,5 @@
 export function cache_load(key : string) {
-    return localStorage.getItem("moncms_" + key);
+    return localStorage.getItem("moncms_" + key) || '';
 }
 
 export function cache_save(key : string, value : string) {

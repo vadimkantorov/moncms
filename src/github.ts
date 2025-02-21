@@ -7,28 +7,7 @@ export function github_api_format_error(resp, res = {})
     const res_message = (res || {}).message || '';
     return `${resp_status}: ` + ({200: 'OK', 201: 'OK Created', 404: 'Resource not found', 409: 'Conflict', 422: 'Already Exists. Validation failed, or the endpoint has been spammed.', 401: 'Unauthorized', 403: 'Forbidden: ' + res_message}[resp_status] || '');
 }
-export async function github_discover_url(url : string, key = 'moncmsdefault', HTTP_OK = 200) : string
-{
-    if(!url)
-        return '';
 
-    if(url == window.location.href || !url.startsWith('file:'))
-    {
-        let doc = document;
-        if(url != window.location.href)
-        {
-            const resp = await fetch(url).catch(err => ({ok: false, e : err}));
-            if(!resp.ok)
-                return '';
-
-            const html = await resp.text();
-            const parser = new DOMParser();
-            doc = parser.parseFromString(html, 'text/html');
-        }
-        return (Array.from(doc.querySelectorAll('meta')).filter(meta => meta.name == key).pop() || {}).content || '';
-    }
-    return '';
-}
 export function github_api_prepare_params(github_url : String, github_token : String = '', must_have_token : boolean = false) : Object {
     const prep = {
         headers: {},

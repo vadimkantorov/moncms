@@ -36,7 +36,7 @@ import {parseAllowedColor, parseAllowedFontSize} from './styleConfig';
 
 
 import { join2 } from './filepathutils.ts';
-import { github_api_rename_file, github_api_get_file_dir, github_api_upsert_file, github_api_format_error, github_discover_url, github_api_prepare_params, github_api_update_file, github_api_get_file, github_api_signin, github_api_create_file, github_api_delete_file } from './github.ts';
+import { github_api_rename_file, github_api_get_file_dir, github_api_upsert_file, github_api_format_error, github_api_prepare_params, github_api_update_file, github_api_get_file, github_api_signin, github_api_create_file, github_api_delete_file } from './github.ts';
 import { cache_load, cache_save } from './cacheutils.ts';
 
 const removeStylesExportDOM = (
@@ -242,50 +242,65 @@ function fmt_log(text : string)
     return `${now}: ${text}`;
 }
 
+function find_meta(doc, key)
+{
+    return (Array.from(doc.querySelectorAll('meta')).filter(meta => meta.name == key).pop() || {}).content || '';
+}
+
+async function github_discover_url(url : string, key = 'moncmsdefault', HTTP_OK = 200) : string
+{
+    if(!url)
+        return '';
+    if(url == window.location.href || !url.startsWith('file:'))
+    {
+        let doc = document;
+        if(url != window.location.href)
+        {
+            const resp = await fetch(url).catch(err => ({ok: false, e : err}));
+            if(!resp.ok) return '';
+            const html = await resp.text();
+            doc = (new DOMParser()).parseFromString(html, 'text/html');
+        }
+        return find_meta(doc, key);
+    }
+    return '';
+}
+
+function format_frontmatter(frontMatter : Array, notEmpty : boolean) : string
+{
+    const frontmatter_str_inside = frontMatter.map(({frontmatter_key, frontmatter_val}) => `${frontmatter_key}: "${frontmatter_val}"`).join('\n');
+    const frontmatter_str = `---\n${frontmatter_str_inside}\n---\n\n`;
+    if (notEmpty)
+        return frontmatter_str;
+    return frontmatter_str_inside ? frontmatter_str : '';
+}
+
 function App() {
-    let url_value = '', token_value = '', log_value = '';
-    const [log, setLog] = useState(log_value);
-    setLog('hello');
-    
+    let url_value = '', token_value = '', log_value = '', retrieved_contents = {};;
+
+    const meta_key = 'moncmsdefault';
+
     if(window.location.search)
     {
         const query_string = new URLSearchParams(window.location.search);
         if(query_string.has('html_url'))
-            url_value = query_string.get('html_url');    
+            url_value = query_string.get('html_url');
         if(query_string.has('html_token'))
             token_value = query_string.get('html_token');
-        if(url_value && !token_value)
-            token_value = load_token(url_value);
-        if(token_value)
-            log_value = fmt_log('got from cache for ' + prep.github_repo_url);
-    }
-
-    /*
-    useEffect(() => 
-    {
         if(!url_value)
+            url_value = find_meta(document, meta_key);
+        if(url_value && !token_value)
         {
-            const url_discovered = await github_discover_url(window.location.href);
-            moncms_log('discovered url:' + discovered);
-            const prep = github_api_prepare_params(window.location.protocol != 'file:' ? window.location.href : url_discovered);
-            url_value = url_discovered || prep.github_repo_url;
-            if(url_value && !token_value)
-                token_value = load_token(url_value);
+            token_value = load_token(url_value);
+            if(token_value)
+                log_value = fmt_log('got from cache for ' + prep.github_repo_url);
         }
-        setUrl(url_value);
-        setToken(token_value);
-        if(url_value)
-            open_file_or_dir(url_value, token_value);
-        else
-            urlRef.current.focus();
-    });
-    */
-
+    }
     const editorRef = useRef(null);
     const fileNameRef = useRef(null);
     const urlRef = useRef(null);
 
-
+    const [log, setLog] = useState(log_value);
     const [token, setToken] = useState(token_value);
     const [url, setUrl] = useState(url_value);
     const [fileName, setFileName] = useState('');
@@ -294,8 +309,29 @@ function App() {
     const [isSignedIn, setIsSignedIn] = useState(false);
     const [fileTree, setFileTree] = useState([]);
     const [fileTreeValue, setFileTreeValue] = useState('');
+    const [frontMatter, setFrontMatter] = useState([{frontmatter_key : '', frontmatter_val : ''}]);
 
-    let retrieved_contents = {};
+    console.log('retry app');
+    useEffect(() => 
+    {
+        /*
+        if(!url_value)
+        {
+            const url_discovered = await github_discover_url(window.location.href, meta_key);
+            const prep = github_api_prepare_params(window.location.protocol != 'file:' ? window.location.href : url_discovered);
+            url_value = url_discovered || prep.github_repo_url;
+            if(url_value && !token_value)
+                token_value = load_token(url_value);
+            setUrl(url_value);
+            setToken(token_value);
+        }
+        */
+       console.log('retry effect');
+        if(url)
+            open_file_or_dir(url, token);
+        else
+            urlRef.current.focus();
+    }, []);
 
     function window_editor_setMarkdown(markdown : string) : Promise
     {
@@ -417,14 +453,18 @@ function App() {
             return moncms_log(prep.error);
 
         const html_frontmatter = document.getElementById('html_frontmatter');
-        const frontmatter_str = format_frontmatter(html_frontmatter);
+        const frontmatter_empty = html_frontmatter.dataset.empty == 'true';
+        const frontmatter_not_empty = html_frontmatter.dataset.empty == 'false';
+        const frontmatter_str = format_frontmatter(html_frontmatter, frontmatter_not_empty);
+        
+        
         const text = await window_editor_getMarkdown();
         const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(frontmatter_str + text)))).replaceAll('\n', '');
 
         if(retrieved_contents.encoding == 'base64'
             && retrieved_contents.content.replaceAll('\n', '') == base64
             && fileName == retrieved_contents.name
-            && html_frontmatter.dataset.empty == 'true'
+            && frontmatter_empty
             && !frontmatter_str
         )
             return moncms_log('no changes');
@@ -491,7 +531,6 @@ function App() {
 
     async function open_file_or_dir(url_value = '', token_value = '', HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
     {
-        const html_frontmatter = document.getElementById('html_frontmatter');
         let prep = github_api_prepare_params(url_value, token_value);
         if(prep.error)
         {
@@ -507,7 +546,8 @@ function App() {
         }
         setIsSignedIn(token_value ? true : false);
 
-        const [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
+        let [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
+        if(!res_dir) res_dir = []; //FIXME
 
         const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
         const is_dir = res_file.content === undefined;
@@ -527,9 +567,9 @@ function App() {
         }
         else if(is_dir)
         {
+            setFrontMatter([{frontmatter_key : '', frontmatter_val : ''}]);
+
             update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, '');
-            update_frontmatter(html_frontmatter, null);
-            
             setFileName('');
             setFileNameTitle(prep.github_repo_path);
             window_editor_setMarkdown(image_listing);
@@ -539,10 +579,9 @@ function App() {
         {
             let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
             [text, frontmatter] = parse_frontmatter(text);
+            setFrontMatter([{frontmatter_key : '', frontmatter_val : ''}, ...Object.entries(frontmatter).map(([k, v]) => ({frontmatter_key : k, frontmatter_val : v}))]);
 
             update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
-            update_frontmatter(html_frontmatter, frontmatter);
-
             setFileName(res_file.name);
             setFileNameTitle(prep.github_repo_path);
             window_editor_setMarkdown(text);
@@ -550,9 +589,9 @@ function App() {
         }
         else if(is_image)
         {
-            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
-            update_frontmatter(html_frontmatter, null);
+            setFrontMatter([{frontmatter_key : '', frontmatter_val : ''}]);
 
+            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
             setFileName(res_file.name);
             setFileNameTitle(prep.github_repo_path);
             window_editor_setMarkdown(`# ${res_file.name}\n![${res_file.name}](${res_file.download_url})`);
@@ -562,17 +601,26 @@ function App() {
         }
     }
 
+    function onchange_frontmatter(name, value, idx)
+    {
+        setFrontMatter(frontMatter.map((item, i) => i == idx ? {frontmatter_key : (name != 'frontmatter_key' ? item.frontmatter_key : value), frontmatter_val: (name != 'frontmatter_val' ? item.frontmatter_val : value)} : item));
+    }
+
+    function onclick_frontmatter_delrow(event)
+    {
+        const idx = event.target.parentElement.parentElement.rowIndex;
+        setFrontMatter(frontMatter.map((item, i) => (i == 0 && idx == 0) ? {frontmatter_key : '', frontmatter_val : ''} : item).filter((item, i) => idx == 0 || i != idx));
+    }
+
     function onclick_frontmatter_addrow(event)
     {
         const html_frontmatter = document.getElementById('html_frontmatter');
         const html_row = event.target.parentElement.parentElement;
         const rowIdx = html_row.rowIndex;
-        
         const html_header = html_row.cloneNode(true);
         const [html_inputkey, html_inputval] = Array.from(html_header.getElementsByTagName('input'));
         if(!html_inputkey.value)
             return;
-
         [html_inputkey.value, html_inputval.value] = ['', ''];
         
         if(rowIdx == 0)
@@ -581,68 +629,6 @@ function App() {
             html_row.parentNode.insertBefore(html_header, html_row.nextSibling);
         else
             html_frontmatter.appendChild(html_header);
-    }
-
-    function onclick_frontmatter_delrow(event)
-    {
-        const html_frontmatter = document.getElementById('html_frontmatter');
-        const html_row = event.target.parentElement.parentElement;
-        const rowIdx = html_row.rowIndex;
-
-        if(rowIdx == 0)
-        {
-            const [html_inputkey, html_inputval] = Array.from(html_row.getElementsByTagName('input'));
-            [html_inputkey.value, html_inputval.value] = ['', ''];
-        }
-        else
-            html_frontmatter.deleteRow(rowIdx);
-    }
-
-    function format_frontmatter(html_frontmatter) : string 
-    {
-        const frontmatter_str_inside = Array.from(html_frontmatter.rows).filter(html_tr => html_tr.querySelectorAll('input')[0].value).map(html_tr => html_tr.querySelectorAll('input')[0].value + ': "' + html_tr.querySelectorAll('input')[1].value + '"').join('\n');
-        const frontmatter_str = `---\n${frontmatter_str_inside}\n---\n\n`;
-    
-        if (html_frontmatter.dataset.empty == 'false')
-            return frontmatter_str;
-    
-        return frontmatter_str_inside ? frontmatter_str : '';
-    }
-    
-    function update_frontmatter(html_frontmatter, frontmatter)
-    {
-        html_frontmatter.dataset.empty = frontmatter == null ? 'true' : 'false';
-    
-        const html_header = html_frontmatter.getElementsByTagName('tr')[0];
-        Array.from(html_header.getElementsByTagName('input')).forEach(input => input.value = '');
-        
-        const entries = Object.entries(frontmatter || {});
-        
-        let i = 0;
-        for(; i < entries.length; i++)
-        {
-            const [k, v] = entries[i];
-            let html_row = html_frontmatter.rows[1 + i];
-            if(html_row == null)
-            {
-                html_row = html_header.cloneNode(true);
-                html_frontmatter.appendChild(html_row);
-            }
-    
-            const [html_inputkey, html_inputval] = Array.from(html_row.getElementsByTagName('input'));
-            [html_inputkey.value, html_inputval.value] = [`${k}`, `${v}`];
-        }
-        for(let j = html_frontmatter.rows.length - 1; j > i; j--)
-            html_frontmatter.deleteRow(j);
-    }
-
-    function ondblclick_enter_file_tree(event)
-    {
-        if (event.type == 'dblclick' || event.code == 'Space' || event.code == 'Enter')
-        {
-            setUrl(fileTreeValue);
-            open_file_or_dir(fileTreeValue, token);
-        }
     }
 
     async function onclick_signinout()
@@ -694,12 +680,21 @@ function App() {
     <input  hidden={isCompact} id="html_token" placeholder="GitHub token:"  type="text" value={token} onChange={(event) => setToken(event.target.value)} onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
     <input  hidden={isCompact} id="html_file_name" placeholder="File name:" type="text" ref={fileNameRef} value={fileName} title={fileNameTitle} onChange={(event) => setFileName(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && onclick_savefile()} />
     <input  hidden={isCompact} id="html_log" placeholder="Log:" title="Log:" value={log} readOnly />
-    <select hidden={isCompact} id="html_file_tree" size="10" value={fileTreeValue} onChange={(event) => setFileTreeValue(event.target.value)} onKeyPress={ondblclick_enter_file_tree} onDoubleClick={ondblclick_enter_file_tree}>
-        {fileTree.map(j => (<option value={j.html_url} title={j.html_url}>{j.name + (j.type == 'dir' ? '/' : '')}</option>))}
+    <select hidden={isCompact} id="html_file_tree" size="10" value={fileTreeValue} onChange={(event) => setFileTreeValue(event.target.value)} onKeyPress={(event) => (event.code == 'Space' || event.code == 'Enter') ? [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)] : []} onDoubleClick={(event) => [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)]}>
+        {fileTree.map((f, i) => (<option key={i} value={f.html_url} title={f.html_url}>{f.name + (f.type == 'dir' ? '/' : '')}</option>))}
     </select>
     <table  hidden={isCompact} id="html_frontmatter">
         <tbody>
-            <tr><td><input type="text" placeholder="Frontmatter key:" /></td><td><input type="text" placeholder="Frontmatter value:" /></td><td><button onClick={onclick_frontmatter_addrow}>Add another row</button><button onClick={onclick_frontmatter_delrow}>Delete this row</button></td></tr>
+            {frontMatter.map(({frontmatter_key, frontmatter_val}, i) => (
+                <tr key={i}>
+                    <td><input type="text" name="frontmatter_key" placeholder="Frontmatter key:"   value={frontmatter_key} onChange={(event) => onchange_frontmatter(event.target.name, event.target.value, i)} /></td>
+                    <td><input type="text" name="frontmatter_val" placeholder="Frontmatter value:" value={frontmatter_val} onChange={(event) => onchange_frontmatter(event.target.name, event.target.value, i)} /></td>
+                    <td>
+                        <button onClick={onclick_frontmatter_addrow}>Add another row</button>
+                        <button onClick={onclick_frontmatter_delrow}>Delete this row</button>
+                    </td>
+                </tr>
+            ))}
         </tbody>
     </table>
 
@@ -739,11 +734,6 @@ function App() {
   );
 }
 
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <div className="App">
-        <App />
-    </div>
-  </React.StrictMode>
-);
+ReactDOM.createRoot(document.getElementById('root')!).render
+(<div className="App"><App /></div>);
+//(<React.StrictMode><div className="App"><App /></div></React.StrictMode>);
