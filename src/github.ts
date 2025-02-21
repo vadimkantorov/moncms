@@ -1,5 +1,16 @@
 // @ts-nocheck
-import { dirname, join2 } from './filepathutils';
+
+export function join2(path1 : string, path2: string): string {
+    const path1_ = path1[path1.length - 1] == '/' ? path1.slice(0, path1.length - 1) : path1;
+    const _path2 = path2[0] == '/' ? path2.substring(1) : path2;
+    return (path1 && path2) ? (path1_ + '/' + _path2) : (path1 && !path2) ? path1 : (!path1 && path2) ? path2 : '';
+}
+
+export function dirname(path : string) : string {
+    if (!path)
+        return '';
+    return path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+}
 
 export function github_api_format_error(resp, res = {})
 {
@@ -121,8 +132,9 @@ export async function github_api_signin(prep, log, HTTP_OK = 200)
     log('GET ' + github_api_format_error(resp_get));
     return resp_get.status == HTTP_OK;
 }
-export async function github_api_create_file(prep, base64, log, message = 'no commit message')
+export async function github_api_create_file(prep, fileName, base64, log, message = 'no commit message')
 {
+    prep = {...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, fileName)}; 
     const req = { message : message, content : base64 };
     if(prep.github_branch)
         req.branch = prep.github_branch;

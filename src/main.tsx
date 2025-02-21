@@ -34,10 +34,7 @@ import { ListNode, ListItemNode } from "@lexical/list";
 import ToolbarPlugin from './plugins/ToolbarPlugin';
 import {parseAllowedColor, parseAllowedFontSize} from './styleConfig';
 
-
-import { join2 } from './filepathutils.ts';
 import { github_api_rename_file, github_api_get_file_dir, github_api_upsert_file, github_api_format_error, github_api_prepare_params, github_api_update_file, github_api_get_file, github_api_signin, github_api_create_file, github_api_delete_file } from './github.ts';
-import { cache_load, cache_save } from './cacheutils.ts';
 
 const removeStylesExportDOM = (
   editor: LexicalEditor,
@@ -230,6 +227,19 @@ function update_location(path : string)
     window.history.replaceState({}, document.title, path );
 }
 
+function cache_load(key : string)
+{
+    return localStorage.getItem("moncms_" + key) || '';
+}
+
+function cache_save(key : string, value : string)
+{
+    if (value)
+        localStorage.setItem("moncms_" + key, value);
+    else
+        localStorage.removeItem("moncms_" + key);
+}
+
 function load_token(url_value)
 {
     const prep = github_api_prepare_params(url_value);
@@ -276,7 +286,7 @@ function format_frontmatter(frontMatter : Array, notEmpty : boolean) : string
 }
 
 function App() {
-    let url_value = '', token_value = '', log_value = '', retrieved_contents = {};;
+    let url_value = '', token_value = '', log_value = '', retrieved_contents = {}, frontMatterEmpty = true;
 
     const meta_key = 'moncmsdefault';
 
@@ -455,10 +465,9 @@ function App() {
             return moncms_log(prep.error);
 
         const html_frontmatter = document.getElementById('html_frontmatter');
-        const frontmatter_empty = html_frontmatter.dataset.empty == 'true';
-        const frontmatter_not_empty = html_frontmatter.dataset.empty == 'false';
-        const frontmatter_str = format_frontmatter(html_frontmatter, frontmatter_not_empty);
-        
+        const frontmatter_empty = frontMatterEmpty == true;
+        const frontmatter_not_empty = frontMatterEmpty == false;
+        const frontmatter_str = format_frontmatter(frontMatter, frontmatter_not_empty);
         
         const text = await window_editor_getMarkdown();
         const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(frontmatter_str + text)))).replaceAll('\n', '');
@@ -482,7 +491,7 @@ function App() {
         }
         else if(should_create)
         {
-            const res_put = await github_api_create_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, fileName)}, base64, moncms_log).pop();
+            const res_put = await github_api_create_file(prep, fileName, base64, moncms_log).pop();
             retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
         }
         else if(should_rename)
@@ -570,6 +579,7 @@ function App() {
         else if(is_dir)
         {
             setFrontMatter([{frontmatter_key : '', frontmatter_val : ''}]);
+            frontMatterEmpty = true;
 
             update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, '');
             setFileName('');
@@ -582,6 +592,7 @@ function App() {
             let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
             [text, frontmatter] = parse_frontmatter(text);
             setFrontMatter([{frontmatter_key : '', frontmatter_val : ''}, ...Object.entries(frontmatter).map(([k, v]) => ({frontmatter_key : k, frontmatter_val : v}))]);
+            frontMatterEmpty = frontmatter === null;
 
             update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
             setFileName(res_file.name);
@@ -592,6 +603,7 @@ function App() {
         else if(is_image)
         {
             setFrontMatter([{frontmatter_key : '', frontmatter_val : ''}]);
+            frontMatterEmpty = true;
 
             update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
             setFileName(res_file.name);
