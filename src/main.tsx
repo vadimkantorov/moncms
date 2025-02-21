@@ -614,21 +614,13 @@ function App() {
 
     function onclick_frontmatter_addrow(event)
     {
-        const html_frontmatter = document.getElementById('html_frontmatter');
-        const html_row = event.target.parentElement.parentElement;
-        const rowIdx = html_row.rowIndex;
-        const html_header = html_row.cloneNode(true);
-        const [html_inputkey, html_inputval] = Array.from(html_header.getElementsByTagName('input'));
-        if(!html_inputkey.value)
-            return;
-        [html_inputkey.value, html_inputval.value] = ['', ''];
-        
-        if(rowIdx == 0)
-            html_row.parentNode.insertBefore(html_header, html_row);
-        else if(rowIdx < html_frontmatter.children.length - 1)
-            html_row.parentNode.insertBefore(html_header, html_row.nextSibling);
+        const idx = event.target.parentElement.parentElement.rowIndex;
+        if(idx == 0)
+            setFrontMatter([{frontmatter_key: '', frontmatter_val: ''}, ...frontMatter]);
+        else if(idx < frontMatter.length - 1)
+            setFrontMatter([...frontMatter.slice(0, idx + 1), {frontmatter_key : '', frontmatter_val: ''}, ...frontMatter.slice(idx + 1)]);
         else
-            html_frontmatter.appendChild(html_header);
+            setFrontMatter([...frontMatter, {frontmatter_key: '', frontmatter_val: ''}]);
     }
 
     async function onclick_signinout()
