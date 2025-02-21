@@ -367,12 +367,14 @@ function App() {
         setLog(fmt_log(text));
     }
 
-    function clear(file_tree = true, msg = '')
+    function clear(file_tree = true, msg = '', front_matter = true)
     {
         retrieved_contents = {};
-        setFileName('')
+        setFileName('');
         if(file_tree)
             setFileTree([]);
+        if(front_matter)
+            setFrontMatter([{frontmatter_key : '', frontmatter_val : ''}]);
         
         return window_editor_setMarkdown(msg);
     }
@@ -397,12 +399,12 @@ function App() {
         event.target.value = '';
     }
 
-    async function onclick_createfiledir(event, date_fmt = '0000-00-00', time_fmt = 'T00:00:00')
+    async function onclick_createfiledir(event, iso_date_fmt = '0000-00-00', iso_time_fmt = 'T00:00:00')
     {
         await clear(false, event.target.dataset.message);
         const now = new Date().toISOString();
-        const time = now.slice(date_fmt.length, date_fmt.length + time_fmt.length).toLowerCase().replaceAll(':', '');
-        const date = now.slice(0, date_fmt.length);
+        const time = now.slice(iso_date_fmt.length, iso_date_fmt.length + iso_time_fmt.length).toLowerCase().replaceAll(':', '');
+        const date = now.slice(0, iso_date_fmt.length);
         
         const new_path = event.target.dataset.newpath.replaceAll('${date}', date.toString()).replaceAll('${time}', time.toString());
         setFileName(new_path);
