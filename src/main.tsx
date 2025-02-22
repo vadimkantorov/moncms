@@ -24,6 +24,8 @@ import {EditorState, $getRoot, $createParagraphNode,$createTextNode, $isTextNode
     DOMConversionMap, DOMExportOutput, DOMExportOutputMap, isHTMLElement, Klass, LexicalEditor,
     LexicalNode, ParagraphNode, TextNode,
 } from 'lexical';
+import Prism from "prismjs"; if (typeof globalThis.Prism === 'undefined') { globalThis.Prism = Prism;}
+import {CodeNode} from '@lexical/code';
 import { $convertToMarkdownString, $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 //import {PLAYGROUND_TRANSFORMERS} from './plugins/MarkdownTransformers';
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
@@ -175,7 +177,7 @@ const editorConfig = {
         import: constructImportMap(),
     },
     namespace: 'moncms',
-    nodes: [ParagraphNode, TextNode, HeadingNode, ListNode, ListItemNode],
+    nodes: [ParagraphNode, TextNode, HeadingNode, ListNode, ListItemNode, CodeNode],
     onError(error: Error) { throw error; },
 };
 
@@ -591,7 +593,7 @@ function App() {
         {
             let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
             [text, frontmatter] = parse_frontmatter(text);
-            setFrontMatter([{frontmatter_key : '', frontmatter_val : ''}, ...Object.entries(frontmatter).map(([k, v]) => ({frontmatter_key : k, frontmatter_val : v}))]);
+            setFrontMatter([{frontmatter_key : '', frontmatter_val : ''}, ...Object.entries(frontmatter || {}).map(([k, v]) => ({frontmatter_key : k, frontmatter_val : v}))]);
             frontMatterEmpty = frontmatter === null;
 
             update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
