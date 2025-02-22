@@ -1,5 +1,3 @@
-import { EmojiNode } from "./src/nodes/EmojiNode";
-
 import { TextNode, $getRoot, $selectAll } from "lexical";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import { LinkNode } from "@lexical/link";
@@ -10,10 +8,10 @@ import { createHeadlessEditor } from "@lexical/headless";
 import { $generateHtmlFromNodes } from "@lexical/html";
 import { JSDOM } from 'jsdom';
 
-let input : string = "", html : string = "";
+let input = "", html = "";
 const editor = createHeadlessEditor({
   editable: false,
-  nodes: [TextNode, HeadingNode, QuoteNode, LinkNode, HashtagNode, ListNode, ListItemNode, EmojiNode],
+  nodes: [TextNode, HeadingNode, QuoteNode, LinkNode, HashtagNode, ListNode, ListItemNode],
   onError: (error) => { throw error;},
 });
 
