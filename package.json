@@ -10,8 +10,10 @@
     "build-prod": "tsc && vite build --config vite.prod.config.ts"
   },
   "dependencies": {
+    "@lexical/code": "^0.25.0",
     "@lexical/headless": "^0.24.0",
     "@lexical/html": "^0.24.0",
+    "@lexical/link": "^0.25.0",
     "@lexical/markdown": "^0.24.0",
     "@lexical/react": "0.24.0",
     "jsdom": "^26.0.0",
