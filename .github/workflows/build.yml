@@ -9,7 +9,7 @@ jobs:
         with:
           node-version: 22
       
-      - run: npm install && npm run build
+      - run: npm install @lexical/code @lexical/link && npm install && npm run build
       
       - uses: actions/upload-artifact@v4
         with:
