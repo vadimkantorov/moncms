@@ -1,5 +1,6 @@
-let svg = "";
+// based on https://github.com/tigt/mini-svg-data-uri/issues/24
 
+let svg = "";
 process.stdin.on("data", (chunk) => {  svg += chunk; });
 process.stdin.on("end", async () => 
 {
