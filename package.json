@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview",
-    "build-prod": "tsc && vite build --config vite.prod.config.ts"
+    "build-prod": "vite build --config vite.prod.config.ts",
+    "build-tscprod": "tsc && vite build --config vite.prod.config.ts"
   },
   "dependencies": {
     "@lexical/code": "^0.24.0",
