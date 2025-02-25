@@ -5,6 +5,11 @@ npm run build
 python -m http.server -d dist
 ```
 
+```
+LEXICALVER=0.25.0
+curl -L https://github.com/facebook/lexical/archive/refs/tags/v$LEXICALVER.tar.gz | tar -xzf - --strip-components=1 lexical-$LEXICALVER/packages/lexical-playground lexical-$LEXICALVER/packages/shared && git add -A -f packages
+```
+
 # References
 - https://github.com/Faris-Abuali/Lexical-Rich-Text-Editor
 - https://konstantin.digital/blog/how-to-build-a-text-editor-with-lexical-and-react
