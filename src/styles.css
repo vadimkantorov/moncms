@@ -417,48 +417,66 @@ i.undo {
 }
 
 i.redo {
-  /*background-image: url("icons/arrow-clockwise.svg")*/ 
+  background-image: url("../assets/icons/arrow-clockwise.svg")
+  /*
   background-image: url("data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%20fill='currentColor'%20class='bi%20bi-arrow-clockwise'%20viewBox='0%200%2016%2016'%3e%20%3cpath%20fill-rule='evenodd'%20d='M8%203a5%205%200%201%200%204.546%202.914.5.5%200%200%201%20.908-.417A6%206%200%201%201%208%202v1z'/%3e%20%3cpath%20d='M8%204.466V.534a.25.25%200%200%201%20.41-.192l2.36%201.966c.12.1.12.284%200%20.384L8.41%204.658A.25.25%200%200%201%208%204.466z'/%3e%20%3c/svg%3e");
+  */
 }
 
 i.bold {
-  /*background-image: url("icons/type-bold.svg")*/ 
+  background-image: url("../assets/icons/type-bold.svg")
+  /*
   background-image: url("data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%20fill='currentColor'%20class='bi%20bi-type-bold'%20viewBox='0%200%2016%2016'%3e%20%3cpath%20d='M8.21%2013c2.106%200%203.412-1.087%203.412-2.823%200-1.306-.984-2.283-2.324-2.386v-.055a2.176%202.176%200%200%200%201.852-2.14c0-1.51-1.162-2.46-3.014-2.46H3.843V13H8.21zM5.908%204.674h1.696c.963%200%201.517.451%201.517%201.244%200%20.834-.629%201.32-1.73%201.32H5.908V4.673zm0%206.788V8.598h1.73c1.217%200%201.88.492%201.88%201.415%200%20.943-.643%201.449-1.832%201.449H5.907z'/%3e%20%3c/svg%3e");
+  */
 }
 
 i.italic {
-  /*background-image: url("icons/type-italic.svg")*/ 
+  background-image: url("../assets/icons/type-italic.svg")
+  /*
   background-image: url("data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%20fill='currentColor'%20class='bi%20bi-type-italic'%20viewBox='0%200%2016%2016'%3e%20%3cpath%20d='M7.991%2011.674%209.53%204.455c.123-.595.246-.71%201.347-.807l.11-.52H7.211l-.11.52c1.06.096%201.128.212%201.005.807L6.57%2011.674c-.123.595-.246.71-1.346.806l-.11.52h3.774l.11-.52c-1.06-.095-1.129-.211-1.006-.806z'/%3e%20%3c/svg%3e");
+  */
 }
 
 i.underline {
-  /*background-image: url("icons/type-underline.svg")*/
+  background-image: url("../assets/icons/type-underline.svg")
+  /*
   background-image: url("data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%20fill='currentColor'%20class='bi%20bi-type-underline'%20viewBox='0%200%2016%2016'%3e%20%3cpath%20d='M5.313%203.136h-1.23V9.54c0%202.105%201.47%203.623%203.917%203.623s3.917-1.518%203.917-3.623V3.136h-1.23v6.323c0%201.49-.978%202.57-2.687%202.57-1.709%200-2.687-1.08-2.687-2.57V3.136zM12.5%2015h-9v-1h9v1z'/%3e%20%3c/svg%3e");
+  */
 }
 
 i.strikethrough {
-  /*background-image: url("icons/type-strikethrough.svg")*/ 
+  background-image: url("../assets/icons/type-strikethrough.svg") 
+  /*
   background-image: url("data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%20fill='currentColor'%20class='bi%20bi-type-strikethrough'%20viewBox='0%200%2016%2016'%3e%20%3cpath%20d='M6.333%205.686c0%20.31.083.581.27.814H5.166a2.776%202.776%200%200%201-.099-.76c0-1.627%201.436-2.768%203.48-2.768%201.969%200%203.39%201.175%203.445%202.85h-1.23c-.11-1.08-.964-1.743-2.25-1.743-1.23%200-2.18.602-2.18%201.607zm2.194%207.478c-2.153%200-3.589-1.107-3.705-2.81h1.23c.144%201.06%201.129%201.703%202.544%201.703%201.34%200%202.31-.705%202.31-1.675%200-.827-.547-1.374-1.914-1.675L8.046%208.5H1v-1h14v1h-3.504c.468.437.675.994.675%201.697%200%201.826-1.436%202.967-3.644%202.967z'/%3e%20%3c/svg%3e");
+  */
 }
 
 i.left-align {
-  /*background-image: url("icons/text-left.svg")*/ 
+  background-image: url("../assets/icons/text-left.svg") 
+  /*
   background-image: url("data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%20fill='currentColor'%20class='bi%20bi-text-left'%20viewBox='0%200%2016%2016'%3e%20%3cpath%20fill-rule='evenodd'%20d='M2%2012.5a.5.5%200%200%201%20.5-.5h7a.5.5%200%200%201%200%201h-7a.5.5%200%200%201-.5-.5zm0-3a.5.5%200%200%201%20.5-.5h11a.5.5%200%200%201%200%201h-11a.5.5%200%200%201-.5-.5zm0-3a.5.5%200%200%201%20.5-.5h7a.5.5%200%200%201%200%201h-7a.5.5%200%200%201-.5-.5zm0-3a.5.5%200%200%201%20.5-.5h11a.5.5%200%200%201%200%201h-11a.5.5%200%200%201-.5-.5z'/%3e%20%3c/svg%3e");
+  */
 }
 
 i.center-align {
-  /*background-image: url("icons/text-center.svg")*/ 
+  background-image: url("../assets/icons/text-center.svg")
+  /*
   background-image: url("data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%20fill='currentColor'%20class='bi%20bi-text-center'%20viewBox='0%200%2016%2016'%3e%20%3cpath%20fill-rule='evenodd'%20d='M4%2012.5a.5.5%200%200%201%20.5-.5h7a.5.5%200%200%201%200%201h-7a.5.5%200%200%201-.5-.5zm-2-3a.5.5%200%200%201%20.5-.5h11a.5.5%200%200%201%200%201h-11a.5.5%200%200%201-.5-.5zm2-3a.5.5%200%200%201%20.5-.5h7a.5.5%200%200%201%200%201h-7a.5.5%200%200%201-.5-.5zm-2-3a.5.5%200%200%201%20.5-.5h11a.5.5%200%200%201%200%201h-11a.5.5%200%200%201-.5-.5z'/%3e%20%3c/svg%3e");
+  */
 }
 
 i.right-align {
-  /*background-image: url("icons/text-right.svg")*/ 
+  background-image: url("../assets/icons/text-right.svg")
+  /*
   background-image: url("data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%20fill='currentColor'%20class='bi%20bi-text-right'%20viewBox='0%200%2016%2016'%3e%20%3cpath%20fill-rule='evenodd'%20d='M6%2012.5a.5.5%200%200%201%20.5-.5h7a.5.5%200%200%201%200%201h-7a.5.5%200%200%201-.5-.5zm-4-3a.5.5%200%200%201%20.5-.5h11a.5.5%200%200%201%200%201h-11a.5.5%200%200%201-.5-.5zm4-3a.5.5%200%200%201%20.5-.5h7a.5.5%200%200%201%200%201h-7a.5.5%200%200%201-.5-.5zm-4-3a.5.5%200%200%201%20.5-.5h11a.5.5%200%200%201%200%201h-11a.5.5%200%200%201-.5-.5z'/%3e%20%3c/svg%3e");
+  */
 }
 
 i.justify-align {
-  /*background-image: url("icons/justify.svg")*/ 
+  background-image: url("../assets/icons/justify.svg")
+  /*
   background-image: url("data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%20fill='currentColor'%20class='bi%20bi-justify'%20viewBox='0%200%2016%2016'%3e%20%3cpath%20fill-rule='evenodd'%20d='M2%2012.5a.5.5%200%200%201%20.5-.5h11a.5.5%200%200%201%200%201h-11a.5.5%200%200%201-.5-.5zm0-3a.5.5%200%200%201%20.5-.5h11a.5.5%200%200%201%200%201h-11a.5.5%200%200%201-.5-.5zm0-3a.5.5%200%200%201%20.5-.5h11a.5.5%200%200%201%200%201h-11a.5.5%200%200%201-.5-.5zm0-3a.5.5%200%200%201%20.5-.5h11a.5.5%200%200%201%200%201h-11a.5.5%200%200%201-.5-.5z'/%3e%20%3c/svg%3e");
+  */
 }
 
 /********************************************/
