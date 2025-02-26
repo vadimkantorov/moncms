@@ -5,9 +5,18 @@ npm run build
 python -m http.server -d dist
 ```
 
+# Update
 ```
 LEXICALVER=0.25.0
 curl -L https://github.com/facebook/lexical/archive/refs/tags/v$LEXICALVER.tar.gz | tar -xzf - --strip-components=1 lexical-$LEXICALVER/packages/lexical-playground lexical-$LEXICALVER/packages/shared && git add -A -f packages
+
+cp packages/lexical-playground/src/ui/{Button.css,Button.tsx,ContentEditable.css,ContentEditable.tsx,Dialog.css,Dialog.tsx,FileInput.tsx,ImageResizer.tsx,Input.css,Modal.css,Modals.tsx,TextInput.tsx} src/ui/
+cp packages/lexical-playground/src/hooks/useModal.tsx src/hooks/
+cp packages/lexical-playground/src/utils/joinClasses.ts src/utils/
+cp packages/lexical-playground/src/nodes/{ImageNode.css,ImageNode.tsx} src/nodes/
+
+# cp packages/lexical-playground/src/plugins/ImagesPlugin/index.tsx src/plugins/ImagesPlugin.tsx
+# cp packages/lexical-playground/src/nodes/ImageComponent.tsx src/nodes/
 ```
 
 # References
