@@ -32,8 +32,11 @@ import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import { LinkNode } from "@lexical/link";
 import { HashtagNode } from "@lexical/hashtag";
 import { ListNode, ListItemNode } from "@lexical/list";
+import {ImageNode} from './nodes/ImageNode';
 
 import ToolbarPlugin from './plugins/ToolbarPlugin';
+import ImagesPlugin from './plugins/ImagesPlugin';
+
 import {parseAllowedColor, parseAllowedFontSize} from './styleConfig';
 
 import { github_api_rename_file, github_api_get_file_dir, github_api_upsert_file, github_api_format_error, github_api_prepare_params, github_api_update_file, github_api_get_file, github_api_signin, github_api_create_file, github_api_delete_file } from './github.ts';
@@ -77,7 +80,7 @@ const theme = {
 const editorConfig = {
     theme: theme,
     namespace: 'moncms',
-    nodes: [ParagraphNode, TextNode, HeadingNode, ListNode, ListItemNode, CodeNode],
+    nodes: [ParagraphNode, TextNode, HeadingNode, ListNode, ListItemNode, CodeNode, ImageNode],
     onError(error: Error) { throw error; },
 };
 
@@ -290,7 +293,7 @@ function App() {
         
         return window_editor_setMarkdown(msg);
     }
-    
+
     function onchange_files(event)
     {
         console.log(event);
@@ -619,11 +622,12 @@ function App() {
     <button onClick={(event) => {setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
     <button onClick={onclick_signinout} className={isSignedIn ? "signout" : "signin"} ></button>
     <button onClick={() => setIsCompact(!isCompact)}>Toggle Compact View</button>
-      
+    <div className="editor-shell">
     <LexicalComposer initialConfig={editorConfig}>
       <EditorRefPlugin editorRef={editorRef} />
       <div className="editor-container">
         <ToolbarPlugin />
+        <ImagesPlugin />
         <div className="editor-inner">
           <RichTextPlugin
             contentEditable={
@@ -638,7 +642,7 @@ function App() {
         </div>
       </div>
     </LexicalComposer>
-
+    </div>
     </>
   );
 }

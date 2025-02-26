@@ -20,6 +20,9 @@ import {
 } from 'lexical';
 import {useCallback, useEffect, useRef, useState} from 'react';
 
+import {InsertImageDialog} from './ImagesPlugin';
+import useModal from '../hooks/useModal';
+
 const LowPriority = 1;
 
 function Divider() {
@@ -35,6 +38,7 @@ export default function ToolbarPlugin() {
   const [isItalic, setIsItalic] = useState(false);
   const [isUnderline, setIsUnderline] = useState(false);
   const [isStrikethrough, setIsStrikethrough] = useState(false);
+  const [modal, showModal] = useModal();
 
   const $updateToolbar = useCallback(() => {
     const selection = $getSelection();
@@ -166,7 +170,26 @@ export default function ToolbarPlugin() {
         className="toolbar-item"
         aria-label="Justify Align">
         <i className="format justify-align" />
-      </button>{' '}
+      </button>
+
+      {/*disabled={!isEditable} */}
+      <button
+        onClick={() => {
+            showModal('Insert Image', (onClose: () => void) => (
+            <InsertImageDialog
+                activeEditor={editor}
+                onClose={onClose}
+            />
+            ));
+        }}
+        className="toolbar-item spaced active"
+        title="Insert image"
+        type="button"
+        aria-label="Insert image block">
+        <i className="icon image" />
+      </button>
+        {modal}
+      {' '}
     </div>
   );
 }

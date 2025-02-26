@@ -16,15 +16,15 @@ import type {JSX} from 'react';
 
 import './ImageNode.css';
 
-import {HashtagNode} from '@lexical/hashtag';
+//import {HashtagNode} from '@lexical/hashtag';
 import {LinkNode} from '@lexical/link';
 import {AutoFocusPlugin} from '@lexical/react/LexicalAutoFocusPlugin';
 import {useCollaborationContext} from '@lexical/react/LexicalCollaborationContext';
-import {CollaborationPlugin} from '@lexical/react/LexicalCollaborationPlugin';
+//import {CollaborationPlugin} from '@lexical/react/LexicalCollaborationPlugin';
 import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext';
 import {LexicalErrorBoundary} from '@lexical/react/LexicalErrorBoundary';
-import {HashtagPlugin} from '@lexical/react/LexicalHashtagPlugin';
-import {HistoryPlugin} from '@lexical/react/LexicalHistoryPlugin';
+//import {HashtagPlugin} from '@lexical/react/LexicalHashtagPlugin';
+//import {HistoryPlugin} from '@lexical/react/LexicalHistoryPlugin';
 import {LexicalNestedComposer} from '@lexical/react/LexicalNestedComposer';
 import {RichTextPlugin} from '@lexical/react/LexicalRichTextPlugin';
 import {useLexicalEditable} from '@lexical/react/useLexicalEditable';
@@ -53,20 +53,20 @@ import {
 import * as React from 'react';
 import {Suspense, useCallback, useEffect, useRef, useState} from 'react';
 
-import {createWebsocketProvider} from '../collaboration';
-import {useSettings} from '../context/SettingsContext';
-import {useSharedHistoryContext} from '../context/SharedHistoryContext';
+//import {createWebsocketProvider} from '../collaboration';
+//import {useSettings} from '../context/SettingsContext';
+//import {useSharedHistoryContext} from '../context/SharedHistoryContext';
 import brokenImage from '../images/image-broken.svg';
-import EmojisPlugin from '../plugins/EmojisPlugin';
-import KeywordsPlugin from '../plugins/KeywordsPlugin';
-import LinkPlugin from '../plugins/LinkPlugin';
-import MentionsPlugin from '../plugins/MentionsPlugin';
-import TreeViewPlugin from '../plugins/TreeViewPlugin';
+//import EmojisPlugin from '../plugins/EmojisPlugin';
+//import KeywordsPlugin from '../plugins/KeywordsPlugin';
+//import LinkPlugin from '../plugins/LinkPlugin';
+//import MentionsPlugin from '../plugins/MentionsPlugin';
+//import TreeViewPlugin from '../plugins/TreeViewPlugin';
 import ContentEditable from '../ui/ContentEditable';
 import ImageResizer from '../ui/ImageResizer';
-import {EmojiNode} from './EmojiNode';
+//import {EmojiNode} from './EmojiNode';
 import {$isImageNode} from './ImageNode';
-import {KeywordNode} from './KeywordNode';
+//import {KeywordNode} from './KeywordNode';
 
 const imageCache = new Set();
 
@@ -393,10 +393,10 @@ export default function ImageComponent({
     setIsResizing(true);
   };
 
-  const {historyState} = useSharedHistoryContext();
-  const {
-    settings: {showNestedEditorTreeView},
-  } = useSettings();
+  //const {historyState} = useSharedHistoryContext();
+  //const {
+  //  settings: {showNestedEditorTreeView},
+  //} = useSettings();
 
   const draggable = isSelected && $isNodeSelection(selection) && !isResizing;
   const isFocused = (isSelected || isResizing) && isEditable;
@@ -434,11 +434,12 @@ export default function ImageComponent({
                 LineBreakNode,
                 ParagraphNode,
                 LinkNode,
-                EmojiNode,
-                HashtagNode,
-                KeywordNode,
+                //EmojiNode,
+                //HashtagNode,
+                //KeywordNode,
               ]}>
               <AutoFocusPlugin />
+              {/*
               <MentionsPlugin />
               <LinkPlugin />
               <EmojisPlugin />
@@ -453,6 +454,7 @@ export default function ImageComponent({
               ) : (
                 <HistoryPlugin externalHistoryState={historyState} />
               )}
+              */}
               <RichTextPlugin
                 contentEditable={
                   <ContentEditable
@@ -463,7 +465,9 @@ export default function ImageComponent({
                 }
                 ErrorBoundary={LexicalErrorBoundary}
               />
+              {/*
               {showNestedEditorTreeView === true ? <TreeViewPlugin /> : null}
+              */}
             </LexicalNestedComposer>
           </div>
         )}
