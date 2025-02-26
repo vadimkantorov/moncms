@@ -452,6 +452,10 @@ i.justify-align {
 i.image {
   background-image: url("../assets/icons/file-image.svg");
 }
+
+i.markdown {
+    background-image: url("../assets/icons/markdown.svg");
+  }
 /********************************************/
 
 .editor-shell { max-width: 100%!important }

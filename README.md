@@ -17,6 +17,7 @@ cp packages/lexical-playground/src/nodes/{ImageNode.css,ImageNode.tsx} src/nodes
 
 # cp packages/lexical-playground/src/plugins/ImagesPlugin/index.tsx src/plugins/ImagesPlugin.tsx
 # cp packages/lexical-playground/src/nodes/ImageComponent.tsx src/nodes/
+# cp packages/lexical-playground/src/plugins/MarkdownTransformers/index.ts src/plugins/MarkdownTrasformers.ts
 ```
 
 # References

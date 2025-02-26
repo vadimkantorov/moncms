@@ -23,6 +23,17 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 import {InsertImageDialog} from './ImagesPlugin';
 import useModal from '../hooks/useModal';
 
+import {
+    $convertFromMarkdownString,
+    $convertToMarkdownString,
+  } from '@lexical/markdown';
+import {PLAYGROUND_TRANSFORMERS} from './MarkdownTransformers.ts';
+import {$createCodeNode, $isCodeNode} from '@lexical/code';
+import {
+    $createTextNode
+  } from 'lexical';
+  
+
 const LowPriority = 1;
 
 function Divider() {
@@ -50,6 +61,34 @@ export default function ToolbarPlugin() {
       setIsStrikethrough(selection.hasFormat('strikethrough'));
     }
   }, []);
+  
+  const shouldPreserveNewLinesInMarkdown = true;
+  const handleMarkdownToggle = useCallback(() => {
+    editor.update(() => {
+      const root = $getRoot();
+      const firstChild = root.getFirstChild();
+      if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'markdown') {
+        $convertFromMarkdownString(
+          firstChild.getTextContent(),
+          PLAYGROUND_TRANSFORMERS,
+          undefined, // node
+          shouldPreserveNewLinesInMarkdown,
+        );
+      } else {
+        const markdown = $convertToMarkdownString(
+          PLAYGROUND_TRANSFORMERS,
+          undefined, //node
+          shouldPreserveNewLinesInMarkdown,
+        );
+        const codeNode = $createCodeNode('markdown');
+        codeNode.append($createTextNode(markdown));
+        root.clear().append(codeNode);
+        if (markdown.length === 0) {
+          codeNode.select();
+        }
+      }
+    });
+  }, [editor, shouldPreserveNewLinesInMarkdown]);
 
   useEffect(() => {
     return mergeRegister(
@@ -87,6 +126,14 @@ export default function ToolbarPlugin() {
 
   return (
     <div className="toolbar" ref={toolbarRef}>
+      <button
+        className="toolbar-item spaced"
+        onClick={handleMarkdownToggle}
+        title="Convert From Markdown"
+        type="button"
+        aria-label="Convert from markdown">
+        <i className="format markdown" />
+      </button>
       <button
         disabled={!canUndo}
         onClick={() => {

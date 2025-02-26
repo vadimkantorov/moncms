@@ -42,14 +42,16 @@ import {
   LexicalNode,
 } from 'lexical';
 
+/*
 import {
   $createEquationNode,
   $isEquationNode,
   EquationNode,
 } from '../../nodes/EquationNode';
-import {$createImageNode, $isImageNode, ImageNode} from '../../nodes/ImageNode';
-import {$createTweetNode, $isTweetNode, TweetNode} from '../../nodes/TweetNode';
-import emojiList from '../../utils/emoji-list';
+ */
+import {$createImageNode, $isImageNode, ImageNode} from '../nodes/ImageNode'; //'../../nodes/ImageNode';
+//import {$createTweetNode, $isTweetNode, TweetNode} from '../../nodes/TweetNode';
+//import emojiList from '../../utils/emoji-list';
 
 export const HR: ElementTransformer = {
   dependencies: [HorizontalRuleNode],
@@ -95,7 +97,7 @@ export const IMAGE: TextMatchTransformer = {
   trigger: ')',
   type: 'text-match',
 };
-
+/*
 export const EMOJI: TextMatchTransformer = {
   dependencies: [],
   export: () => null,
@@ -148,7 +150,7 @@ export const TWEET: ElementTransformer = {
   },
   type: 'element',
 };
-
+*/
 // Very primitive table setup
 const TABLE_ROW_REG_EXP = /^(?:\|)(.+)(?:\|)\s?$/;
 const TABLE_ROW_DIVIDER_REG_EXP = /^(\| ?:?-*:? ?)+\|\s?$/;
@@ -311,9 +313,9 @@ export const PLAYGROUND_TRANSFORMERS: Array<Transformer> = [
   TABLE,
   HR,
   IMAGE,
-  EMOJI,
-  EQUATION,
-  TWEET,
+  //EMOJI,
+  //EQUATION,
+  //TWEET,
   CHECK_LIST,
   ...ELEMENT_TRANSFORMERS,
   ...MULTILINE_ELEMENT_TRANSFORMERS,
