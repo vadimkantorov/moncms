@@ -5,10 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import type {Position} from '../../nodes/InlineImageNode/InlineImageNode';
-import type {JSX} from 'react';
 
-import '../../nodes/InlineImageNode/InlineImageNode.css';
+import type {JSX} from 'react';
 
 import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext';
 import {$wrapNodeInElement, mergeRegister} from '@lexical/utils';
@@ -32,49 +30,74 @@ import {
   LexicalCommand,
   LexicalEditor,
 } from 'lexical';
-import * as React from 'react';
 import {useEffect, useRef, useState} from 'react';
+import * as React from 'react';
 
+//import landscapeImage from '../../images/landscape.jpg';
+//import yellowFlowerImage from '../../images/yellow-flower.jpg';
 import {
-  $createInlineImageNode,
-  $isInlineImageNode,
-  InlineImageNode,
-  InlineImagePayload,
-} from '../../nodes/InlineImageNode/InlineImageNode';
-import Button from '../../ui/Button';
-import {DialogActions} from '../../ui/Dialog';
-import FileInput from '../../ui/FileInput';
-import Select from '../../ui/Select';
-import TextInput from '../../ui/TextInput';
+  $createImageNode,
+  $isImageNode,
+  ImageNode,
+  ImagePayload,
+} from '../nodes/ImageNode';
+import Button from '../ui/Button';
+import {DialogActions, DialogButtonsList} from '../ui/Dialog';
+import FileInput from '../ui/FileInput';
+import TextInput from '../ui/TextInput';
 
-export type InsertInlineImagePayload = Readonly<InlineImagePayload>;
+export type InsertImagePayload = Readonly<ImagePayload>;
 
-export const INSERT_INLINE_IMAGE_COMMAND: LexicalCommand<InlineImagePayload> =
-  createCommand('INSERT_INLINE_IMAGE_COMMAND');
+export const INSERT_IMAGE_COMMAND: LexicalCommand<InsertImagePayload> =
+  createCommand('INSERT_IMAGE_COMMAND');
 
-export function InsertInlineImageDialog({
-  activeEditor,
-  onClose,
+export function InsertImageUriDialogBody({
+  onClick,
 }: {
-  activeEditor: LexicalEditor;
-  onClose: () => void;
-}): JSX.Element {
-  const hasModifier = useRef(false);
-
+  onClick: (payload: InsertImagePayload) => void;
+}) {
   const [src, setSrc] = useState('');
   const [altText, setAltText] = useState('');
-  const [showCaption, setShowCaption] = useState(false);
-  const [position, setPosition] = useState<Position>('left');
 
   const isDisabled = src === '';
 
-  const handleShowCaptionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setShowCaption(e.target.checked);
-  };
+  return (
+    <>
+      <TextInput
+        label="Image URL"
+        placeholder="i.e. https://source.unsplash.com/random"
+        onChange={setSrc}
+        value={src}
+        data-test-id="image-modal-url-input"
+      />
+      <TextInput
+        label="Alt Text"
+        placeholder="Random unsplash image"
+        onChange={setAltText}
+        value={altText}
+        data-test-id="image-modal-alt-text-input"
+      />
+      <DialogActions>
+        <Button
+          data-test-id="image-modal-confirm-btn"
+          disabled={isDisabled}
+          onClick={() => onClick({altText, src})}>
+          Confirm
+        </Button>
+      </DialogActions>
+    </>
+  );
+}
 
-  const handlePositionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setPosition(e.target.value as Position);
-  };
+export function InsertImageUploadedDialogBody({
+  onClick,
+}: {
+  onClick: (payload: InsertImagePayload) => void;
+}) {
+  const [src, setSrc] = useState('');
+  const [altText, setAltText] = useState('');
+
+  const isDisabled = src === '';
 
   const loadImage = (files: FileList | null) => {
     const reader = new FileReader();
@@ -89,6 +112,43 @@ export function InsertInlineImageDialog({
     }
   };
 
+  return (
+    <>
+      <FileInput
+        label="Image Upload"
+        onChange={loadImage}
+        accept="image/*"
+        data-test-id="image-modal-file-upload"
+      />
+      <TextInput
+        label="Alt Text"
+        placeholder="Descriptive alternative text"
+        onChange={setAltText}
+        value={altText}
+        data-test-id="image-modal-alt-text-input"
+      />
+      <DialogActions>
+        <Button
+          data-test-id="image-modal-file-upload-btn"
+          disabled={isDisabled}
+          onClick={() => onClick({altText, src})}>
+          Confirm
+        </Button>
+      </DialogActions>
+    </>
+  );
+}
+
+export function InsertImageDialog({
+  activeEditor,
+  onClose,
+}: {
+  activeEditor: LexicalEditor;
+  onClose: () => void;
+}): JSX.Element {
+  const [mode, setMode] = useState<null | 'url' | 'file'>(null);
+  const hasModifier = useRef(false);
+
   useEffect(() => {
     hasModifier.current = false;
     const handler = (e: KeyboardEvent) => {
@@ -100,79 +160,70 @@ export function InsertInlineImageDialog({
     };
   }, [activeEditor]);
 
-  const handleOnClick = () => {
-    const payload = {altText, position, showCaption, src};
-    activeEditor.dispatchCommand(INSERT_INLINE_IMAGE_COMMAND, payload);
+  const onClick = (payload: InsertImagePayload) => {
+    activeEditor.dispatchCommand(INSERT_IMAGE_COMMAND, payload);
     onClose();
   };
 
   return (
     <>
-      <div style={{marginBottom: '1em'}}>
-        <FileInput
-          label="Image Upload"
-          onChange={loadImage}
-          accept="image/*"
-          data-test-id="image-modal-file-upload"
-        />
-      </div>
-      <div style={{marginBottom: '1em'}}>
-        <TextInput
-          label="Alt Text"
-          placeholder="Descriptive alternative text"
-          onChange={setAltText}
-          value={altText}
-          data-test-id="image-modal-alt-text-input"
-        />
-      </div>
-
-      <Select
-        style={{marginBottom: '1em', width: '290px'}}
-        label="Position"
-        name="position"
-        id="position-select"
-        onChange={handlePositionChange}>
-        <option value="left">Left</option>
-        <option value="right">Right</option>
-        <option value="full">Full Width</option>
-      </Select>
-
-      <div className="Input__wrapper">
-        <input
-          id="caption"
-          className="InlineImageNode_Checkbox"
-          type="checkbox"
-          checked={showCaption}
-          onChange={handleShowCaptionChange}
-        />
-        <label htmlFor="caption">Show Caption</label>
-      </div>
-
-      <DialogActions>
-        <Button
-          data-test-id="image-modal-file-upload-btn"
-          disabled={isDisabled}
-          onClick={() => handleOnClick()}>
-          Confirm
-        </Button>
-      </DialogActions>
+      {!mode && (
+        <DialogButtonsList>
+          {/*
+          <Button
+            data-test-id="image-modal-option-sample"
+            onClick={() =>
+              onClick(
+                hasModifier.current
+                  ? {
+                      altText:
+                        'Daylight fir trees forest glacier green high ice landscape',
+                      src: landscapeImage,
+                    }
+                  : {
+                      altText: 'Yellow flower in tilt shift lens',
+                      src: yellowFlowerImage,
+                    },
+              )
+            }>
+            Sample
+          </Button>
+          */}
+          <Button
+            data-test-id="image-modal-option-url"
+            onClick={() => setMode('url')}>
+            URL
+          </Button>
+          <Button
+            data-test-id="image-modal-option-file"
+            onClick={() => setMode('file')}>
+            File
+          </Button>
+        </DialogButtonsList>
+      )}
+      {mode === 'url' && <InsertImageUriDialogBody onClick={onClick} />}
+      {mode === 'file' && <InsertImageUploadedDialogBody onClick={onClick} />}
     </>
   );
 }
 
-export default function InlineImagePlugin(): JSX.Element | null {
+export default function ImagesPlugin({
+  captionsEnabled,
+}: {
+  captionsEnabled?: boolean;
+}): JSX.Element | null {
   const [editor] = useLexicalComposerContext();
 
   useEffect(() => {
-    if (!editor.hasNodes([InlineImageNode])) {
+    if (!editor.hasNodes([ImageNode])) {
       throw new Error('ImagesPlugin: ImageNode not registered on editor');
     }
 
     return mergeRegister(
-      editor.registerCommand<InsertInlineImagePayload>(
-        INSERT_INLINE_IMAGE_COMMAND,
+      editor.registerCommand<InsertImagePayload>(
+        INSERT_IMAGE_COMMAND,
         (payload) => {
-          const imageNode = $createInlineImageNode(payload);
+          const imageNode = $createImageNode(payload);
           $insertNodes([imageNode]);
           if ($isRootOrShadowRoot(imageNode.getParentOrThrow())) {
             $wrapNodeInElement(imageNode, $createParagraphNode).selectEnd();
@@ -204,7 +255,7 @@ export default function InlineImagePlugin(): JSX.Element | null {
         COMMAND_PRIORITY_HIGH,
       ),
     );
-  }, [editor]);
+  }, [captionsEnabled, editor]);
 
   return null;
 }
@@ -233,6 +284,7 @@ function $onDragStart(event: DragEvent): boolean {
         caption: node.__caption,
         height: node.__height,
         key: node.getKey(),
+        maxWidth: node.__maxWidth,
         showCaption: node.__showCaption,
         src: node.__src,
         width: node.__width,
@@ -273,22 +325,22 @@ function $onDrop(event: DragEvent, editor: LexicalEditor): boolean {
       rangeSelection.applyDOMRange(range);
     }
     $setSelection(rangeSelection);
-    editor.dispatchCommand(INSERT_INLINE_IMAGE_COMMAND, data);
+    editor.dispatchCommand(INSERT_IMAGE_COMMAND, data);
   }
   return true;
 }
 
-function $getImageNodeInSelection(): InlineImageNode | null {
+function $getImageNodeInSelection(): ImageNode | null {
   const selection = $getSelection();
   if (!$isNodeSelection(selection)) {
     return null;
   }
   const nodes = selection.getNodes();
   const node = nodes[0];
-  return $isInlineImageNode(node) ? node : null;
+  return $isImageNode(node) ? node : null;
 }
 
-function getDragImageData(event: DragEvent): null | InsertInlineImagePayload {
+function getDragImageData(event: DragEvent): null | InsertImagePayload {
   const dragData = event.dataTransfer?.getData('application/x-lexical-drag');
   if (!dragData) {
     return null;
@@ -327,7 +379,7 @@ function getDragSelection(event: DragEvent): Range | null | undefined {
     domSelection.collapse(event.rangeParent, event.rangeOffset || 0);
     range = domSelection.getRangeAt(0);
   } else {
-    throw Error('Cannot get the selection when dragging');
+    throw Error(`Cannot get the selection when dragging`);
   }
 
   return range;

@@ -35,7 +35,7 @@ import { ListNode, ListItemNode } from "@lexical/list";
 import {ImageNode} from './nodes/ImageNode';
 
 import ToolbarPlugin from './plugins/ToolbarPlugin';
-import ImagesPlugin from './plugins/ImagesPlugin';
+import ImagesPlugin from './plugins/ImagesPlugin.tsx';
 
 import {parseAllowedColor, parseAllowedFontSize} from './styleConfig';
 
