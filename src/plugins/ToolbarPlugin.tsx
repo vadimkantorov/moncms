@@ -30,7 +30,8 @@ import {
 import {PLAYGROUND_TRANSFORMERS} from './MarkdownTransformers.ts';
 import {$createCodeNode, $isCodeNode} from '@lexical/code';
 import {
-    $createTextNode
+    $createTextNode,
+    $getRoot,
   } from 'lexical';
   
 
