@@ -20,7 +20,7 @@ import {ContentEditable} from '@lexical/react/LexicalContentEditable';
 import {LexicalErrorBoundary} from '@lexical/react/LexicalErrorBoundary';
 import {HistoryPlugin} from '@lexical/react/LexicalHistoryPlugin';
 import {RichTextPlugin} from '@lexical/react/LexicalRichTextPlugin';
-import {EditorState, $getRoot, $createParagraphNode,$createTextNode, $isTextNode,
+import {EditorState, $getRoot, $createParagraphNode,$createTextNode, $isTextNode, $nodesOfType,
     DOMConversionMap, DOMExportOutput, DOMExportOutputMap, isHTMLElement, Klass, LexicalEditor,
     LexicalNode, ParagraphNode, TextNode,
 } from 'lexical';
@@ -363,6 +363,13 @@ function App() {
         // https://stackoverflow.com/questions/31563444/rename-a-file-with-github-api
         // https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
         // https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
+
+        //editorRef.current.getEditorState().read(() => {
+        //editorState.read(() => {
+        editorRef.current.read(() => {
+            const imageNodes = $nodesOfType(ImageNode);
+            console.log(imageNodes);
+        });
 
         if(!fileName)
             return moncms_log('cannot save a file without file name');

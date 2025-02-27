@@ -43,8 +43,8 @@ import {
 } from '../nodes/ImageNode';
 import Button from '../ui/Button';
 import {DialogActions, DialogButtonsList} from '../ui/Dialog';
-import FileInput from '../ui/FileInput';
-import TextInput from '../ui/TextInput';
+
+import '../ui/Input.css';
 
 export type InsertImagePayload = Readonly<ImagePayload>;
 
@@ -63,20 +63,33 @@ export function InsertImageUriDialogBody({
 
   return (
     <>
-      <TextInput
-        label="Image URL"
+    <div className="Input__wrapper">
+      <label className="Input__label">Image URL</label>
+      <input
+        type="text"
+        className="Input__input"
         placeholder="i.e. https://source.unsplash.com/random"
-        onChange={setSrc}
         value={src}
+        onChange={(e) => {
+          setSrc(e.target.value);
+        }}
         data-test-id="image-modal-url-input"
       />
-      <TextInput
-        label="Alt Text"
+    </div>
+    <div className="Input__wrapper">
+      <label className="Input__label">Alt Text</label>
+      <input
+        type="text"
+        className="Input__input"
         placeholder="Random unsplash image"
-        onChange={setAltText}
         value={altText}
+        onChange={(e) => {
+            setAltText(e.target.value);
+        }}
         data-test-id="image-modal-alt-text-input"
       />
+    </div>
+    
       <DialogActions>
         <Button
           data-test-id="image-modal-confirm-btn"
@@ -100,6 +113,7 @@ export function InsertImageUploadedDialogBody({
   const isDisabled = src === '';
 
   const loadImage = (files: FileList | null) => {
+    /*
     const reader = new FileReader();
     reader.onload = function () {
       if (typeof reader.result === 'string') {
@@ -107,26 +121,39 @@ export function InsertImageUploadedDialogBody({
       }
       return '';
     };
+    */
     if (files !== null) {
-      reader.readAsDataURL(files[0]);
+        setSrc(URL.createObjectURL(files[0]));
+      //reader.readAsDataURL(files[0]);
     }
   };
 
   return (
     <>
-      <FileInput
-        label="Image Upload"
-        onChange={loadImage}
+    <div className="Input__wrapper">
+      <label className="Input__label">Image Upload</label>
+      <input
+        type="file"
         accept="image/*"
+        className="Input__input"
+        onChange={(e) => loadImage(e.target.files)}
         data-test-id="image-modal-file-upload"
       />
-      <TextInput
-        label="Alt Text"
+    </div>
+    <div className="Input__wrapper">
+      <label className="Input__label">Alt Text</label>
+      <input
+        type="text"
+        className="Input__input"
         placeholder="Descriptive alternative text"
-        onChange={setAltText}
         value={altText}
+        onChange={(e) => {
+            setAltText(e.target.value);
+        }}
         data-test-id="image-modal-alt-text-input"
       />
+    </div>
+
       <DialogActions>
         <Button
           data-test-id="image-modal-file-upload-btn"
@@ -169,26 +196,6 @@ export function InsertImageDialog({
     <>
       {!mode && (
         <DialogButtonsList>
-          {/*
-          <Button
-            data-test-id="image-modal-option-sample"
-            onClick={() =>
-              onClick(
-                hasModifier.current
-                  ? {
-                      altText:
-                        'Daylight fir trees forest glacier green high ice landscape',
-                      src: landscapeImage,
-                    }
-                  : {
-                      altText: 'Yellow flower in tilt shift lens',
-                      src: yellowFlowerImage,
-                    },
-              )
-            }>
-            Sample
-          </Button>
-          */}
           <Button
             data-test-id="image-modal-option-url"
             onClick={() => setMode('url')}>
