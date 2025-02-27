@@ -51,66 +51,36 @@ export type InsertImagePayload = Readonly<ImagePayload>;
 export const INSERT_IMAGE_COMMAND: LexicalCommand<InsertImagePayload> =
   createCommand('INSERT_IMAGE_COMMAND');
 
-export function InsertImageUriDialogBody({
-  onClick,
+export function InsertImageDialog({
+  activeEditor,
+  onClose,
 }: {
-  onClick: (payload: InsertImagePayload) => void;
-}) {
-  const [src, setSrc] = useState('');
-  const [altText, setAltText] = useState('');
-
-  const isDisabled = src === '';
-
-  return (
-    <>
-    <div className="Input__wrapper">
-      <label className="Input__label">Image URL</label>
-      <input
-        type="text"
-        className="Input__input"
-        placeholder="i.e. https://source.unsplash.com/random"
-        value={src}
-        onChange={(e) => {
-          setSrc(e.target.value);
-        }}
-        data-test-id="image-modal-url-input"
-      />
-    </div>
-    <div className="Input__wrapper">
-      <label className="Input__label">Alt Text</label>
-      <input
-        type="text"
-        className="Input__input"
-        placeholder="Random unsplash image"
-        value={altText}
-        onChange={(e) => {
-            setAltText(e.target.value);
-        }}
-        data-test-id="image-modal-alt-text-input"
-      />
-    </div>
+  activeEditor: LexicalEditor;
+  onClose: () => void;
+}): JSX.Element {
+    const [src, setSrc] = useState('');
+    const [altText, setAltText] = useState('');
     
-      <DialogActions>
-        <Button
-          data-test-id="image-modal-confirm-btn"
-          disabled={isDisabled}
-          onClick={() => onClick({altText, src})}>
-          Confirm
-        </Button>
-      </DialogActions>
-    </>
-  );
-}
-
-export function InsertImageUploadedDialogBody({
-  onClick,
-}: {
-  onClick: (payload: InsertImagePayload) => void;
-}) {
-  const [src, setSrc] = useState('');
-  const [altText, setAltText] = useState('');
-
+  const [mode, setMode] = useState<null | 'url' | 'file'>(null);
+  const hasModifier = useRef(false);
+  
   const isDisabled = src === '';
+
+  useEffect(() => {
+    hasModifier.current = false;
+    const handler = (e: KeyboardEvent) => {
+      hasModifier.current = e.altKey;
+    };
+    document.addEventListener('keydown', handler);
+    return () => {
+      document.removeEventListener('keydown', handler);
+    };
+  }, [activeEditor]);
+
+  const onClick = (payload: InsertImagePayload) => {
+    activeEditor.dispatchCommand(INSERT_IMAGE_COMMAND, payload);
+    onClose();
+  };
 
   const loadImage = (files: FileList | null) => {
     /*
@@ -130,6 +100,7 @@ export function InsertImageUploadedDialogBody({
 
   return (
     <>
+    
     <div className="Input__wrapper">
       <label className="Input__label">Image Upload</label>
       <input
@@ -140,6 +111,20 @@ export function InsertImageUploadedDialogBody({
         data-test-id="image-modal-file-upload"
       />
     </div>
+    <div className="Input__wrapper">
+      <label className="Input__label">Image URL</label>
+      <input
+        type="text"
+        className="Input__input"
+        placeholder="i.e. https://source.unsplash.com/random"
+        value={src}
+        onChange={(e) => {
+          setSrc(e.target.value);
+        }}
+        data-test-id="image-modal-url-input"
+      />
+    </div>
+
     <div className="Input__wrapper">
       <label className="Input__label">Alt Text</label>
       <input
@@ -153,63 +138,14 @@ export function InsertImageUploadedDialogBody({
         data-test-id="image-modal-alt-text-input"
       />
     </div>
-
-      <DialogActions>
+    <DialogButtonsList>
         <Button
           data-test-id="image-modal-file-upload-btn"
           disabled={isDisabled}
           onClick={() => onClick({altText, src})}>
           Confirm
         </Button>
-      </DialogActions>
-    </>
-  );
-}
-
-export function InsertImageDialog({
-  activeEditor,
-  onClose,
-}: {
-  activeEditor: LexicalEditor;
-  onClose: () => void;
-}): JSX.Element {
-  const [mode, setMode] = useState<null | 'url' | 'file'>(null);
-  const hasModifier = useRef(false);
-
-  useEffect(() => {
-    hasModifier.current = false;
-    const handler = (e: KeyboardEvent) => {
-      hasModifier.current = e.altKey;
-    };
-    document.addEventListener('keydown', handler);
-    return () => {
-      document.removeEventListener('keydown', handler);
-    };
-  }, [activeEditor]);
-
-  const onClick = (payload: InsertImagePayload) => {
-    activeEditor.dispatchCommand(INSERT_IMAGE_COMMAND, payload);
-    onClose();
-  };
-
-  return (
-    <>
-      {!mode && (
-        <DialogButtonsList>
-          <Button
-            data-test-id="image-modal-option-url"
-            onClick={() => setMode('url')}>
-            URL
-          </Button>
-          <Button
-            data-test-id="image-modal-option-file"
-            onClick={() => setMode('file')}>
-            File
-          </Button>
-        </DialogButtonsList>
-      )}
-      {mode === 'url' && <InsertImageUriDialogBody onClick={onClick} />}
-      {mode === 'file' && <InsertImageUploadedDialogBody onClick={onClick} />}
+    </DialogButtonsList>
     </>
   );
 }
