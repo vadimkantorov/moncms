@@ -27,7 +27,7 @@ import {EditorState, $getRoot, $createParagraphNode,$createTextNode, $isTextNode
 import Prism from "prismjs"; if (typeof globalThis.Prism === 'undefined') { globalThis.Prism = Prism;}
 import {CodeNode} from '@lexical/code';
 import { $convertToMarkdownString, $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
-//import {PLAYGROUND_TRANSFORMERS} from './plugins/MarkdownTransformers';
+import {PLAYGROUND_TRANSFORMERS} from './plugins/MarkdownTransformers';
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import { LinkNode } from "@lexical/link";
 import { HashtagNode } from "@lexical/hashtag";
@@ -254,7 +254,7 @@ function App() {
             editorRef.current?.update(() => {
                 const editorState = editorRef.current?.getEditorState();
                 if (editorState != null) {
-                    $convertFromMarkdownString(markdown, TRANSFORMERS);//PLAYGROUND_TRANSFORMERS) 
+                    $convertFromMarkdownString(markdown, PLAYGROUND_TRANSFORMERS); //TRANSFORMERS);
                     $getRoot().selectStart();
                 }
                 resolve();
@@ -266,7 +266,7 @@ function App() {
     {
         return new Promise(resolve => {
             editorRef.current?.update(() => {
-                const md = $convertToMarkdownString(TRANSFORMERS);//PLAYGROUND_TRANSFORMERS);
+                const md = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS); //TRANSFORMERS);
                 resolve(md);
             })
         });
@@ -364,24 +364,39 @@ function App() {
         // https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
         // https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
 
-        //editorRef.current.getEditorState().read(() => {
-        //editorState.read(() => {
-        editorRef.current.read(() => {
-            const imageNodes = $nodesOfType(ImageNode);
-            console.log(imageNodes);
-        });
-
         if(!fileName)
             return moncms_log('cannot save a file without file name');
+
         const prep = github_api_prepare_params(url, token, true);
         if(prep.error)
             return moncms_log(prep.error);
 
-        const html_frontmatter = document.getElementById('html_frontmatter');
         const frontmatter_empty = frontMatterEmpty == true;
         const frontmatter_not_empty = frontMatterEmpty == false;
         const frontmatter_str = format_frontmatter(frontMatter, frontmatter_not_empty);
         
+        editorRef.current.read(async () => {
+            const imageNodes = $nodesOfType(ImageNode);
+            for(const node of imageNodes)
+            {
+                const src = node.getSrc();
+                if(src.startsWith('blob:'))
+                {
+                    const blob = await fetch(src).then(r => r.blob());
+                    const reader = new FileReader();
+                    reader.onload = async () => {
+                        var datauri = reader.result;
+                        const base64 = datauri.split(',')[1];
+                        const file_path = 'testfile.png';
+                        const res_put = await github_api_create_file(prep, file_path, base64, moncms_log).pop();
+                        console.log(src, base64, res_put);
+                        node.setSrc(res_put.download_url);
+                    };
+                    reader.readAsDataURL(blob);
+                }
+            }
+        });
+
         const text = await window_editor_getMarkdown();
         const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(frontmatter_str + text)))).replaceAll('\n', '');
 
@@ -393,6 +408,7 @@ function App() {
         )
             return moncms_log('no changes');
         
+
         const should_rename = retrieved_contents && fileName != retrieved_contents.name;
         const should_update = retrieved_contents && fileName == retrieved_contents.name;
         const should_create = Object.entries(retrieved_contents || {}).length == 0 && fileName;

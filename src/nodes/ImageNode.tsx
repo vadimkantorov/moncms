@@ -214,6 +214,10 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
     return this.__src;
   }
 
+  setSrc(value: string): void {
+    this.__src = value;
+  }
+
   getAltText(): string {
     return this.__altText;
   }

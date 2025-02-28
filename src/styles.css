@@ -1,6 +1,7 @@
 
 .editor-shell { max-width: 100%!important }
-.editor-scroller { overflow: hidden!important }
+.App { overflow: hidden!important }
+.editor-container {margin:0!important; max-width:none!important;} 
 .block-controls > .dropdown-button-text { width: 7em; }
 
 #html_signinout { width: 6em }
