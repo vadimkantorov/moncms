@@ -190,6 +190,11 @@ function format_frontmatter(frontMatter : Array, notEmpty : boolean) : string
     return frontmatter_str_inside ? frontmatter_str : '';
 }
 
+function newrow_frontmatter()
+{
+    return {frontmatter_id: self.crypto.randomUUID(), frontmatter_key: '', frontmatter_val: ''};
+}
+
 function App() {
     let url_value = '', token_value = '', log_value = '', retrieved_contents = {}, frontMatterEmpty = true;
 
@@ -224,9 +229,8 @@ function App() {
     const [isSignedIn, setIsSignedIn] = useState(false);
     const [fileTree, setFileTree] = useState([]);
     const [fileTreeValue, setFileTreeValue] = useState('');
-    const [frontMatter, setFrontMatter] = useState([{frontmatter_key : '', frontmatter_val : ''}]);
+    const [frontMatter, setFrontMatter] = useState([newrow_frontmatter()]);
 
-    console.log('retry app');
     useEffect(() => 
     {
         /*
@@ -241,7 +245,6 @@ function App() {
             setToken(token_value);
         }
         */
-       console.log('retry effect');
         if(url)
             open_file_or_dir(url, token);
         else
@@ -296,7 +299,6 @@ function App() {
 
     function onchange_files(event)
     {
-        console.log(event);
         // https://stackoverflow.com/questions/572768/styling-an-input-type-file-button/25825731#25825731
         for(const file of event.target.files)
         {
@@ -546,24 +548,24 @@ function App() {
 
     function onchange_frontmatter(name, value, idx)
     {
-        setFrontMatter(frontMatter.map((item, i) => i == idx ? {frontmatter_key : (name != 'frontmatter_key' ? item.frontmatter_key : value), frontmatter_val: (name != 'frontmatter_val' ? item.frontmatter_val : value)} : item));
+        setFrontMatter(frontMatter.map((item, i) => i == idx ? {...item, [name] : value} : item));
     }
 
     function onclick_frontmatter_delrow(event)
     {
         const idx = event.target.parentElement.parentElement.rowIndex;
-        setFrontMatter(frontMatter.map((item, i) => (i == 0 && idx == 0) ? {frontmatter_key : '', frontmatter_val : ''} : item).filter((item, i) => idx == 0 || i != idx));
+        setFrontMatter(frontMatter.map((item, i) => (i == 0 && idx == 0) ? {...item, frontmatter_key : '', frontmatter_val : ''} : item).filter((item, i) => idx == 0 || i != idx));
     }
 
     function onclick_frontmatter_addrow(event)
     {
         const idx = event.target.parentElement.parentElement.rowIndex;
         if(idx == 0)
-            setFrontMatter([{frontmatter_key: '', frontmatter_val: ''}, ...frontMatter]);
+            setFrontMatter([newrow_frontmatter(), ...frontMatter]);
         else if(idx < frontMatter.length - 1)
-            setFrontMatter([...frontMatter.slice(0, idx + 1), {frontmatter_key : '', frontmatter_val: ''}, ...frontMatter.slice(idx + 1)]);
+            setFrontMatter([...frontMatter.slice(0, idx + 1), newrow_frontmatter(), ...frontMatter.slice(idx + 1)]);
         else
-            setFrontMatter([...frontMatter, {frontmatter_key: '', frontmatter_val: ''}]);
+            setFrontMatter([...frontMatter, newrow_frontmatter()]);
     }
 
     async function onclick_signinout()
@@ -616,12 +618,12 @@ function App() {
     <input  hidden={isCompact} id="html_file_name" placeholder="File name:" type="text" ref={fileNameRef} value={fileName} title={fileNameTitle} onChange={(event) => setFileName(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && onclick_savefile()} />
     <input  hidden={isCompact} id="html_log" placeholder="Log:" title="Log:" value={log} readOnly />
     <select hidden={isCompact} id="html_file_tree" size="10" value={fileTreeValue} onChange={(event) => setFileTreeValue(event.target.value)} onKeyPress={(event) => (event.code == 'Space' || event.code == 'Enter') ? [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)] : []} onDoubleClick={(event) => [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)]}>
-        {fileTree.map((f, i) => (<option key={i} value={f.html_url} title={f.html_url}>{f.name + (f.type == 'dir' ? '/' : '')}</option>))}
+        {fileTree.map((f, i) => (<option key={f.html_url} value={f.html_url} title={f.html_url}>{f.name + (f.type == 'dir' ? '/' : '')}</option>))}
     </select>
     <table  hidden={isCompact} id="html_frontmatter">
         <tbody>
-            {frontMatter.map(({frontmatter_key, frontmatter_val}, i) => (
-                <tr key={i}>
+            {frontMatter.map(({frontmatter_key, frontmatter_val, frontmatter_id}, i) => (
+                <tr key={frontmatter_id}>
                     <td><input type="text" name="frontmatter_key" placeholder="Frontmatter key:"   value={frontmatter_key} onChange={(event) => onchange_frontmatter(event.target.name, event.target.value, i)} /></td>
                     <td><input type="text" name="frontmatter_val" placeholder="Frontmatter value:" value={frontmatter_val} onChange={(event) => onchange_frontmatter(event.target.name, event.target.value, i)} /></td>
                     <td>
@@ -632,19 +634,20 @@ function App() {
             ))}
         </tbody>
     </table>
-
-    <button onClick={() => open_file_or_dir(url, token)}>Open</button>
-    <button onClick={onclick_savefile}>Save File</button>
-    <button onClick={onclick_delfile} id="html_delfile" data-message="Do you really want to delete this file?">Delete File</button>
-    <button onClick={onclick_createfiledir} id="html_createfile" data-newpath="${date}-new-post-draft-a${time}.md" data-message="### modify the file name, modify this content and click Save to actually create and save the file">New File</button>
-    <button onClick={onclick_createfiledir} id="html_createdir" data-newpath="new-dir-a${time}/.gitignore" data-message="### modify the directory name, and then click Save to create the file and the directory">New Folder</button>
-      
-    <button onClick={onclick_upload}>Upload Files</button>
-    <input type="file" id="html_files" onChange={onchange_files} multiple hidden />
-      
-    <button onClick={(event) => {setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
-    <button onClick={onclick_signinout} className={isSignedIn ? "signout" : "signin"} ></button>
-    <button onClick={() => setIsCompact(!isCompact)}>Toggle Compact View</button>
+    <div id="moncms_toolbar">
+        <button onClick={() => open_file_or_dir(url, token)}>Open</button>
+        <button onClick={onclick_savefile}>Save File</button>
+        <button onClick={onclick_delfile} id="html_delfile" data-message="Do you really want to delete this file?">Delete File</button>
+        <button onClick={onclick_createfiledir} id="html_createfile" data-newpath="${date}-new-post-draft-a${time}.md" data-message="### modify the file name, modify this content and click Save to actually create and save the file">New File</button>
+        <button onClick={onclick_createfiledir} id="html_createdir" data-newpath="new-dir-a${time}/.gitignore" data-message="### modify the directory name, and then click Save to create the file and the directory">New Folder</button>
+        
+        <button onClick={onclick_upload}>Upload Files</button>
+        <input type="file" id="html_files" onChange={onchange_files} multiple hidden />
+        
+        <button onClick={(event) => {setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
+        <button onClick={onclick_signinout} className={isSignedIn ? "signout" : "signin"} ></button>
+        <button onClick={() => setIsCompact(!isCompact)}>Toggle Compact View</button>
+    </div>
     <div className="editor-shell">
     <LexicalComposer initialConfig={editorConfig}>
       <EditorRefPlugin editorRef={editorRef} />

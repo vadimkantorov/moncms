@@ -9,6 +9,7 @@
 #html_frontmatter, #html_url, #html_token, #html_file_name, #html_log, #html_file_tree { width: 100% }
 #html_frontmatter, #html_frontmatter td, #html_frontmatter th  { border: 1px solid black; border-collapse: collapse; text-align: left; }
 #html_frontmatter td>input { width: 98% }
+#moncms_toolbar {text-align:initial!important}
 
 button.signin::after  { content: "Sign In"  }
 button.signout::after { content: "Sign Out" }
