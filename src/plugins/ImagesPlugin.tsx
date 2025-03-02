@@ -60,6 +60,7 @@ export function InsertImageDialog({
 }): JSX.Element {
     const [src, setSrc] = useState('');
     const [altText, setAltText] = useState('');
+    const [name, setName] = useState('');
     
   const [mode, setMode] = useState<null | 'url' | 'file'>(null);
   const hasModifier = useRef(false);
@@ -92,9 +93,16 @@ export function InsertImageDialog({
       return '';
     };
     */
-    if (files !== null) {
-        setSrc(URL.createObjectURL(files[0]));
+    if (files !== null && files.length > 0) {
+        const file = files[0];
+        setSrc(URL.createObjectURL(file));
+        setName(file.name);
       //reader.readAsDataURL(files[0]);
+    }
+    else
+    {
+        setSrc('');
+        setName('');
     }
   };
 
@@ -116,10 +124,14 @@ export function InsertImageDialog({
       <input
         type="text"
         className="Input__input"
-        placeholder="i.e. https://source.unsplash.com/random"
+        placeholder="https://gstatic.com/images/branding/googlelogo/svg/googlelogo_clr_74x24px.svg"
         value={src}
         onChange={(e) => {
-          setSrc(e.target.value);
+          const src = e.target.value;
+          const idx = src.lastIndexOf('/');
+          const basename = idx != -1 ? src.substring(idx + 1) : src;
+          setSrc(src);
+          setName(basename);
         }}
         data-test-id="image-modal-url-input"
       />
