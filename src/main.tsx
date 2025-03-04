@@ -157,6 +157,14 @@ function fmt_log(text : string)
     return `${now}: ${text}`;
 }
 
+function fmt_upload_path(basename: string)
+{
+    const now = new Date().toISOString();
+    const yyyy = now.slice(0, 4);
+    const mm = now.slice(5, 7);
+    return `/moncms-content/uploads/${yyyy}/${mm}/${basename}`;
+}
+
 function find_meta(doc, key)
 {
     return (Array.from(doc.querySelectorAll('meta')).filter(meta => meta.name == key).pop() || {}).content || '';
@@ -366,7 +374,7 @@ function App() {
         // https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
         // https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
 
-        if(!fileName)
+        /*if(!fileName)
             return moncms_log('cannot save a file without file name');
 
         const prep = github_api_prepare_params(url, token, true);
@@ -376,7 +384,7 @@ function App() {
         const frontmatter_empty = frontMatterEmpty == true;
         const frontmatter_not_empty = frontMatterEmpty == false;
         const frontmatter_str = format_frontmatter(frontMatter, frontmatter_not_empty);
-        
+        */
         editorRef.current.read(async () => {
             const imageNodes = $nodesOfType(ImageNode);
             for(const node of imageNodes)
@@ -384,13 +392,14 @@ function App() {
                 const src = node.getSrc();
                 if(src.startsWith('blob:'))
                 {
+                    const basename = decodeURI(new URL(src).hash).substring(1);
+                    const upload_path = fmt_upload_path(basename);
                     const blob = await fetch(src).then(r => r.blob());
                     const reader = new FileReader();
                     reader.onload = async () => {
                         var datauri = reader.result;
                         const base64 = datauri.split(',')[1];
-                        const file_path = 'testfile.png';
-                        const res_put = await github_api_create_file(prep, file_path, base64, moncms_log).pop();
+                        const res_put = await github_api_create_file(prep, upload_path, base64, moncms_log).pop();
                         console.log(src, base64, res_put);
                         node.setSrc(res_put.download_url);
                     };
@@ -398,6 +407,7 @@ function App() {
                 }
             }
         });
+        return;
 
         const text = await window_editor_getMarkdown();
         const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(frontmatter_str + text)))).replaceAll('\n', '');
