@@ -191,7 +191,7 @@ async function github_discover_url(url : string, key = 'moncmsdefault', HTTP_OK 
 
 function format_frontmatter(frontMatter : Array, notEmpty : boolean) : string
 {
-    const frontmatter_str_inside = frontMatter.map(({frontmatter_key, frontmatter_val}) => `${frontmatter_key}: "${frontmatter_val}"`).join('\n');
+    const frontmatter_str_inside = frontMatter.filter(({frontmatter_key, frontmatter_val}) => frontmatter_key != '' || frontmatter_val != '').map(({frontmatter_key, frontmatter_val}) => `${frontmatter_key}: "${frontmatter_val}"`).join('\n');
     const frontmatter_str = `---\n${frontmatter_str_inside}\n---\n\n`;
     if (notEmpty)
         return frontmatter_str;
@@ -203,18 +203,29 @@ function newrow_frontmatter()
     return {frontmatter_id: self.crypto.randomUUID(), frontmatter_key: '', frontmatter_val: ''};
 }
 
+function read_file_as_datauri(blob)
+{
+    return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+    });
+}
+
+let retrieved_contents = {}, frontMatterEmpty = true;
+
 function App() {
-    let url_value = '', token_value = '', log_value = '', retrieved_contents = {}, frontMatterEmpty = true;
+    let url_value = '', token_value = '', log_value = '';
 
     const meta_key = 'moncmsdefault';
 
     if(window.location.search)
     {
         const query_string = new URLSearchParams(window.location.search);
-        if(query_string.has('html_url'))
-            url_value = query_string.get('html_url');
-        if(query_string.has('html_token'))
-            token_value = query_string.get('html_token');
+        if(query_string.has('github_url'))
+            url_value = query_string.get('github_url');
+        if(query_string.has('github_token'))
+            token_value = query_string.get('github_token');
         if(!url_value)
             url_value = find_meta(document, meta_key);
         if(url_value && !token_value)
@@ -259,50 +270,27 @@ function App() {
             urlRef.current.focus();
     }, []);
 
-    function window_editor_setMarkdown(markdown : string) : Promise
-    {
-        return new Promise(resolve => {
-            editorRef.current?.update(() => {
-                const editorState = editorRef.current?.getEditorState();
-                if (editorState != null) {
-                    $convertFromMarkdownString(markdown, PLAYGROUND_TRANSFORMERS); //TRANSFORMERS);
-                    $getRoot().selectStart();
-                }
-                resolve();
-            });
-        });
-    }
-
-    function window_editor_getMarkdown() : Promise<string>
-    {
-        return new Promise(resolve => {
-            editorRef.current?.update(() => {
-                const md = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS); //TRANSFORMERS);
-                resolve(md);
-            })
-        });
-    }
-
-    function window_editor_setEditable(editable : boolean)
-    {
-        editorRef.current.setEditable(editable);
-    }
-
     function moncms_log(text : string)
     {
         setLog(fmt_log(text));
     }
 
-    function clear(file_tree = true, msg = '', front_matter = true)
+    function clear(markdown = '', file_tree = true, front_matter = true)
     {
         retrieved_contents = {};
         setFileName('');
         if(file_tree)
             setFileTree([]);
         if(front_matter)
-            setFrontMatter([{frontmatter_key : '', frontmatter_val : ''}]);
+            setFrontMatter([newrow_frontmatter()]);
         
-        return window_editor_setMarkdown(msg);
+        editorRef.current?.update(() => {
+            const editorState = editorRef.current?.getEditorState();
+            if (editorState != null) {
+                $convertFromMarkdownString(markdown, PLAYGROUND_TRANSFORMERS);
+                $getRoot().selectStart();
+            }
+        });
     }
 
     function onchange_files(event)
@@ -327,13 +315,13 @@ function App() {
 
     async function onclick_createfiledir(event, iso_date_fmt = '0000-00-00', iso_time_fmt = 'T00:00:00')
     {
-        await clear(false, event.target.dataset.message);
         const now = new Date().toISOString();
         const time = now.slice(iso_date_fmt.length, iso_date_fmt.length + iso_time_fmt.length).toLowerCase().replaceAll(':', '');
         const date = now.slice(0, iso_date_fmt.length);
         
         const new_path = event.target.dataset.newpath.replaceAll('${date}', date.toString()).replaceAll('${time}', time.toString());
         setFileName(new_path);
+        clear(event.target.dataset.message, false, true);
         fileNameRef.current.focus();
     }
 
@@ -341,7 +329,7 @@ function App() {
     {
         if(Object.entries(retrieved_contents || {}).length == 0)
         {
-            await clear(false);
+            clear('', false, true);
             setFileName('');
             return btnFileName.focus();
         }
@@ -354,7 +342,7 @@ function App() {
         await github_api_delete_file(prep, retrieved_contents, moncms_log);
         delete_file_tree(fileName);
         setUrl(prep.curdir_url);
-        clear(false);
+        clear('', false, true);
     }
 
     function onclick_upload()
@@ -374,7 +362,7 @@ function App() {
         // https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
         // https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
 
-        /*if(!fileName)
+        if(!fileName)
             return moncms_log('cannot save a file without file name');
 
         const prep = github_api_prepare_params(url, token, true);
@@ -384,9 +372,19 @@ function App() {
         const frontmatter_empty = frontMatterEmpty == true;
         const frontmatter_not_empty = frontMatterEmpty == false;
         const frontmatter_str = format_frontmatter(frontMatter, frontmatter_not_empty);
-        */
-        editorRef.current.read(async () => {
+        
+        /*
+        editorRef.current.update(async () => {
+            let markdown = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS);
             const imageNodes = $nodesOfType(ImageNode);
+        })
+        */
+
+        let [markdown, replace_map] = await new Promise(resolve => editorRef.current.update(async () => {
+            let markdown = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS);
+            const imageNodes = $nodesOfType(ImageNode);
+            let replace_map = {};
+
             for(const node of imageNodes)
             {
                 const src = node.getSrc();
@@ -395,22 +393,21 @@ function App() {
                     const basename = decodeURI(new URL(src).hash).substring(1);
                     const upload_path = fmt_upload_path(basename);
                     const blob = await fetch(src).then(r => r.blob());
-                    const reader = new FileReader();
-                    reader.onload = async () => {
-                        var datauri = reader.result;
-                        const base64 = datauri.split(',')[1];
-                        const res_put = await github_api_create_file(prep, upload_path, base64, moncms_log).pop();
-                        console.log(src, base64, res_put);
-                        node.setSrc(res_put.download_url);
-                    };
-                    reader.readAsDataURL(blob);
+                    const datauri = await read_file_as_datauri(blob);
+                    const base64 = datauri.split(',')[1];
+                    const res_put = (await github_api_create_file(prep, upload_path, base64, moncms_log)).pop();
+                    const src_new = res_put.download_url === undefined ? upload_path : res_put.download_url;
+                    editorRef.current.update(() => node.getWritable().setSrc(src_new));
+                    replace_map[src] = src_new;
                 }
             }
-        });
-        return;
+            resolve([markdown, replace_map]);
+        }));
 
-        const text = await window_editor_getMarkdown();
-        const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(frontmatter_str + text)))).replaceAll('\n', '');
+        for(const [src, src_new] of Object.entries(replace_map))
+            markdown = markdown.replaceAll(src, src_new);
+
+        const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(frontmatter_str + markdown)))).replaceAll('\n', '');
 
         if(retrieved_contents.encoding == 'base64'
             && retrieved_contents.content.replaceAll('\n', '') == base64
@@ -427,12 +424,12 @@ function App() {
 
         if(should_update)
         {
-            const res_put = await github_api_update_file(prep, retrieved_contents.sha, base64, moncms_log).pop();
+            const res_put = (await github_api_update_file(prep, retrieved_contents.sha, base64, moncms_log)).pop();
             retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
         }
         else if(should_create)
         {
-            const res_put = await github_api_create_file(prep, fileName, base64, moncms_log).pop();
+            const res_put = (await github_api_create_file(prep, fileName, base64, moncms_log)).pop();
             retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
         }
         else if(should_rename)
@@ -455,7 +452,6 @@ function App() {
             ...files, 
             ...images
         ];
-        //TODO: add .key: Warning: Each child in a list should have a unique "key" prop: https://reactjs.org/link/warning-keys 
         const file_tree_value = ['', ...file_tree.filter(j => j.name == selected_file_name).map(j => j.html_url)].pop();
         setFileTree(file_tree);
         setFileTreeValue(file_tree_value);
@@ -486,7 +482,7 @@ function App() {
         let prep = github_api_prepare_params(url_value, token_value);
         if(prep.error)
         {
-            clear();
+            clear('', true, true);
             return moncms_log(prep.error);
         }
         if(!token_value)
@@ -494,10 +490,12 @@ function App() {
             token_value = cache_load(prep.github_repo_url); // FIXME: set to html_token.value
             prep = github_api_prepare_params(url_value, token_value); 
             if(token_value)
+            {
+                setIsSignedIn(true);
                 moncms_log('got from cache for ' + prep.github_repo_url);
+            }
         }
-        setIsSignedIn(token_value ? true : false);
-
+        
         let [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
         if(!res_dir) res_dir = []; //FIXME
 
@@ -506,53 +504,68 @@ function App() {
         const is_err = Object.entries(res_file).length == 0 && res_dir == null;
         const is_image = !is_dir && ext.some(e => res_file.name.endsWith(e));
         const images = res_dir.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
-        const image_listing = images.map(j => `# ${j.name}\n![${j.name}](${j.download_url})`).join('\n\n');
-        // https://lexical.dev/docs/concepts/read-only
-
+        const image_listing = is_image ? `# ${res_file.name}\n![${res_file.name}](${res_file.download_url})\n<img src="${res_file.download_url}" height="100px"/>` : images.map(j => `# ${j.name}\n![${j.name}](${j.download_url})`).join('\n\n');
+            
         retrieved_contents = res_file;
         
         if(is_err)
         {
             setFileName('');
             setFileNameTitle('');
-            clear();
+            clear('', true, true);
         }
         else if(is_dir)
         {
-            setFrontMatter([{frontmatter_key : '', frontmatter_val : ''}]);
+            setFrontMatter([newrow_frontmatter()]);
             frontMatterEmpty = true;
 
             update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, '');
             setFileName('');
             setFileNameTitle(prep.github_repo_path);
-            window_editor_setMarkdown(image_listing);
-            window_editor_setEditable(false);
-        }
-        else if(!is_image)
-        {
-            let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
-            [text, frontmatter] = parse_frontmatter(text);
-            setFrontMatter([{frontmatter_key : '', frontmatter_val : ''}, ...Object.entries(frontmatter || {}).map(([k, v]) => ({frontmatter_key : k, frontmatter_val : v}))]);
-            frontMatterEmpty = frontmatter === null;
-
-            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
-            setFileName(res_file.name);
-            setFileNameTitle(prep.github_repo_path);
-            window_editor_setMarkdown(text);
-            window_editor_setEditable(true);
+            editorRef.current.update(() => {
+                const editorState = editorRef.current.getEditorState();
+                if (editorState != null) {
+                    $convertFromMarkdownString(image_listing, PLAYGROUND_TRANSFORMERS);
+                    $getRoot().selectStart();
+                }
+            });
+            editorRef.current.setEditable(false);
         }
         else if(is_image)
         {
-            setFrontMatter([{frontmatter_key : '', frontmatter_val : ''}]);
+            setFrontMatter([newrow_frontmatter()]);
             frontMatterEmpty = true;
 
             update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
             setFileName(res_file.name);
             setFileNameTitle(prep.github_repo_path);
-            window_editor_setMarkdown(`# ${res_file.name}\n![${res_file.name}](${res_file.download_url})`);
-            window_editor_setMarkdown(`<img src="${res_file.download_url}" height="100px"/>`);
+            editorRef.current.update(() => {
+                const editorState = editorRef.current.getEditorState();
+                if (editorState != null) {
+                    $convertFromMarkdownString(image_listing, PLAYGROUND_TRANSFORMERS);
+                    $getRoot().selectStart();
+                }
+            });
+            editorRef.current.setEditable(false);
+        }
+        else if(!is_image)
+        {
+            let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
+            [text, frontmatter] = parse_frontmatter(text);
+            setFrontMatter([newrow_frontmatter(), ...Object.entries(frontmatter || {}).map(([k, v]) => ({frontmatter_key : k, frontmatter_val : v}))]);
+            frontMatterEmpty = frontmatter === null;
 
-            window_editor_setEditable(false);
+            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
+            setFileName(res_file.name);
+            setFileNameTitle(prep.github_repo_path);
+            editorRef.current.update(() => {
+                const editorState = editorRef.current.getEditorState();
+                if (editorState != null) {
+                    $convertFromMarkdownString(text, PLAYGROUND_TRANSFORMERS);
+                    $getRoot().selectStart();
+                }
+            });
+            editorRef.current.setEditable(true);
         }
     }
 
@@ -602,11 +615,11 @@ function App() {
                 open_file_or_dir(url, token);
             }
             else
-                clear();
+                clear('', true, true);
         }
         else if(isSignedIn)
         {
-            clear();
+            clear('', true, true);
             setToken('');
             setIsSignedIn(false);
             
@@ -628,7 +641,7 @@ function App() {
     <input  hidden={isCompact} id="html_file_name" placeholder="File name:" type="text" ref={fileNameRef} value={fileName} title={fileNameTitle} onChange={(event) => setFileName(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && onclick_savefile()} />
     <input  hidden={isCompact} id="html_log" placeholder="Log:" title="Log:" value={log} readOnly />
     <select hidden={isCompact} id="html_file_tree" size="10" value={fileTreeValue} onChange={(event) => setFileTreeValue(event.target.value)} onKeyPress={(event) => (event.code == 'Space' || event.code == 'Enter') ? [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)] : []} onDoubleClick={(event) => [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)]}>
-        {fileTree.map((f, i) => (<option key={f.html_url} value={f.html_url} title={f.html_url}>{f.name + (f.type == 'dir' ? '/' : '')}</option>))}
+        {fileTree.map((f, i) => (<option key={f.name + ':' + f.html_url} value={f.html_url} title={f.html_url}>{f.name + (f.type == 'dir' ? '/' : '')}</option>))}
     </select>
     <table  hidden={isCompact} id="html_frontmatter">
         <tbody>

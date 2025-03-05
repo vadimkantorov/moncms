@@ -115,16 +115,17 @@ export async function github_api_update_file(prep, retrieved_contents_sha, base6
         req.branch = prep.github_branch;
     if(retrieved_contents_sha)
         req.sha = retrieved_contents_sha;
-    const resp = await fetch(prep.contents_api_url_put, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
-    const res = await resp.json();
-    return [resp, res];
+    const resp_put = await fetch(prep.contents_api_url_put, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
+    const res_put = await resp_put.json();
+    log('PUT ' + github_api_format_error(resp_put, res_put));
+    return [resp_put, res_put];
 }
 export async function github_api_get_file(prep, log)
 {
-    const resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
-    const res_file = await resp_file.json();
+    const resp_get = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
+    const res_get = await resp_file.json();
     log('GET ' + github_api_format_error(resp_get, res_get));
-    return res_file;
+    return res_get;
 }
 export async function github_api_signin(prep, log, HTTP_OK = 200)
 {
