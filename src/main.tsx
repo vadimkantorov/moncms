@@ -35,7 +35,7 @@ import { ListNode, ListItemNode } from "@lexical/list";
 import {ImageNode} from './nodes/ImageNode';
 
 import ToolbarPlugin from './plugins/ToolbarPlugin';
-import ImagesPlugin from './plugins/ImagesPlugin.tsx';
+import ImagesPlugin from './plugins/ImagesPlugin';
 
 import {parseAllowedColor, parseAllowedFontSize} from './styleConfig';
 
@@ -203,13 +203,20 @@ function newrow_frontmatter()
     return {frontmatter_id: self.crypto.randomUUID(), frontmatter_key: '', frontmatter_val: ''};
 }
 
-function read_file_as_datauri(blob)
+function read_file_as_base64(blob : Blob): string
 {
     return new Promise(resolve => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
+        reader.onload = () => resolve(reader.result.split(',')[1]);
         reader.readAsDataURL(blob);
     });
+}
+
+function encode_string_as_base64(str:string): string
+{
+    const uint8array = new TextEncoder().encode(str);
+    //return new Promise(resolve => { const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]); reader.readAsDataURL(new Blob(uint8array)); });
+    return window.btoa(String.fromCodePoint(...( uint8array ))).replaceAll('\n', '');
 }
 
 let retrieved_contents = {}, frontMatterEmpty = true;
@@ -373,14 +380,7 @@ function App() {
         const frontmatter_not_empty = frontMatterEmpty == false;
         const frontmatter_str = format_frontmatter(frontMatter, frontmatter_not_empty);
         
-        /*
-        editorRef.current.update(async () => {
-            let markdown = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS);
-            const imageNodes = $nodesOfType(ImageNode);
-        })
-        */
-
-        let [markdown, replace_map] = await new Promise(resolve => editorRef.current.update(async () => {
+        let [markdown, replace_map] = await new Promise(resolve => editorRef.current.read(async () => {
             let markdown = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS);
             const imageNodes = $nodesOfType(ImageNode);
             let replace_map = {};
@@ -393,11 +393,10 @@ function App() {
                     const basename = decodeURI(new URL(src).hash).substring(1);
                     const upload_path = fmt_upload_path(basename);
                     const blob = await fetch(src).then(r => r.blob());
-                    const datauri = await read_file_as_datauri(blob);
-                    const base64 = datauri.split(',')[1];
+                    const base64 = await read_file_as_base64(blob);
                     const res_put = (await github_api_create_file(prep, upload_path, base64, moncms_log)).pop();
                     const src_new = res_put.download_url === undefined ? upload_path : res_put.download_url;
-                    editorRef.current.update(() => node.getWritable().setSrc(src_new));
+                    //editorRef.current.update(() => node.getWritable().setSrc(src_new));
                     replace_map[src] = src_new;
                 }
             }
@@ -407,7 +406,7 @@ function App() {
         for(const [src, src_new] of Object.entries(replace_map))
             markdown = markdown.replaceAll(src, src_new);
 
-        const base64 = window.btoa(String.fromCodePoint(...(new TextEncoder().encode(frontmatter_str + markdown)))).replaceAll('\n', '');
+        const base64 = encode_string_as_base64(frontmatter_str + markdown);
 
         if(retrieved_contents.encoding == 'base64'
             && retrieved_contents.content.replaceAll('\n', '') == base64
