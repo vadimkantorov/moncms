@@ -24,7 +24,7 @@ import type {JSX} from 'react';
 import {$applyNodeReplacement, createEditor, DecoratorNode} from 'lexical';
 import * as React from 'react';
 
-const ImageComponent = React.lazy(() => import('./ImageComponent'));
+import ImageComponent from './ImageComponent';
 
 export interface ImagePayload {
   altText: string;
@@ -223,9 +223,10 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
   }
 
   decorate(): JSX.Element {
+    const resolvedSrc = globalThis.imageCache.resolve(this.__src);
     return (
       <ImageComponent
-        src={this.__src}
+        src={resolvedSrc}
         altText={this.__altText}
         width={this.__width}
         height={this.__height}
