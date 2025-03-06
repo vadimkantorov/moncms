@@ -108,11 +108,12 @@ function LazyImage({
   width: 'inherit' | number;
   onError: () => void;
 }): JSX.Element {
-  useSuspenseImage(src);
+  const resolvedSrc = globalThis.imageCache.resolve(src);
+  useSuspenseImage(resolvedSrc);
   return (
     <img
       className={className || undefined}
-      src={src}
+      src={resolvedSrc}
       alt={altText}
       ref={imageRef}
       style={{

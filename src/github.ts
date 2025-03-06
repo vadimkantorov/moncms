@@ -33,6 +33,8 @@ export function github_api_prepare_params(github_url : String, github_token : St
         contents_api_dir_url_get: '',
         curdir_url: '',
         parentdir_url: '',
+
+        prefix: ''
     };
     if (!github_url) {
         prep.error = 'no github_url provided';
@@ -98,6 +100,7 @@ export function github_api_prepare_params(github_url : String, github_token : St
     prep.curdir_url = `https://github.com/${github_repo_username}/${github_repo_name}/tree/${github_repo_tag}/${github_repo_curdir_path || ""}`;
     prep.parentdir_url = github_repo_parentdir_path != null ? `https://github.com/${github_repo_username}/${github_repo_name}/tree/${github_repo_tag}/${github_repo_parentdir_path}` : prep.curdir_url;
 
+    prep.prefix = `https://raw.githubusercontent.com/${github_repo_username}/${github_repo_name}/${github_repo_tag}/`;
     // https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28
     prep.headers = {
         'X-GitHub-Api-Version': '2022-11-28',

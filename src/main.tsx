@@ -84,7 +84,6 @@ const editorConfig = {
     onError(error: Error) { throw error; },
 };
 
-
 function parse_frontmatter(text : string) : [string, Object]
 {
     const m = text.match(/^---\n(.*?)\n---\n*/s);
@@ -154,6 +153,7 @@ function load_token(url_value)
 function fmt_log(text : string)
 {
     const now = new Date().toISOString();
+    
     return `${now}: ${text}`;
 }
 
@@ -162,6 +162,7 @@ function fmt_upload_path(basename: string)
     const now = new Date().toISOString();
     const yyyy = now.slice(0, 4);
     const mm = now.slice(5, 7);
+
     return `/moncms-content/uploads/${yyyy}/${mm}/${basename}`;
 }
 
@@ -189,27 +190,16 @@ async function github_discover_url(url : string, key = 'moncmsdefault', HTTP_OK 
     return '';
 }
 
-function format_frontmatter(frontMatter : Array, notEmpty : boolean) : string
+function format_frontmatter(frontMatter : Array, frontMatterEmpty : boolean) : string
 {
     const frontmatter_str_inside = frontMatter.filter(({frontmatter_key, frontmatter_val}) => frontmatter_key != '' || frontmatter_val != '').map(({frontmatter_key, frontmatter_val}) => `${frontmatter_key}: "${frontmatter_val}"`).join('\n');
     const frontmatter_str = `---\n${frontmatter_str_inside}\n---\n\n`;
-    if (notEmpty)
-        return frontmatter_str;
-    return frontmatter_str_inside ? frontmatter_str : '';
+    return (frontmatter_str_inside || !frontMatterEmpty) ? frontmatter_str : '';
 }
 
 function newrow_frontmatter()
 {
     return {frontmatter_id: self.crypto.randomUUID(), frontmatter_key: '', frontmatter_val: ''};
-}
-
-function read_file_as_base64(blob : Blob): string
-{
-    return new Promise(resolve => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.readAsDataURL(blob);
-    });
 }
 
 function encode_string_as_base64(str:string): string
@@ -219,7 +209,17 @@ function encode_string_as_base64(str:string): string
     return window.btoa(String.fromCodePoint(...( uint8array ))).replaceAll('\n', '');
 }
 
-let retrieved_contents = {}, frontMatterEmpty = true;
+async function upload_image_from_bloburl(prep, bloburl, imageCache, log)
+{
+    const basename = decodeURI(new URL(bloburl).hash).substring(1);
+    const upload_path = fmt_upload_path(basename);
+    const datauri = imageCache.resolve(bloburl);
+    const base64 = datauri.split(',').pop();
+    const res_put = (await github_api_create_file(prep, upload_path, base64, log)).pop(); //FIXME: if already exists?
+    const src_new = res_put.download_url === undefined ? upload_path : res_put.download_url;
+    imageCache.put(src_new, bloburl);
+    return src_new;
+}
 
 function App() {
     let url_value = '', token_value = '', log_value = '';
@@ -256,6 +256,9 @@ function App() {
     const [fileTree, setFileTree] = useState([]);
     const [fileTreeValue, setFileTreeValue] = useState('');
     const [frontMatter, setFrontMatter] = useState([newrow_frontmatter()]);
+    const [retrievedContents, setRetrievedContents] = useState({});
+    const [frontMatterEmpty, setFrontMatterEmpty] = useState(true);
+
 
     useEffect(() => 
     {
@@ -284,7 +287,7 @@ function App() {
 
     function clear(markdown = '', file_tree = true, front_matter = true)
     {
-        retrieved_contents = {};
+        setRetrievedContents({});
         setFileName('');
         if(file_tree)
             setFileTree([]);
@@ -334,7 +337,7 @@ function App() {
 
     async function onclick_delfile(event)
     {
-        if(Object.entries(retrieved_contents || {}).length == 0)
+        if(Object.entries(retrievedContents || {}).length == 0)
         {
             clear('', false, true);
             setFileName('');
@@ -346,7 +349,7 @@ function App() {
         if(!fileName || !window.confirm(event.target.dataset.message))
             return;
 
-        await github_api_delete_file(prep, retrieved_contents, moncms_log);
+        await github_api_delete_file(prep, retrievedContents, moncms_log);
         delete_file_tree(fileName);
         setUrl(prep.curdir_url);
         clear('', false, true);
@@ -377,64 +380,58 @@ function App() {
             return moncms_log(prep.error);
 
         const frontmatter_empty = frontMatterEmpty == true;
-        const frontmatter_not_empty = frontMatterEmpty == false;
-        const frontmatter_str = format_frontmatter(frontMatter, frontmatter_not_empty);
+        const frontmatter_str = format_frontmatter(frontMatter, frontmatter_empty);
         
-        let [markdown, replace_map] = await new Promise(resolve => editorRef.current.read(async () => {
+        let [markdown, imageNodes] = await new Promise(resolve => editorRef.current.read(() => {
             let markdown = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS);
             const imageNodes = $nodesOfType(ImageNode);
-            let replace_map = {};
-
-            for(const node of imageNodes)
-            {
-                const src = node.getSrc();
-                if(src.startsWith('blob:'))
-                {
-                    const basename = decodeURI(new URL(src).hash).substring(1);
-                    const upload_path = fmt_upload_path(basename);
-                    const blob = await fetch(src).then(r => r.blob());
-                    const base64 = await read_file_as_base64(blob);
-                    const res_put = (await github_api_create_file(prep, upload_path, base64, moncms_log)).pop();
-                    const src_new = res_put.download_url === undefined ? upload_path : res_put.download_url;
-                    //editorRef.current.update(() => node.getWritable().setSrc(src_new));
-                    replace_map[src] = src_new;
-                }
-            }
-            resolve([markdown, replace_map]);
+            resolve([markdown, imageNodes]);
         }));
 
+        let replace_map = {};
+        for(const node of imageNodes)
+        {
+            const src = node.getSrc();
+            if(src.startsWith('blob:'))
+            {
+                const src_new = await upload_image_from_bloburl(prep, src, globalThis.imageCache, moncms_log);
+                editorRef.current.update(() => node.getWritable().setSrc(src_new));
+                replace_map[src] = src_new;
+
+            }
+        }
         for(const [src, src_new] of Object.entries(replace_map))
             markdown = markdown.replaceAll(src, src_new);
 
         const base64 = encode_string_as_base64(frontmatter_str + markdown);
 
-        if(retrieved_contents.encoding == 'base64'
-            && retrieved_contents.content.replaceAll('\n', '') == base64
-            && fileName == retrieved_contents.name
+        if(retrievedContents.encoding == 'base64'
+            && retrievedContents.content.replaceAll('\n', '') == base64
+            && fileName == retrievedContents.name
             && frontmatter_empty
             && !frontmatter_str
         )
             return moncms_log('no changes');
-        
 
-        const should_rename = retrieved_contents && fileName != retrieved_contents.name;
-        const should_update = retrieved_contents && fileName == retrieved_contents.name;
-        const should_create = Object.entries(retrieved_contents || {}).length == 0 && fileName;
+        const should_rename = retrievedContents && fileName != retrievedContents.name;
+        const should_update = retrievedContents && fileName == retrievedContents.name;
+        const should_create = Object.entries(retrievedContents || {}).length == 0 && fileName;
 
         if(should_update)
         {
-            const res_put = (await github_api_update_file(prep, retrieved_contents.sha, base64, moncms_log)).pop();
-            retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
+            const res_put = (await github_api_update_file(prep, retrievedContents.sha, base64, moncms_log)).pop();
+            setRetrievedContents({encoding: 'base64', content : base64, ...res_put.content});
         }
         else if(should_create)
         {
             const res_put = (await github_api_create_file(prep, fileName, base64, moncms_log)).pop();
-            retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
+            setRetrievedContents({encoding: 'base64', content : base64, ...res_put.content});
         }
         else if(should_rename)
         {
-            retrieved_contents = await github_api_rename_file(prep, fileName, base64, retrieved_contents, moncms_log);
-            rename_file_tree(_retrieved_contents.name, retrieved_contents);
+            const res_put = await github_api_rename_file(prep, fileName, base64, retrievedContents, moncms_log);
+            setRetrievedContents(res_put);
+            rename_file_tree(retrievedContents.name, retrievedContents);
         }
     }
 
@@ -470,10 +467,10 @@ function App() {
         setFileTreeValue(file_tree.length > 0 ? file_tree[0].html_url : '');
     }
 
-    function rename_file_tree(selected_file_name, retrieved_contents)
+    function rename_file_tree(selected_file_name, retrievedContents)
     {
-        setFileTree(fileTree.map(j => j.name == selected_file_name ? retrieved_contents : j));
-        setFileTreeValue(retrieved_contents.html_url);
+        setFileTree(fileTree.map(j => j.name == selected_file_name ? retrievedContents : j));
+        setFileTreeValue(retrievedContents.html_url);
     }
 
     async function open_file_or_dir(url_value = '', token_value = '', HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
@@ -494,6 +491,7 @@ function App() {
                 moncms_log('got from cache for ' + prep.github_repo_url);
             }
         }
+        globalThis.imageCache.prefix = prep.prefix;
         
         let [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
         if(!res_dir) res_dir = []; //FIXME
@@ -505,7 +503,7 @@ function App() {
         const images = res_dir.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
         const image_listing = is_image ? `# ${res_file.name}\n![${res_file.name}](${res_file.download_url})\n<img src="${res_file.download_url}" height="100px"/>` : images.map(j => `# ${j.name}\n![${j.name}](${j.download_url})`).join('\n\n');
             
-        retrieved_contents = res_file;
+        setRetrievedContents(res_file);
         
         if(is_err)
         {
@@ -516,7 +514,7 @@ function App() {
         else if(is_dir)
         {
             setFrontMatter([newrow_frontmatter()]);
-            frontMatterEmpty = true;
+            setFrontMatterEmpty(true);
 
             update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, '');
             setFileName('');
@@ -533,7 +531,7 @@ function App() {
         else if(is_image)
         {
             setFrontMatter([newrow_frontmatter()]);
-            frontMatterEmpty = true;
+            setFrontMatterEmpty(true);
 
             update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
             setFileName(res_file.name);
@@ -552,7 +550,7 @@ function App() {
             let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
             [text, frontmatter] = parse_frontmatter(text);
             setFrontMatter([newrow_frontmatter(), ...Object.entries(frontmatter || {}).map(([k, v]) => ({frontmatter_key : k, frontmatter_val : v}))]);
-            frontMatterEmpty = frontmatter === null;
+            setFrontMatterEmpty(frontmatter === null);
 
             update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
             setFileName(res_file.name);
@@ -631,8 +629,6 @@ function App() {
         }
     }
   
-  //const placeholder = 'Enter some rich text...';
-  // aria-placeholder={placeholder} placeholder={<div className="editor-placeholder">{placeholder}</div>} 
   return (
     <>
     <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" ref={urlRef} type="text" value={url} onChange={(event) => setUrl(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />

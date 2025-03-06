@@ -51,6 +51,35 @@ export type InsertImagePayload = Readonly<ImagePayload>;
 export const INSERT_IMAGE_COMMAND: LexicalCommand<InsertImagePayload> =
   createCommand('INSERT_IMAGE_COMMAND');
 
+class ImageCache 
+{
+    private images: { [key: string]: string } = {};
+    private prefix: string = '';
+
+    reset(): void {
+        this.images = {};
+    }
+
+    put(key: string, src: string): void 
+    {
+        this.images[key] = src;
+    }
+
+    resolve(key: string): string
+    {
+        if(key.startsWith('http'))
+            return key;
+
+        if(key in this.images)
+            return this.images[key];
+
+        return this.prefix + ((this.prefix != '' && !this.prefix.endsWith('/') ? '/' : '') + (key.startsWith('/') ? key.substring(1) : key));
+    }
+}
+
+declare global { var imageCache: ImageCache; }
+globalThis.imageCache = new ImageCache();
+
 export function InsertImageDialog({
   activeEditor,
   onClose,
@@ -83,19 +112,22 @@ export function InsertImageDialog({
   };
 
   const loadImage = (files: FileList | null) => {
-    /*
-    const reader = new FileReader();
-    reader.onload = function () {
-      if (typeof reader.result === 'string') {
-        setSrc(reader.result);
-      }
-      return '';
-    };
-    */
-    if (files !== null && files.length > 0) {
+    if (files !== null && files.length > 0)
+    {
         const file = files[0];
-        setSrc(URL.createObjectURL(file) + '#' + file.name);
-      //reader.readAsDataURL(files[0]);
+        const bloburl = URL.createObjectURL(file) + '#' + file.name;
+
+        const reader = new FileReader();
+        reader.onload = () =>
+        {
+            const datauri = reader.result;
+            if (typeof(datauri) === 'string')
+            {
+                globalThis.imageCache.put(bloburl, datauri);
+                setSrc(bloburl);
+            }
+        };
+        reader.readAsDataURL(file);
     }
     else
     {
