@@ -153,7 +153,7 @@ function load_token(url_value)
 function fmt_log(text : string)
 {
     const now = new Date().toISOString();
-    
+
     return `${now}: ${text}`;
 }
 
@@ -205,7 +205,7 @@ function newrow_frontmatter()
 function encode_string_as_base64(str:string): string
 {
     const uint8array = new TextEncoder().encode(str);
-    //return new Promise(resolve => { const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]); reader.readAsDataURL(new Blob(uint8array)); });
+    //return new Promise(resolve => { const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',').pop()); reader.readAsDataURL(new Blob(uint8array)); });
     return window.btoa(String.fromCodePoint(...( uint8array ))).replaceAll('\n', '');
 }
 
@@ -313,7 +313,7 @@ function App() {
             reader.onload = () => github_api_upsert_file(
                 prep, 
                 new_file_name, 
-                reader.result.split(',')[1],
+                reader.result.split(',').pop(),
                 (res) => add_file_tree(res.name, url), 
                 moncms_log
             );
