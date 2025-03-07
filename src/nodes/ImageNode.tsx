@@ -22,7 +22,6 @@ import type {
 import type {JSX} from 'react';
 
 import {$applyNodeReplacement, createEditor, DecoratorNode} from 'lexical';
-import * as React from 'react';
 
 import ImageComponent from './ImageComponent';
 
@@ -33,11 +32,10 @@ export interface ImagePayload {
   key?: NodeKey;
   maxWidth?: number;
   showCaption?: boolean;
-  src: string;
+  src: string; datauri: string;
   width?: number;
   captionsEnabled?: boolean;
 }
-
 function isGoogleDocCheckboxImg(img: HTMLImageElement): boolean {
   return (
     img.parentElement != null &&
@@ -53,7 +51,8 @@ function $convertImageElement(domNode: Node): null | DOMConversionOutput {
     return null;
   }
   const {alt: altText, src, width, height} = img;
-  const node = $createImageNode({altText, height, src, width});
+  const datauri = '';
+  const node = $createImageNode({altText, height, src, datauri, width});
   return {node};
 }
 
@@ -101,12 +100,13 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
 
   static importJSON(serializedNode: SerializedImageNode): ImageNode {
     const {altText, height, width, maxWidth, src, showCaption} = serializedNode;
+    const datauri = '';
     return $createImageNode({
       altText,
       height,
       maxWidth,
       showCaption,
-      src,
+      src, datauri,
       width,
     }).updateFromJSON(serializedNode);
   }
@@ -223,10 +223,9 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
   }
 
   decorate(): JSX.Element {
-    const resolvedSrc = globalThis.imageCache.resolve(this.__src);
     return (
       <ImageComponent
-        src={resolvedSrc}
+        src={this.__src}
         altText={this.__altText}
         width={this.__width}
         height={this.__height}
@@ -246,7 +245,7 @@ export function $createImageNode({
   height,
   maxWidth = 500,
   captionsEnabled,
-  src,
+  src, datauri,
   width,
   showCaption,
   caption,

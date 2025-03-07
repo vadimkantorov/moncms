@@ -50,8 +50,7 @@ import {
   SELECTION_CHANGE_COMMAND,
   TextNode,
 } from 'lexical';
-import * as React from 'react';
-import {Suspense, useCallback, useEffect, useRef, useState} from 'react';
+import {Suspense, useCallback, useContext, useEffect, useRef, useState} from 'react';
 
 //import {createWebsocketProvider} from '../collaboration';
 //import {useSettings} from '../context/SettingsContext';
@@ -66,6 +65,7 @@ import ContentEditable from '../ui/ContentEditable';
 import ImageResizer from '../ui/ImageResizer';
 //import {EmojiNode} from './EmojiNode';
 import {$isImageNode} from './ImageNode';
+import { ImageCacheContext } from '../plugins/ImagesPlugin';
 //import {KeywordNode} from './KeywordNode';
 
 const imageCache = new Set();
@@ -174,6 +174,9 @@ export default function ImageComponent({
   const activeEditorRef = useRef<LexicalEditor | null>(null);
   const [isLoadError, setIsLoadError] = useState<boolean>(false);
   const isEditable = useLexicalEditable();
+  const imageCache = useContext(ImageCacheContext);
+
+  const resolvedSrc = imageCache.resolve(src);
 
   const $onDelete = useCallback(
     (payload: KeyboardEvent) => {
@@ -413,7 +416,7 @@ export default function ImageComponent({
                   ? `focused ${$isNodeSelection(selection) ? 'draggable' : ''}`
                   : null
               }
-              src={src}
+              src={resolvedSrc}
               altText={altText}
               imageRef={imageRef}
               width={width}

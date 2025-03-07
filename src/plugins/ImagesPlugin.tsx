@@ -30,8 +30,7 @@ import {
   LexicalCommand,
   LexicalEditor,
 } from 'lexical';
-import {useEffect, useRef, useState} from 'react';
-import * as React from 'react';
+import {useEffect, useRef, useState, createContext, useContext} from 'react';
 
 //import landscapeImage from '../../images/landscape.jpg';
 //import yellowFlowerImage from '../../images/yellow-flower.jpg';
@@ -46,12 +45,7 @@ import {DialogActions, DialogButtonsList} from '../ui/Dialog';
 
 import '../ui/Input.css';
 
-export type InsertImagePayload = Readonly<ImagePayload>;
-
-export const INSERT_IMAGE_COMMAND: LexicalCommand<InsertImagePayload> =
-  createCommand('INSERT_IMAGE_COMMAND');
-
-class ImageCache 
+export class ImageCache 
 {
     private images: { [key: string]: string } = {};
     private prefix: string = '';
@@ -77,8 +71,12 @@ class ImageCache
     }
 }
 
-declare global { var imageCache: ImageCache; }
-globalThis.imageCache = new ImageCache();
+export const ImageCacheContext = createContext(null);
+
+export type InsertImagePayload = Readonly<ImagePayload>;
+
+export const INSERT_IMAGE_COMMAND: LexicalCommand<InsertImagePayload> =
+  createCommand('INSERT_IMAGE_COMMAND');
 
 export function InsertImageDialog({
   activeEditor,
@@ -87,9 +85,9 @@ export function InsertImageDialog({
   activeEditor: LexicalEditor;
   onClose: () => void;
 }): JSX.Element {
-    const [src, setSrc] = useState('');
-    const [altText, setAltText] = useState('');
-    
+  const [src, setSrc] = useState('');
+  const [altText, setAltText] = useState('');
+  const [datauri, setDatauri] = useState('');
   const [mode, setMode] = useState<null | 'url' | 'file'>(null);
   const hasModifier = useRef(false);
   
@@ -123,8 +121,8 @@ export function InsertImageDialog({
             const datauri = reader.result;
             if (typeof(datauri) === 'string')
             {
-                globalThis.imageCache.put(bloburl, datauri);
                 setSrc(bloburl);
+                setDatauri(datauri);
             }
         };
         reader.readAsDataURL(file);
@@ -132,6 +130,7 @@ export function InsertImageDialog({
     else
     {
         setSrc('');
+        setDatauri('');
     }
   };
 
@@ -179,7 +178,7 @@ export function InsertImageDialog({
         <Button
           data-test-id="image-modal-file-upload-btn"
           disabled={isDisabled}
-          onClick={() => onClick({altText, src})}>
+          onClick={() => onClick({altText, src, datauri})}>
           Confirm
         </Button>
     </DialogButtonsList>
@@ -193,6 +192,7 @@ export default function ImagesPlugin({
   captionsEnabled?: boolean;
 }): JSX.Element | null {
   const [editor] = useLexicalComposerContext();
+  const imageCache = useContext(ImageCacheContext);
 
   useEffect(() => {
     if (!editor.hasNodes([ImageNode])) {
@@ -203,6 +203,7 @@ export default function ImagesPlugin({
       editor.registerCommand<InsertImagePayload>(
         INSERT_IMAGE_COMMAND,
         (payload) => {
+          imageCache.put(payload.src, payload.datauri);
           const imageNode = $createImageNode(payload);
           $insertNodes([imageNode]);
           if ($isRootOrShadowRoot(imageNode.getParentOrThrow())) {

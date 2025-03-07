@@ -33,6 +33,7 @@ import { LinkNode } from "@lexical/link";
 import { HashtagNode } from "@lexical/hashtag";
 import { ListNode, ListItemNode } from "@lexical/list";
 import {ImageNode} from './nodes/ImageNode';
+import {ImageCacheContext, ImageCache} from './plugins/ImagesPlugin';
 
 import ToolbarPlugin from './plugins/ToolbarPlugin';
 import ImagesPlugin from './plugins/ImagesPlugin';
@@ -221,6 +222,8 @@ async function upload_image_from_bloburl(prep, bloburl, imageCache, log)
     return src_new;
 }
 
+const imageCache = new ImageCache();
+
 function App() {
     let url_value = '', token_value = '', log_value = '';
 
@@ -394,7 +397,7 @@ function App() {
             const src = node.getSrc();
             if(src.startsWith('blob:'))
             {
-                const src_new = await upload_image_from_bloburl(prep, src, globalThis.imageCache, moncms_log);
+                const src_new = await upload_image_from_bloburl(prep, src, imageCache, moncms_log);
                 editorRef.current.update(() => node.getWritable().setSrc(src_new));
                 replace_map[src] = src_new;
 
@@ -491,7 +494,7 @@ function App() {
                 moncms_log('got from cache for ' + prep.github_repo_url);
             }
         }
-        globalThis.imageCache.prefix = prep.prefix;
+        imageCache.prefix = prep.prefix;
         
         let [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
         if(!res_dir) res_dir = []; //FIXME
@@ -667,7 +670,7 @@ function App() {
         <button onClick={() => setIsCompact(!isCompact)}>Toggle Compact View</button>
     </div>
     <div className="editor-shell">
-    <LexicalComposer initialConfig={editorConfig}>
+    <ImageCacheContext.Provider value={imageCache}><LexicalComposer initialConfig={editorConfig}>
       <EditorRefPlugin editorRef={editorRef} />
       <div className="editor-container">
         <ToolbarPlugin />
@@ -685,7 +688,7 @@ function App() {
           <AutoFocusPlugin />
         </div>
       </div>
-    </LexicalComposer>
+    </LexicalComposer></ImageCacheContext.Provider>
     </div>
     </>
   );
