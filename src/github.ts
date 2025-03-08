@@ -166,7 +166,7 @@ export async function github_api_upsert_file(prep, new_file_name, base64, add_fi
     const contents_api_url_put = join2(prep.contents_api_dir_url_put, new_file_name);
     const contents_api_url_get = join2(prep.contents_api_dir_url_put, new_file_name) + (prep.github_branch ? `?ref=${prep.github_branch}` : '');
     let [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put }, null, base64, log);
-    if(resp_put.status == HTTP_CREATED)
+    if(resp_put.status == HTTP_CREATED && add_file_tree != null)
         add_file_tree(res_put.content);
     
     if(resp_put.status == HTTP_EXISTS)

@@ -216,6 +216,7 @@ async function upload_image_from_bloburl(prep, bloburl, imageCache, log)
     const upload_path = fmt_upload_path(basename);
     const datauri = imageCache.resolve(bloburl);
     const base64 = datauri.split(',').pop();
+    //const res_put = await github_api_upsert_file(prep, upload_path, base64, null, log);
     const res_put = (await github_api_create_file(prep, upload_path, base64, log)).pop(); //FIXME: if already exists?
     const src_new = res_put.download_url === undefined ? upload_path : res_put.download_url;
     imageCache.put(src_new, bloburl);
@@ -340,16 +341,21 @@ function App() {
 
     async function onclick_delfile(event)
     {
+        //TODO: bail out for directories?
+
         if(Object.entries(retrievedContents || {}).length == 0)
         {
             clear('', false, true);
             setFileName('');
             return btnFileName.focus();
         }
+        if(!fileName || (fileName == '.' || fileName == '..' || fileName == './' || fileName == '../'))
+            return;
+
         const prep = github_api_prepare_params(url, token, true);
         if(prep.error)
             return moncms_log(prep.error);
-        if(!fileName || !window.confirm(event.target.dataset.message))
+        if(!window.confirm(event.target.dataset.message))
             return;
 
         await github_api_delete_file(prep, retrievedContents, moncms_log);
@@ -416,8 +422,8 @@ function App() {
         )
             return moncms_log('no changes');
 
-        const should_rename = retrievedContents && fileName != retrievedContents.name;
-        const should_update = retrievedContents && fileName == retrievedContents.name;
+        const should_rename = Object.entries(retrievedContents || {}).length != 0 && fileName != retrievedContents.name;
+        const should_update = Object.entries(retrievedContents || {}).length != 0 && fileName == retrievedContents.name;
         const should_create = Object.entries(retrievedContents || {}).length == 0 && fileName;
 
         if(should_update)
@@ -464,7 +470,6 @@ function App() {
 
     function delete_file_tree(selected_file_name)
     {
-        //TODO: add some early exit to disallow delete of . and ..
         const file_tree = fileTree.filter(j => j.name != selected_file_name);
         setFileTree(file_tree);
         setFileTreeValue(file_tree.length > 0 ? file_tree[0].html_url : '');
@@ -493,6 +498,11 @@ function App() {
                 setIsSignedIn(true);
                 moncms_log('got from cache for ' + prep.github_repo_url);
             }
+        }
+        else if(cache_load(prep.github_repo_url) != '')
+        {
+            setIsSignedIn(true);
+            moncms_log('found in cache for ' + prep.github_repo_url);
         }
         imageCache.prefix = prep.prefix;
         

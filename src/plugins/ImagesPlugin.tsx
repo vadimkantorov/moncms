@@ -45,6 +45,64 @@ import {DialogActions, DialogButtonsList} from '../ui/Dialog';
 
 import '../ui/Input.css';
 
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ */
+
+import type {JSX} from 'react';
+
+import '../ui/Button.css';
+
+import {ReactNode} from 'react';
+
+function joinClasses(
+    ...args: Array<string | boolean | null | undefined>
+  ) {
+    //import joinClasses from '../utils/joinClasses';
+    return args.filter(Boolean).join(' ');
+  }
+  
+
+function Button({
+  'data-test-id': dataTestId,
+  children,
+  className,
+  onClick,
+  disabled,
+  small,
+  title,
+}: {
+  'data-test-id'?: string;
+  children: ReactNode;
+  className?: string;
+  disabled?: boolean;
+  onClick: () => void;
+  small?: boolean;
+  title?: string;
+}): JSX.Element {
+  return (
+    <button
+      disabled={disabled}
+      className={joinClasses(
+        'Button__root',
+        disabled && 'Button__disabled',
+        small && 'Button__small',
+        className,
+      )}
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      {...(dataTestId && {'data-test-id': dataTestId})}>
+      {children}
+    </button>
+  );
+}
+
+
 export class ImageCache 
 {
     private images: { [key: string]: string } = {};
