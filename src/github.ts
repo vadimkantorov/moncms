@@ -1,12 +1,14 @@
 // @ts-nocheck
 
-export function join2(path1 : string, path2: string): string {
+export function join2(path1 : string, path2: string): string
+{
     const path1_ = path1[path1.length - 1] == '/' ? path1.slice(0, path1.length - 1) : path1;
     const _path2 = path2[0] == '/' ? path2.substring(1) : path2;
     return (path1 && path2) ? (path1_ + '/' + _path2) : (path1 && !path2) ? path1 : (!path1 && path2) ? path2 : '';
 }
 
-export function dirname(path : string) : string {
+export function dirname(path : string) : string
+{
     if (!path)
         return '';
     return path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
@@ -16,10 +18,11 @@ export function github_api_format_error(resp, res = {})
 {
     const resp_status = resp.status || '000';
     const res_message = (res || {}).message || '';
-    return `${resp_status}: ` + ({200: 'OK', 201: 'OK Created', 404: 'Resource not found', 409: 'Conflict', 422: 'Already Exists. Validation failed, or the endpoint has been spammed.', 401: 'Unauthorized', 403: 'Forbidden: ' + res_message}[resp_status] || '');
+    return `${resp_status}: ` + ({200: 'OK', 201: 'OK Created', 404: 'Resource not found', 409: 'Conflict', 422: 'Already Exists. Validation failed, or the endpoint has been spammed.', 401: 'Unauthorized', 500 : 'Internal Server Error', 403: 'Forbidden: ' + res_message}[resp_status] || '');
 }
 
-export function github_api_prepare_params(github_url : String, github_token : String = '', must_have_token : boolean = false) : Object {
+export function github_api_prepare_params(github_url : String, github_token : String = '', must_have_token : boolean = false) : Object
+{
     const prep = {
         headers: {},
         error: '',
@@ -111,106 +114,127 @@ export function github_api_prepare_params(github_url : String, github_token : St
 
     return prep;
 }
-export async function github_api_update_file(prep, retrieved_contents_sha, base64, log, message = 'no commit message')
+
+export async function github_api_signin(prep, log, HTTP_OK = 200, HTTP_ERROR = 500)
+{
+    let resp_get = {};
+    try
+    {
+        resp_get = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
+    }
+    catch
+    {
+        resp_get = {status : HTTP_ERROR};
+    }
+    log('GET ' + github_api_format_error(resp_get));
+    return resp_get.status == HTTP_OK;
+}
+
+export async function github_api_update_file(prep, retrieved_contents_sha, base64, log, message = 'no commit message', HTTP_ERROR = 500)
 {
     const req = { message : message, content : base64 };
     if(prep.github_branch)
         req.branch = prep.github_branch;
     if(retrieved_contents_sha)
         req.sha = retrieved_contents_sha;
-    const resp_put = await fetch(prep.contents_api_url_put, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
-    const res_put = await resp_put.json();
+    
+    let resp_put = {}, res_put = {};
+    try
+    {
+        resp_put = await fetch(prep.contents_api_url_put, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
+        res_put = await resp_put.json();
+    }
+    catch
+    {
+        resp_put = {status : HTTP_ERROR};
+        res_put = {};
+    }
     log('PUT ' + github_api_format_error(resp_put, res_put));
     return [resp_put, res_put];
-}
-export async function github_api_get_file(prep, log)
-{
-    const resp_get = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
-    const res_get = await resp_file.json();
-    log('GET ' + github_api_format_error(resp_get, res_get));
-    return res_get;
-}
-export async function github_api_signin(prep, log, HTTP_OK = 200)
-{
-    const resp_get = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
-    log('GET ' + github_api_format_error(resp_get));
-    return resp_get.status == HTTP_OK;
-}
-export async function github_api_create_file(prep, fileName, base64, log, message = 'no commit message')
-{
-    prep = {...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, fileName)}; 
-    const req = { message : message, content : base64 };
-    if(prep.github_branch)
-        req.branch = prep.github_branch;
-    const resp_put = await fetch(prep.contents_api_url_put, { method: 'PUT', headers: prep.headers, body: JSON.stringify(req) });
-    const res_put = await resp_put.json();
-    log('PUT ' + github_api_format_error(resp_put, res_put));
-    return [resp_put, res_put];
-}
-export async function github_api_delete_file(prep, retrieved_contents, log, message = 'no commit message')
-{
-    const req = {
-        sha: retrieved_contents.sha,
-        message : message,
-    };
-    if(prep.github_branch)
-        req.branch = prep.github_branch;
-    const resp_del = await fetch(prep.contents_api_url_put, { method: 'DELETE', headers: prep.headers, body: JSON.stringify(req) });
-    const res_del = await resp.json();
-    log('DEL ' + github_api_format_error(resp_del, res_del));
-    return res_del;
 }
 
-export async function github_api_upsert_file(prep, new_file_name, base64, add_file_tree, log, message = 'no commit message', HTTP_CREATED = 201, HTTP_EXISTS = 422)
+export async function github_api_upsert_file(prep, new_file_name, base64, sha, add_file_tree, log, message = 'no commit message', HTTP_CREATED = 201, HTTP_EXISTS = 422)
 {
     const contents_api_url_put = join2(prep.contents_api_dir_url_put, new_file_name);
     const contents_api_url_get = join2(prep.contents_api_dir_url_put, new_file_name) + (prep.github_branch ? `?ref=${prep.github_branch}` : '');
-    let [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put }, null, base64, log);
+    
+    let [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put }, sha, base64, log);
+    
     if(resp_put.status == HTTP_CREATED && add_file_tree != null)
         add_file_tree(res_put.content);
     
     if(resp_put.status == HTTP_EXISTS)
     {
-        const res_get = await github_api_get_file({...prep, contents_api_url_get : contents_api_url_get}, log);
+        const resp_get = await fetch(contents_api_url_get, { method: 'GET', headers: prep.headers });
+        const res_get = await resp_file.json();
+        log('GET ' + github_api_format_error(resp_get, res_get));
         // TODO: update file tree?
         [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : contents_api_url_put}, res_get.sha, base64, log);
     }
     return res_put;
 }
 
-export async function github_api_get_file_dir(prep, log, HTTP_OK = 200)
+export async function github_api_get_file_dir(prep, log, HTTP_OK = 200, HTTP_ERROR = 500)
 {
-    let resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
-    let res_file = await resp_file.json();
-    
-    const resp_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await fetch(prep.contents_api_dir_url_get, { method: 'GET', headers: prep.headers })) : resp_file;
-    const res_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await resp_dir.json()) : res_file;
-    
-    if(!prep.github_branch && res_file == res_dir)
+    let resp_file = {}, resp_dir = {}, res_file = {}, res_dir = [];
+    try
     {
-        for(const j of res_dir.filter(j => j.name.toLowerCase() == 'README.md'.toLowerCase()))
+        resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
+        res_file = await resp_file.json();
+        
+        resp_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await fetch(prep.contents_api_dir_url_get, { method: 'GET', headers: prep.headers })) : resp_file;
+        res_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await resp_dir.json()) : res_file;
+        
+        if(!prep.github_branch && res_file == res_dir)
         {
-            resp_file = await fetch(j.git_url, { method: 'GET', headers: prep.headers });
-            res_file = {...j, ...await resp_file.json()};
+            for(const j of res_dir.filter(j => j.name.toLowerCase() == 'README.md'.toLowerCase()))
+            {
+                resp_file = await fetch(j.git_url, { method: 'GET', headers: prep.headers });
+                res_file = {...j, ...await resp_file.json()};
+            }
         }
+    }
+    catch
+    {
+        resp_file = resp_dir = {status : HTTP_ERROR };
+        res_file = {};
+        res_dir = [];
     }
     
     if(resp_file.status != HTTP_OK || resp_dir.status != HTTP_OK)
     {
         log('error ' + github_api_format_error(resp_file, res_file) + ' | dir: ' + github_api_format_error(resp_dir, res_dir));
-        return [{}, null];
+        return [{}, []];
     }
     
     log('GET file: ' + github_api_format_error(resp_file, res_file) + ' | dir: ' + github_api_format_error(resp_dir, res_dir));
-    
     return [res_file, res_dir];
 }
 
-export async function github_api_rename_file(prep, new_file_name, base64, retrieved_contents, log, message = 'no commit message')
+export async function github_api_delete_file(prep, retrieved_contents_sha, log, message = 'no commit message', HTTP_ERROR = 500)
 {
-    const _retrieved_contents = retrieved_contents;
+    const req = {sha: retrieved_contents_sha, message : message};
+    if(prep.github_branch)
+        req.branch = prep.github_branch;
+    let resp_del = {}, res_del = {};
+    try
+    {
+        const resp_del = await fetch(prep.contents_api_url_put, { method: 'DELETE', headers: prep.headers, body: JSON.stringify(req) });
+        const res_del = await resp.json();
+    }
+    catch
+    {
+        resp_del = { status: HTTP_ERROR };
+        res_del = { };
+    }
+    log('DEL ' + github_api_format_error(resp_del, res_del));
+    return res_del;
+}
+
+export async function github_api_rename_file(prep, new_file_name, base64, retrieved_contents_sha, log, message = 'no commit message')
+{
     const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, null, base64, log);
-    retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
-    await github_api_delete_file(prep, _retrieved_contents, log);
+    const retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
+    await github_api_delete_file(prep, retrieved_contents_sha, log);
     return retrieved_contents;
 }

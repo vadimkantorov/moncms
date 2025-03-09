@@ -40,7 +40,7 @@ import ImagesPlugin from './plugins/ImagesPlugin';
 
 import {parseAllowedColor, parseAllowedFontSize} from './styleConfig';
 
-import { github_api_rename_file, github_api_get_file_dir, github_api_upsert_file, github_api_format_error, github_api_prepare_params, github_api_update_file, github_api_get_file, github_api_signin, github_api_create_file, github_api_delete_file } from './github.ts';
+import { github_api_rename_file, github_api_get_file_dir, github_api_upsert_file, github_api_format_error, github_api_prepare_params, github_api_update_file, github_api_signin, github_api_create_file, github_api_delete_file } from './github.ts';
 
 const theme = {
   code: 'editor-code',
@@ -216,8 +216,7 @@ async function upload_image_from_bloburl(prep, bloburl, imageCache, log)
     const upload_path = fmt_upload_path(basename);
     const datauri = imageCache.resolve(bloburl);
     const base64 = datauri.split(',').pop();
-    //const res_put = await github_api_upsert_file(prep, upload_path, base64, null, log);
-    const res_put = (await github_api_create_file(prep, upload_path, base64, log)).pop(); //FIXME: if already exists?
+    const res_put = await github_api_upsert_file(prep, upload_path, base64, null, null, log);
     const src_new = res_put.download_url === undefined ? upload_path : res_put.download_url;
     imageCache.put(src_new, bloburl);
     return src_new;
@@ -318,7 +317,8 @@ function App() {
                 prep, 
                 new_file_name, 
                 reader.result.split(',').pop(),
-                (res) => add_file_tree(res.name, url), 
+                null,
+                res => add_file_tree(res.name, url), 
                 moncms_log
             );
             reader.onerror = () => moncms_log('FILELOAD error');
@@ -358,7 +358,7 @@ function App() {
         if(!window.confirm(event.target.dataset.message))
             return;
 
-        await github_api_delete_file(prep, retrievedContents, moncms_log);
+        await github_api_delete_file(prep, retrievedContents.sha, moncms_log);
         delete_file_tree(fileName);
         setUrl(prep.curdir_url);
         clear('', false, true);
@@ -426,14 +426,9 @@ function App() {
         const should_update = Object.entries(retrievedContents || {}).length != 0 && fileName == retrievedContents.name;
         const should_create = Object.entries(retrievedContents || {}).length == 0 && fileName;
 
-        if(should_update)
+        if(should_update || should_create)
         {
-            const res_put = (await github_api_update_file(prep, retrievedContents.sha, base64, moncms_log)).pop();
-            setRetrievedContents({encoding: 'base64', content : base64, ...res_put.content});
-        }
-        else if(should_create)
-        {
-            const res_put = (await github_api_create_file(prep, fileName, base64, moncms_log)).pop();
+            const res_put = await github_api_upsert_file(prep, fileName, base64, retrievedContents.sha, null, moncms_log);
             setRetrievedContents({encoding: 'base64', content : base64, ...res_put.content});
         }
         else if(should_rename)
@@ -507,11 +502,10 @@ function App() {
         imageCache.prefix = prep.prefix;
         
         let [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
-        if(!res_dir) res_dir = []; //FIXME
 
         const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
         const is_dir = res_file.content === undefined;
-        const is_err = Object.entries(res_file).length == 0 && res_dir == null;
+        const is_err = Object.entries(res_file).length == 0 && res_dir.length == 0;
         const is_image = !is_dir && ext.some(e => res_file.name.endsWith(e));
         const images = res_dir.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
         const image_listing = is_image ? `# ${res_file.name}\n![${res_file.name}](${res_file.download_url})\n<img src="${res_file.download_url}" height="100px"/>` : images.map(j => `# ${j.name}\n![${j.name}](${j.download_url})`).join('\n\n');

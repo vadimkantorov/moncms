@@ -6,8 +6,6 @@
  *
  */
 
-import type {JSX} from 'react';
-
 import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext';
 import {$wrapNodeInElement, mergeRegister} from '@lexical/utils';
 import {
@@ -40,7 +38,6 @@ import {
   ImageNode,
   ImagePayload,
 } from '../nodes/ImageNode';
-import Button from '../ui/Button';
 import {DialogActions, DialogButtonsList} from '../ui/Dialog';
 
 import '../ui/Input.css';
@@ -129,7 +126,7 @@ export class ImageCache
     }
 }
 
-export const ImageCacheContext = createContext(null);
+export const ImageCacheContext = createContext<ImageCache>(new ImageCache());
 
 export type InsertImagePayload = Readonly<ImagePayload>;
 
@@ -250,7 +247,7 @@ export default function ImagesPlugin({
   captionsEnabled?: boolean;
 }): JSX.Element | null {
   const [editor] = useLexicalComposerContext();
-  const imageCache = useContext(ImageCacheContext);
+  const imageCache = useContext(ImageCacheContext) as ImageCache;
 
   useEffect(() => {
     if (!editor.hasNodes([ImageNode])) {
