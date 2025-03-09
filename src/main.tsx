@@ -40,7 +40,7 @@ import ImagesPlugin from './plugins/ImagesPlugin';
 
 import {parseAllowedColor, parseAllowedFontSize} from './styleConfig';
 
-import { github_api_rename_file, github_api_get_file_dir, github_api_upsert_file, github_api_format_error, github_api_prepare_params, github_api_update_file, github_api_signin, github_api_create_file, github_api_delete_file } from './github.ts';
+import { github_api_rename_file, github_api_get_file_dir, github_api_upsert_file, github_api_prepare_params, github_api_signin, github_api_delete_file } from './github';
 
 const theme = {
   code: 'editor-code',
