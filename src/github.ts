@@ -235,6 +235,8 @@ export async function github_api_rename_file(prep, new_file_name, base64, retrie
 {
     const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, null, base64, log);
     const retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
-    await github_api_delete_file(prep, retrieved_contents_sha, log);
+    const res_del = await github_api_delete_file(prep, retrieved_contents_sha, log);
+    if(Object.entries(res_del).length == 0)
+        return {};
     return retrieved_contents;
 }
