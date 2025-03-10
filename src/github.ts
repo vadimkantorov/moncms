@@ -188,7 +188,7 @@ export async function github_api_get_file_dir(prep, log, default_file_name = 'RE
         res_dir = [];
     }
     
-    return [res_file, res_dir];
+    return [({name : res_file.name, type : res_file.type, content : res_file.content, encoding: res_file.encoding, download_url : res_file.download_url, url : decodeURI(res_file.html_url)}), res_dir.map(f => ({name : f.name, type : f.type, encoding : f.encoding, content : f.content, download_url : f.download_url, url : decodeURI(f.html_url)}))];
 }
 
 export async function github_api_update_file(prep, retrieved_contents_sha, base64, log, message = 'no commit message', HTTP_ERROR = 500)

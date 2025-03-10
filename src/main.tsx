@@ -256,12 +256,12 @@ function App() {
     const [fileNameTitle, setFileNameTitle] = useState('');
     const [isCompact, setIsCompact] = useState(false);
     const [isSignedIn, setIsSignedIn] = useState(false);
-    const [fileTree, setFileTree] = useState([]);
-    const [fileTreeValue, setFileTreeValue] = useState('');
     const [frontMatter, setFrontMatter] = useState([newrow_frontmatter()]);
-    const [retrievedContents, setRetrievedContents] = useState({});
     const [frontMatterEmpty, setFrontMatterEmpty] = useState(true);
 
+    const [curFile, setCurFile] = useState({});
+    const [fileTree, setFileTree] = useState([]);
+    const [fileTreeValue, setFileTreeValue] = useState('');
 
     useEffect(() => 
     {
@@ -290,7 +290,7 @@ function App() {
 
     function clear(markdown = '', file_tree = true, front_matter = true)
     {
-        setRetrievedContents({});
+        setCurFile({});
         setFileName('');
         if(file_tree)
             setFileTree([]);
@@ -343,7 +343,7 @@ function App() {
     {
         //TODO: bail out for directories?
 
-        if(Object.entries(retrievedContents || {}).length == 0)
+        if(Object.entries(curFile || {}).length == 0)
         {
             clear('', false, true);
             setFileName('');
@@ -358,7 +358,7 @@ function App() {
         if(!window.confirm(event.target.dataset.message))
             return;
 
-        await github_api_delete_file(prep, retrievedContents.sha, moncms_log);
+        await github_api_delete_file(prep, curFile.sha, moncms_log);
         delete_file_tree(fileName);
         setUrl(prep.curdir_url);
         clear('', false, true);
@@ -414,28 +414,28 @@ function App() {
 
         const base64 = encode_string_as_base64(frontmatter_str + markdown);
 
-        if(retrievedContents.encoding == 'base64'
-            && retrievedContents.content.replaceAll('\n', '') == base64
-            && fileName == retrievedContents.name
+        if(curFile.encoding == 'base64'
+            && curFile.content.replaceAll('\n', '') == base64
+            && fileName == curFile.name
             && frontmatter_empty
             && !frontmatter_str
         )
             return moncms_log('no changes');
 
-        const should_rename = Object.entries(retrievedContents || {}).length != 0 && fileName != retrievedContents.name;
-        const should_update = Object.entries(retrievedContents || {}).length != 0 && fileName == retrievedContents.name;
-        const should_create = Object.entries(retrievedContents || {}).length == 0 && fileName;
+        const should_rename = Object.entries(curFile || {}).length != 0 && fileName != curFile.name;
+        const should_update = Object.entries(curFile || {}).length != 0 && fileName == curFile.name;
+        const should_create = Object.entries(curFile || {}).length == 0 && fileName;
 
         if(should_update || should_create)
         {
-            const res_put = await github_api_upsert_file(prep, fileName, base64, retrievedContents.sha, null, moncms_log);
-            setRetrievedContents({encoding: 'base64', content : base64, ...res_put.content});
+            const res_put = await github_api_upsert_file(prep, fileName, base64, curFile.sha, null, moncms_log);
+            setCurFile({encoding: 'base64', content : base64, ...res_put.content});
         }
         else if(should_rename)
         {
-            const res_put = await github_api_rename_file(prep, fileName, base64, retrievedContents, moncms_log);
-            setRetrievedContents(res_put);
-            rename_file_tree(retrievedContents.name, retrievedContents);
+            const res_put = await github_api_rename_file(prep, fileName, base64, curFile, moncms_log);
+            setCurFile(res_put);
+            rename_file_tree(curFile.name, curFile);
         }
     }
 
@@ -446,20 +446,20 @@ function App() {
         const dirs = files_and_dirs.filter(j => j.type == 'dir' && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
         const images = files_and_dirs.filter(j => j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
         const file_tree = [
-            { name: '.', type: 'dir', html_url: curdir_url }, 
-            { name: '..', type: 'dir', html_url: parentdir_url ? parentdir_url : curdir_url }, 
+            { name: '.', type: 'dir', url: curdir_url }, 
+            { name: '..', type: 'dir', url: parentdir_url ? parentdir_url : curdir_url }, 
             ...dirs, 
             ...files, 
             ...images
         ];
-        const file_tree_value = ['', ...file_tree.filter(j => j.name == selected_file_name).map(j => j.html_url)].pop();
+        const file_tree_value = ['', ...file_tree.filter(j => j.name == selected_file_name).map(j => j.url)].pop();
         setFileTree(file_tree);
         setFileTreeValue(file_tree_value);
     }
 
-    function add_file_tree(res_name, url)
+    function add_file_tree(file_name, url)
     {
-        setFileTree([...fileTree, { name: res_name, type: 'file', html_url: url }]);
+        setFileTree([...fileTree, { name: file_name, type: 'file', url: url }]);
         setFileTreeValue(url);
     }
 
@@ -467,13 +467,13 @@ function App() {
     {
         const file_tree = fileTree.filter(j => j.name != selected_file_name);
         setFileTree(file_tree);
-        setFileTreeValue(file_tree.length > 0 ? file_tree[0].html_url : '');
+        setFileTreeValue(file_tree.length > 0 ? file_tree[0].url : '');
     }
 
-    function rename_file_tree(selected_file_name, retrievedContents)
+    function rename_file_tree(selected_file_name, curFile)
     {
-        setFileTree(fileTree.map(j => j.name == selected_file_name ? retrievedContents : j));
-        setFileTreeValue(retrievedContents.html_url);
+        setFileTree(fileTree.map(j => j.name == selected_file_name ? curFile : j));
+        setFileTreeValue(curFile.url);
     }
 
     async function open_file_or_dir(url_value = '', token_value = '', HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
@@ -511,9 +511,9 @@ function App() {
         const is_err = Object.entries(res_file).length == 0 && res_dir.length == 0;
         const is_image = !is_dir && ext.some(e => res_file.name.endsWith(e));
         const images = res_dir.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
-        const image_listing = is_image ? `# ${res_file.name}\n![${res_file.name}](${res_file.download_url})\n<img src="${res_file.download_url}" height="100px"/>` : images.map(j => `# ${j.name}\n![${j.name}](${j.download_url})`).join('\n\n');
+        const image_listing = is_image ? `# ${res_file.name}\n![${res_file.name}](${res_file.download_url})` : images.map(j => `# ${j.name}\n![${j.name}](${j.download_url})`).join('\n\n');
             
-        setRetrievedContents(res_file);
+        setCurFile(res_file);
         
         if(is_err)
         {
@@ -646,7 +646,7 @@ function App() {
     <input  hidden={isCompact} id="html_file_name" placeholder="File name:" type="text" ref={fileNameRef} value={fileName} title={fileNameTitle} onChange={(event) => setFileName(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && onclick_savefile()} />
     <input  hidden={isCompact} id="html_log" placeholder="Log:" title="Log:" value={log} readOnly />
     <select hidden={isCompact} id="html_file_tree" size="10" value={fileTreeValue} onChange={(event) => setFileTreeValue(event.target.value)} onKeyPress={(event) => (event.code == 'Space' || event.code == 'Enter') ? [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)] : []} onDoubleClick={(event) => [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)]}>
-        {fileTree.map((f, i) => (<option key={f.name + ':' + f.html_url} value={f.html_url} title={f.html_url}>{f.name + (f.type == 'dir' ? '/' : '')}</option>))}
+        {fileTree.map((f, i) => (<option key={f.name + ':' + f.url} value={f.url} title={f.url}>{f.name + (f.type == 'dir' ? '/' : '')}</option>))}
     </select>
     <table  hidden={isCompact} id="html_frontmatter">
         <tbody>
