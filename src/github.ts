@@ -1,5 +1,7 @@
 // @ts-nocheck
 
+import { Octokit } from "@octokit/rest";
+
 export function join2(path1 : string, path2: string): string
 {
     const path1_ = path1[path1.length - 1] == '/' ? path1.slice(0, path1.length - 1) : path1;
@@ -27,9 +29,15 @@ export function github_api_prepare_params(github_url : String, github_token : St
         headers: {},
         error: '',
 
-        github_repo_path: '',
+        github_token: '',
+        github_owner: '',
+        github_repo: '',
+        github_path: '',
+        github_path_dir: '',
         github_branch: '',
+
         github_repo_url: '',
+
         contents_api_url_get: '',
         contents_api_url_put: '',
         contents_api_dir_url_put: '',
@@ -51,7 +59,7 @@ export function github_api_prepare_params(github_url : String, github_token : St
     // https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28
     const github_url_normalized = github_url.replace('https://raw.githubusercontent.com', 'https://github.com');
 
-    let github_repo_username = '', github_repo_name = '', github_repo_tag = '', github_repo_file_path = '', github_repo_dir_path = '';
+    let github_owner = '', github_repo = '', github_repo_tag = '', github_repo_file_path = '', github_repo_dir_path = '';
 
     const m1 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/blob\/(.+?)\/(.+)/i);
     const m2 = github_url_normalized.match(/https:\/\/github.com\/(.+)\/(.+)\/tree\/(.+?)\/(.+)/i);
@@ -61,49 +69,53 @@ export function github_api_prepare_params(github_url : String, github_token : St
     const m6 = github_url_normalized.match(/https:\/\/(.+)\.github.io\/?/i);
 
     if (m1)
-        [, github_repo_username, github_repo_name, github_repo_tag, github_repo_file_path] = m1;
+        [, github_owner, github_repo, github_repo_tag, github_repo_file_path] = m1;
     else if (m2)
-        [, github_repo_username, github_repo_name, github_repo_tag, github_repo_dir_path] = m2;
+        [, github_owner, github_repo, github_repo_tag, github_repo_dir_path] = m2;
     else if (m3)
-        [, github_repo_username, github_repo_name, github_repo_tag] = m3;
+        [, github_owner, github_repo, github_repo_tag] = m3;
     else if (m4)
-        [, github_repo_username, github_repo_name] = m4;
+        [, github_owner, github_repo] = m4;
     else if (m5)
-        [, github_repo_username, github_repo_name] = m5;
+        [, github_owner, github_repo] = m5;
     else if (m6)
-        [github_repo_username, github_repo_name] = m6[1], (m6[1] + '.github.io');
+        [github_owner, github_repo] = m6[1], (m6[1] + '.github.io');
 
     else {
         prep.error = 'github_url could not be matched';
         return prep;
     }
-    github_repo_name = github_repo_name.replace(/\/$/g, '');
+    github_repo = github_repo.replace(/\/$/g, '');
     github_repo_dir_path = github_repo_dir_path.replace(/\/$/g, '');
     github_repo_tag = github_repo_tag.replace(/\/$/g, '');
 
-    const github_repo_path = github_repo_file_path || github_repo_dir_path;
-    const github_repo_parent_path = !github_repo_path ? '' : github_repo_path.includes('/') ? dirname(github_repo_path) : '';
+    const github_path = github_repo_file_path || github_repo_dir_path;
+    const github_repo_parent_path = !github_path ? '' : github_path.includes('/') ? dirname(github_path) : '';
 
-    prep.github_repo_path = github_repo_path;
+    prep.github_token = github_token;
+    prep.github_owner = github_owner;
+    prep.github_repo = github_repo;
+    prep.github_path = github_path;
     prep.github_branch = github_repo_tag;
-    prep.github_repo_url = `https://github.com/${github_repo_username}/${github_repo_name}`;
-    prep.contents_api_url_get = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : '');
-    prep.contents_api_url_put = `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_path}`;
-    prep.contents_api_dir_url_put = github_repo_dir_path ? prep.contents_api_url_put : `https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${dirname(github_repo_path)}`;
+    prep.github_path_dir = github_repo_dir_path ? github_repo_dir_path : github_repo_parent_path;
+    prep.github_repo_url = `https://github.com/${github_owner}/${github_repo}`;
+    prep.contents_api_url_get = `https://api.github.com/repos/${github_owner}/${github_repo}/contents/${github_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : '');
+    prep.contents_api_url_put = `https://api.github.com/repos/${github_owner}/${github_repo}/contents/${github_path}`;
+    prep.contents_api_dir_url_put = github_repo_dir_path ? prep.contents_api_url_put : `https://api.github.com/repos/${github_owner}/${github_repo}/contents/${dirname(github_path)}`;
 
-    prep.contents_api_dir_url_get = github_repo_dir_path ? prep.contents_api_url_get : (`https://api.github.com/repos/${github_repo_username}/${github_repo_name}/contents/${github_repo_parent_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : ''));
+    prep.contents_api_dir_url_get = github_repo_dir_path ? prep.contents_api_url_get : (`https://api.github.com/repos/${github_owner}/${github_repo}/contents/${github_repo_parent_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : ''));
 
-    const slashIdx2 = github_repo_path.lastIndexOf('/');
-    const slashIdx1 = github_repo_path.slice(0, slashIdx2).lastIndexOf('/');
+    const slashIdx2 = github_path.lastIndexOf('/');
+    const slashIdx1 = github_path.slice(0, slashIdx2).lastIndexOf('/');
 
-    const github_repo_curdir_path = github_repo_dir_path ? github_repo_path : github_repo_file_path ? (slashIdx2 != -1 ? github_repo_path.slice(0, slashIdx2) : '') : null;
+    const github_repo_curdir_path = github_repo_dir_path ? github_path : github_repo_file_path ? (slashIdx2 != -1 ? github_path.slice(0, slashIdx2) : '') : null;
 
-    const github_repo_parentdir_path = github_repo_dir_path ? (slashIdx2 != -1 ? github_repo_path.slice(0, slashIdx2) : '') : github_repo_file_path ? ((slashIdx2 != -1 && slashIdx1 != -1) ? github_repo_path.slice(0, slashIdx1) : (slashIdx2 != -1 && slashIdx1 == -1) ? '' : null) : null;
+    const github_repo_parentdir_path = github_repo_dir_path ? (slashIdx2 != -1 ? github_path.slice(0, slashIdx2) : '') : github_repo_file_path ? ((slashIdx2 != -1 && slashIdx1 != -1) ? github_path.slice(0, slashIdx1) : (slashIdx2 != -1 && slashIdx1 == -1) ? '' : null) : null;
 
-    prep.curdir_url = `https://github.com/${github_repo_username}/${github_repo_name}/tree/${github_repo_tag}/${github_repo_curdir_path || ""}`;
-    prep.parentdir_url = github_repo_parentdir_path != null ? `https://github.com/${github_repo_username}/${github_repo_name}/tree/${github_repo_tag}/${github_repo_parentdir_path}` : prep.curdir_url;
+    prep.curdir_url = `https://github.com/${github_owner}/${github_repo}/tree/${github_repo_tag}/${github_repo_curdir_path || ""}`;
+    prep.parentdir_url = github_repo_parentdir_path != null ? `https://github.com/${github_owner}/${github_repo}/tree/${github_repo_tag}/${github_repo_parentdir_path}` : prep.curdir_url;
 
-    prep.prefix = `https://raw.githubusercontent.com/${github_repo_username}/${github_repo_name}/${github_repo_tag}/`;
+    prep.prefix_without_branch = `https://raw.githubusercontent.com/${github_owner}/${github_repo}`;
     // https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28
     prep.headers = {
         'X-GitHub-Api-Version': '2022-11-28',
@@ -115,19 +127,68 @@ export function github_api_prepare_params(github_url : String, github_token : St
     return prep;
 }
 
-export async function github_api_signin(prep, log, HTTP_OK = 200, HTTP_ERROR = 500)
+export async function github_api_signin(prep, log)
 {
-    let resp_get = {};
+    const octokit = new Octokit({auth: prep.github_token});
     try
     {
-        resp_get = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
+        const res = (await octokit.rest.repos.get({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_repo_url, ref: prep.github_branch})).data
+        log('github_api_signin: OK');
+        return res.default_branch;
     }
     catch
     {
-        resp_get = {status : HTTP_ERROR};
+        log('github_api_signin: error');
+        return '';
     }
-    log('GET ' + github_api_format_error(resp_get));
-    return resp_get.status == HTTP_OK;
+    return '';
+}
+
+export async function github_api_delete_file(prep, sha, log, message = 'no commit message', HTTP_OK = 200)
+{
+    const octokit = new Octokit({auth: prep.github_token});
+
+    try
+    {
+        const resp_del = await octokit.rest.repos.deleteFile({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path, ref: prep.github_branch, message : message, sha : sha});
+        log('github_api_delete_file: ok');
+        return resp_del.status == HTTP_OK;
+    }
+    catch
+    {
+        log('github_api_delete_file: error');
+        return false;
+    }
+    return false;
+}
+
+export async function github_api_get_file_dir(prep, log, default_file_name = 'README.md')
+{
+    const octokit = new Octokit({auth: prep.github_token});
+
+    let resp_file = {}, resp_dir = {}, res_file = {}, res_dir = [];
+    try
+    {   
+        if(prep.github_path != prep.github_path_dir)
+        {
+            res_file = (await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path, ref: prep.github_branch})).data;
+            res_dir = (await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path_dir, ref: prep.github_branch})).data;
+        }
+        else
+        {
+            res_dir = (await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path_dir, ref: prep.github_branch})).data;
+            const github_path = [''].concat(res_dir.filter(j => j.name.toLowerCase() == default_file_name.toLowerCase()).map(j => j.path)).pop();
+            res_file = github_path ? (await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: github_path, ref: prep.github_branch})).data : {};
+        }
+    }
+    catch
+    {
+        log('error: github_api_get_file_dir');
+        res_file = {};
+        res_dir = [];
+    }
+    
+    return [res_file, res_dir];
 }
 
 export async function github_api_update_file(prep, retrieved_contents_sha, base64, log, message = 'no commit message', HTTP_ERROR = 500)
@@ -174,69 +235,10 @@ export async function github_api_upsert_file(prep, new_file_name, base64, sha, a
     return res_put;
 }
 
-export async function github_api_get_file_dir(prep, log, HTTP_OK = 200, HTTP_ERROR = 500)
-{
-    let resp_file = {}, resp_dir = {}, res_file = {}, res_dir = [];
-    try
-    {
-        resp_file = await fetch(prep.contents_api_url_get, { method: 'GET', headers: prep.headers });
-        res_file = await resp_file.json();
-        
-        resp_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await fetch(prep.contents_api_dir_url_get, { method: 'GET', headers: prep.headers })) : resp_file;
-        res_dir = prep.contents_api_url_get != prep.contents_api_dir_url_get ? (await resp_dir.json()) : res_file;
-        
-        if(!prep.github_branch && res_file == res_dir)
-        {
-            for(const j of res_dir.filter(j => j.name.toLowerCase() == 'README.md'.toLowerCase()))
-            {
-                resp_file = await fetch(j.git_url, { method: 'GET', headers: prep.headers });
-                res_file = {...j, ...await resp_file.json()};
-            }
-        }
-    }
-    catch
-    {
-        resp_file = resp_dir = {status : HTTP_ERROR };
-        res_file = {};
-        res_dir = [];
-    }
-    
-    if(resp_file.status != HTTP_OK || resp_dir.status != HTTP_OK)
-    {
-        log('error ' + github_api_format_error(resp_file, res_file) + ' | dir: ' + github_api_format_error(resp_dir, res_dir));
-        return [{}, []];
-    }
-    
-    log('GET file: ' + github_api_format_error(resp_file, res_file) + ' | dir: ' + github_api_format_error(resp_dir, res_dir));
-    return [res_file, res_dir];
-}
-
-export async function github_api_delete_file(prep, retrieved_contents_sha, log, message = 'no commit message', HTTP_ERROR = 500)
-{
-    const req = {sha: retrieved_contents_sha, message : message};
-    if(prep.github_branch)
-        req.branch = prep.github_branch;
-    let resp_del = {}, res_del = {};
-    try
-    {
-        const resp_del = await fetch(prep.contents_api_url_put, { method: 'DELETE', headers: prep.headers, body: JSON.stringify(req) });
-        const res_del = await resp.json();
-    }
-    catch
-    {
-        resp_del = { status: HTTP_ERROR };
-        res_del = { };
-    }
-    log('DEL ' + github_api_format_error(resp_del, res_del));
-    return res_del;
-}
-
 export async function github_api_rename_file(prep, new_file_name, base64, retrieved_contents_sha, log, message = 'no commit message')
 {
     const [resp_put, res_put] = await github_api_update_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, null, base64, log);
     const retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
     const res_del = await github_api_delete_file(prep, retrieved_contents_sha, log);
-    if(Object.entries(res_del).length == 0)
-        return {};
     return retrieved_contents;
 }

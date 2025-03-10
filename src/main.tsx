@@ -347,7 +347,7 @@ function App() {
         {
             clear('', false, true);
             setFileName('');
-            return btnFileName.focus();
+            return;
         }
         if(!fileName || (fileName == '.' || fileName == '..' || fileName == './' || fileName == '../'))
             return;
@@ -499,9 +499,12 @@ function App() {
             setIsSignedIn(true);
             moncms_log('found in cache for ' + prep.github_repo_url);
         }
-        imageCache.prefix = prep.prefix;
         
+        if(!prep.github_branch)
+            prep.github_branch = await github_api_signin(prep, moncms_log);
+
         let [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
+        imageCache.prefix = prep.prefix_without_branch + '/' + prep.github_branch;
 
         const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
         const is_dir = res_file.content === undefined;
@@ -525,7 +528,7 @@ function App() {
 
             update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, '');
             setFileName('');
-            setFileNameTitle(prep.github_repo_path);
+            setFileNameTitle(prep.github_path);
             editorRef.current.update(() => {
                 const editorState = editorRef.current.getEditorState();
                 if (editorState != null) {
@@ -542,7 +545,7 @@ function App() {
 
             update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
             setFileName(res_file.name);
-            setFileNameTitle(prep.github_repo_path);
+            setFileNameTitle(prep.github_path);
             editorRef.current.update(() => {
                 const editorState = editorRef.current.getEditorState();
                 if (editorState != null) {
@@ -561,7 +564,7 @@ function App() {
 
             update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
             setFileName(res_file.name);
-            setFileNameTitle(prep.github_repo_path);
+            setFileNameTitle(prep.github_path);
             editorRef.current.update(() => {
                 const editorState = editorRef.current.getEditorState();
                 if (editorState != null) {
