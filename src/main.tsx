@@ -346,17 +346,22 @@ function update_location(path : string)
     window.history.replaceState({}, document.title, path );
 }
 
-function cache_load(key : string)
+function cache_has(key : string, prefix = 'moncms_')
 {
-    return localStorage.getItem("moncms_" + key) || '';
+    return localStorage.getItem(prefix + key) != null;
 }
 
-function cache_save(key : string, value : string)
+function cache_load(key : string, prefix = 'moncms_')
+{
+    return localStorage.getItem(prefix + key) || '';
+}
+
+function cache_save(key : string, value : string = '', prefix = 'moncms_')
 {
     if (value)
-        localStorage.setItem("moncms_" + key, value);
+        localStorage.setItem(prefix + key, value);
     else
-        localStorage.removeItem("moncms_" + key);
+        localStorage.removeItem(prefix + key);
 }
 
 function load_token(url_value)
@@ -470,6 +475,11 @@ function App() {
                 log_value = fmt_log('got from cache for ' + prep.github_repo_url);
         }
     }
+    if(url_value)
+    {
+        is_signed_in_value = load_token(url_value) != '';
+    }
+
     const editorRef = useRef(null);
     const fileNameRef = useRef(null);
     const urlRef = useRef(null);
