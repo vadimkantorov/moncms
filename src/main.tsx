@@ -438,7 +438,7 @@ async function upload_image_from_bloburl(prep, bloburl, imageCache, log)
 const imageCache = new ImageCache();
 
 function App() {
-    let url_value = '', token_value = '', log_value = '';
+    let url_value = '', token_value = '', log_value = '', is_signed_in_value = false;
 
     const meta_key = 'moncmsdefault';
 
@@ -458,6 +458,17 @@ function App() {
                 log_value = fmt_log('got from cache for ' + prep.github_repo_url);
         }
     }
+    if(!url_value && window.location.protocol != 'file:')
+    {
+        const prep = github_api_prepare_params(window.location.href);
+        if(prep.github_repo_url)
+        {
+            url_value = prep.github_repo_url;
+            token_value = load_token(url_value);
+            if(token_value)
+                log_value = fmt_log('got from cache for ' + prep.github_repo_url);
+        }
+    }
     const editorRef = useRef(null);
     const fileNameRef = useRef(null);
     const urlRef = useRef(null);
@@ -468,7 +479,7 @@ function App() {
     const [url, setUrl] = useState(url_value);
     const [fileName, setFileName] = useState('');
     const [isCompact, setIsCompact] = useState(false);
-    const [isSignedIn, setIsSignedIn] = useState(false);
+    const [isSignedIn, setIsSignedIn] = useState(is_signed_in_value);
     const [frontMatter, setFrontMatter] = useState([newrow_frontmatter()]);
     const [frontMatterEmpty, setFrontMatterEmpty] = useState(true);
 
@@ -476,20 +487,9 @@ function App() {
     const [fileTree, setFileTree] = useState([]);
     const [fileTreeValue, setFileTreeValue] = useState('');
 
+    //const url_discovered = await github_discover_url(window.location.href, meta_key);
     useEffect(() => 
     {
-        /*
-        if(!url_value)
-        {
-            const url_discovered = await github_discover_url(window.location.href, meta_key);
-            const prep = github_api_prepare_params(window.location.protocol != 'file:' ? window.location.href : url_discovered);
-            url_value = url_discovered || prep.github_repo_url;
-            if(url_value && !token_value)
-                token_value = load_token(url_value);
-            setUrl(url_value);
-            setToken(token_value);
-        }
-        */
         if(url)
             open_file_or_dir(url, token);
         else
@@ -657,8 +657,8 @@ function App() {
         const file_tree = [
             { name: '.', type: 'dir', url: curdir_url }, 
             { name: '..', type: 'dir', url: parentdir_url ? parentdir_url : curdir_url }, 
-            ...dirs, 
-            ...files, 
+            ...dirs,
+            ...files,
             ...images
         ];
         const file_tree_value = ['', ...file_tree.filter(j => j.name == selected_file_name).map(j => j.url)].pop();
