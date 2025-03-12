@@ -220,6 +220,7 @@ export async function github_api_get_file_dir(prep, log, default_file_name = 'RE
         else
         {
             resp_dir = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path_dir, ref: prep.github_branch});
+            res_dir = resp_dir.data;
             const github_path = [''].concat(res_dir.filter(j => j.name.toLowerCase() == default_file_name.toLowerCase()).map(j => j.path)).pop();
             resp_file = github_path ? (await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: github_path, ref: prep.github_branch})) : {data : []};
             [res_file, res_dir] = [resp_file.data, resp_dir.data];
