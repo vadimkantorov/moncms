@@ -209,7 +209,7 @@ export async function github_api_get_file_dir(prep, log, default_file_name = 'RE
     const octokit = new Octokit({auth: prep.github_token});
 
     let resp_file = {}, resp_dir = {}, res_file = {}, res_dir = [];
-    try
+    //try
     {   
         if(prep.github_path != prep.github_path_dir)
         {
@@ -226,11 +226,11 @@ export async function github_api_get_file_dir(prep, log, default_file_name = 'RE
             [res_file, res_dir] = [resp_file.data, resp_dir.data];
         }
     }
-    catch
-    {
-        log('error: github_api_get_file_dir');
-        [res_file, res_dir] = [{}, []];
-    }
+    //catch
+    //{
+    //    log('error: github_api_get_file_dir');
+    //    [res_file, res_dir] = [{}, []];
+    //}
     
     return [(Object.entries(res_file).length != 0 ? ({name : res_file.name, type : res_file.type, content : res_file.content, sha : res_file.sha, encoding: res_file.encoding, download_url : res_file.download_url, url : decodeURI(res_file.html_url)}) : {}), res_dir.map(f => ({name : f.name, type : f.type, encoding : f.encoding, content : f.content, sha : f.sha, download_url : f.download_url, url : decodeURI(f.html_url)}))];
 }
@@ -443,14 +443,12 @@ async function upload_image_from_bloburl(prep, bloburl, imageCache, log)
 
 const imageCache = new ImageCache();
 
-function App() {
-    let url_value = '', token_value = '', log_value = '', is_signed_in_value = false;
-
-    const meta_key = 'moncmsdefault';
-
-    if(window.location.search)
+function init_fields(window_location, meta_key = 'moncmsdefault')
+{
+    let url_value = '', token_value = '', is_signed_in_value = false, log_value = '';
+    if(window_location.search)
     {
-        const query_string = new URLSearchParams(window.location.search);
+        const query_string = new URLSearchParams(window_location.search);
         if(query_string.has('github_url'))
             url_value = query_string.get('github_url');
         if(query_string.has('github_token'))
@@ -464,9 +462,9 @@ function App() {
                 log_value = fmt_log('got from cache for ' + prep.github_repo_url);
         }
     }
-    if(!url_value && window.location.protocol != 'file:')
+    if(!url_value && window_location.protocol != 'file:')
     {
-        const prep = github_api_prepare_params(window.location.href);
+        const prep = github_api_prepare_params(window_location.href);
         if(prep.github_repo_url)
         {
             url_value = prep.github_repo_url;
@@ -480,12 +478,19 @@ function App() {
         is_signed_in_value = load_token(url_value) != '';
     }
 
+    return [url_value, token_value, is_signed_in_value, log_value];
+}
+
+function App() {    
+    const [url_value, token_value, is_signed_in_value, log_value] = init_fields(window.location);
+
     const editorRef = useRef(null);
     const fileNameRef = useRef(null);
     const urlRef = useRef(null);
     const filesRef = useRef(null);
 
     const [log, setLog] = useState(log_value);
+    const [logHistory, setLogHistory] = useState(log_value);
     const [token, setToken] = useState(token_value);
     const [url, setUrl] = useState(url_value);
     const [fileName, setFileName] = useState('');
@@ -510,6 +515,7 @@ function App() {
     function moncms_log(text : string)
     {
         setLog(fmt_log(text));
+        setLogHistory(fmt_log(text) + '\n' + logHistory);
     }
 
     function clear(markdown = '', file_tree = true, front_matter = true)
@@ -553,8 +559,8 @@ function App() {
     async function onclick_createfiledir(event, iso_date_fmt = '0000-00-00', iso_time_fmt = 'T00:00:00')
     {
         const now = new Date().toISOString();
-        const time = now.slice(iso_date_fmt.length, iso_date_fmt.length + iso_time_fmt.length).toLowerCase().replaceAll(':', '');
-        const date = now.slice(0, iso_date_fmt.length);
+        const time = now.slice(iso_date_fmt.length, iso_date_fmt.length + iso_time_fmt.length).replace('T', '').toLowerCase().replaceAll(':', '');
+        const date = now.slice(0, iso_date_fmt.length).replace('T', '');
         
         const new_path = event.target.dataset.newpath.replaceAll('${date}', date.toString()).replaceAll('${time}', time.toString());
         clear(event.target.dataset.message, false, true);
@@ -859,7 +865,7 @@ function App() {
     <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" ref={urlRef} type="text" value={url} onChange={(event) => setUrl(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
     <input  hidden={isCompact} id="html_token" placeholder="GitHub token:"  type="text" value={token} onChange={(event) => setToken(event.target.value)} onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
     <input  hidden={isCompact} id="html_file_name" placeholder="File name:" type="text" ref={fileNameRef} value={fileName} onChange={(event) => setFileName(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && onclick_savefile()} />
-    <input  hidden={isCompact} id="html_log" placeholder="Log:" title="Log:" value={log} readOnly />
+    <input  hidden={isCompact} id="html_log" placeholder="Log:" title={logHistory} value={log} readOnly />
     <select hidden={isCompact} id="html_file_tree" size="10" value={fileTreeValue} onChange={(event) => setFileTreeValue(event.target.value)} onKeyPress={(event) => (event.code == 'Space' || event.code == 'Enter') ? [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)] : []} onDoubleClick={(event) => [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)]}>
         {fileTree.map((f, i) => (<option key={f.name + ':' + f.url} value={f.url} title={f.url}>{f.name + (f.type == 'dir' ? '/' : '')}</option>))}
     </select>
@@ -881,8 +887,8 @@ function App() {
         <button onClick={() => open_file_or_dir(url, token)}>Open</button>
         <button onClick={onclick_savefile}>Save File</button>
         <button onClick={onclick_delfile} id="html_delfile" data-message="Do you really want to delete this file?">Delete File</button>
-        <button onClick={onclick_createfiledir} id="html_createfile" data-newpath="${date}-new-post-draft-a${time}.md" data-message="### modify the file name, modify this content and click Save File to actually create and save the file">New File</button>
-        <button onClick={onclick_createfiledir} id="html_createdir" data-newpath="new-dir-a${time}/.gitignore" data-message="### modify the directory name, and then click Save File to create the file and the directory">New Folder</button>
+        <button onClick={onclick_createfiledir} id="html_createfile" data-newpath="${date}-new-post-draft-at-${time}.md" data-message="### modify the file name, modify this content and click Save File to actually create and save the file">New File</button>
+        <button onClick={onclick_createfiledir} id="html_createdir" data-newpath="new-dir-at-${time}/.gitignore" data-message="### modify the directory name, and then click Save File to create the file and the directory">New Folder</button>
         
         <button onClick={onclick_upload}>Upload Files</button>
         <input type="file" id="html_files" ref={filesRef} onChange={onchange_files} multiple hidden />
