@@ -7,12 +7,15 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+
+import { Octokit } from "@octokit/rest";
+import { parse, stringify, YAMLError } from "yaml";
+
 import './styles.css';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 
-import {useRef, useState} from 'react';
 import {EditorRefPlugin} from "@lexical/react/LexicalEditorRefPlugin";
 import {AutoFocusPlugin} from '@lexical/react/LexicalAutoFocusPlugin';
 import {LexicalComposer} from '@lexical/react/LexicalComposer';
@@ -20,28 +23,24 @@ import {ContentEditable} from '@lexical/react/LexicalContentEditable';
 import {LexicalErrorBoundary} from '@lexical/react/LexicalErrorBoundary';
 import {HistoryPlugin} from '@lexical/react/LexicalHistoryPlugin';
 import {RichTextPlugin} from '@lexical/react/LexicalRichTextPlugin';
-import {EditorState, $getRoot, $createParagraphNode,$createTextNode, $isTextNode, $nodesOfType,
+import {EditorState, $getRoot, $createParagraphNode, $createTextNode, $isTextNode, $nodesOfType,
     DOMConversionMap, DOMExportOutput, DOMExportOutputMap, isHTMLElement, Klass, LexicalEditor,
-    LexicalNode, ParagraphNode, TextNode,
 } from 'lexical';
 import Prism from "prismjs"; if (typeof globalThis.Prism === 'undefined') { globalThis.Prism = Prism;}
-import {CodeNode} from '@lexical/code';
-import { $convertToMarkdownString, $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
+import {ImageCacheContext, ImageCache} from './plugins/ImagesPlugin';
 import {PLAYGROUND_TRANSFORMERS} from './plugins/MarkdownTransformers';
+import { $convertToMarkdownString, $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
+import ToolbarPlugin from './plugins/ToolbarPlugin';
+import ImagesPlugin from './plugins/ImagesPlugin';
+
+import {LexicalNode, ParagraphNode, TextNode} from 'lexical';
+import { HorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
+import { CodeNode } from '@lexical/code';
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import { LinkNode } from "@lexical/link";
 import { HashtagNode } from "@lexical/hashtag";
 import { ListNode, ListItemNode } from "@lexical/list";
-import {ImageNode} from './nodes/ImageNode';
-import {ImageCacheContext, ImageCache} from './plugins/ImagesPlugin';
-
-import ToolbarPlugin from './plugins/ToolbarPlugin';
-import ImagesPlugin from './plugins/ImagesPlugin';
-
-import {parseAllowedColor, parseAllowedFontSize} from './styleConfig';
-
-import { Octokit } from "@octokit/rest";
-import { parse, stringify, YAMLError } from "yaml";
+import { ImageNode } from './nodes/ImageNode';
 
 export function join2(path1 : string, path2: string): string
 {
@@ -185,7 +184,7 @@ export async function github_api_delete_file(prep, sha, log, message = 'no commi
     return false;
 }
 
-export async function github_api_get_file_dir(prep, log, default_file_name = 'README.md')
+export async function github_api_get_file_and_dir(prep, log, default_file_name = 'README.md')
 {
     const octokit = new Octokit({auth: prep.github_token});
 
@@ -213,28 +212,26 @@ export async function github_api_get_file_dir(prep, log, default_file_name = 'RE
         [res_file, res_dir] = [{}, []];
     }
     
-    return [(Object.entries(res_file).length != 0 ? ({name : res_file.name, type : res_file.type, content : res_file.content, sha : res_file.sha, encoding: res_file.encoding, download_url : res_file.download_url, url : decodeURI(res_file.html_url)}) : {}), res_dir.map(f => ({name : f.name, type : f.type, encoding : f.encoding, content : f.content, sha : f.sha, download_url : f.download_url, url : decodeURI(f.html_url)}))];
+    return [(Object.entries(res_file).length != 0 ? ({name : res_file.name, type : res_file.type, content : res_file.content, sha : res_file.sha, encoding: res_file.encoding, download_url : res_file.download_url, url : decodeURI(res_file.html_url)}) : {}), res_dir.map(f => ({name : f.name, type : f.type, url : decodeURI(f.html_url)}))];
 }
 
-export async function github_api_upsert_file(prep, new_file_name, base64, sha, add_file_tree, log, message = 'no commit message', HTTP_CREATED = 201, HTTP_EXISTS = 422)
+export async function github_api_upsert_file(prep, github_path, base64, sha, callback_created, log, message = 'no commit message', HTTP_CREATED = 201, HTTP_EXISTS = 422)
 {
     const octokit = new Octokit({auth: prep.github_token});
-    const github_path = new_file_name;
     const resp_put = await octokit.rest.repos.createOrUpdateFileContents({owner: prep.github_owner, repo : prep.github_repo, path: github_path, branch: prep.github_branch, message : message, content: base64, sha : sha});
-    const res_put = resp_put.data;
+    const res_put = {...resp_put.data.content, encoding: 'base64', content : base64, url : decodeURI(resp_put.data.content.html_url)};
 
-    if(resp_put.status == HTTP_CREATED && add_file_tree != null)
-        add_file_tree(res_put.content);
+    if(resp_put.status == HTTP_CREATED && callback_created != null)
+        callback_created(res_put);
 
-    return res_put.content;
+    return res_put;
 }
 
-export async function github_api_rename_file(prep, new_file_name, base64, retrieved_contents_sha, log, message = 'no commit message')
+export async function github_api_rename_file(prep, new_file_name, base64, retrieved_contents_sha, github_repo_curdir_path, log, message = 'no commit message')
 {
-    const [resp_put, res_put] = await github_api_upsert_file(prep, null, base64, log);
-    const retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
+    const res_put = await github_api_upsert_file(prep, join2(github_repo_curdir_path, new_file_name), base64, log);
     const res_del = await github_api_delete_file(prep, retrieved_contents_sha, log);
-    return retrieved_contents;
+    return res_put;
 }
 
 const theme = {
@@ -276,7 +273,7 @@ const theme = {
 const editorConfig = {
     theme: theme,
     namespace: 'moncms',
-    nodes: [ParagraphNode, TextNode, HeadingNode, ListNode, ListItemNode, CodeNode, ImageNode],
+    nodes: [ParagraphNode, TextNode, HeadingNode, ListNode, ListItemNode, CodeNode, ImageNode, HorizontalRuleNode],
     onError(error: Error) { throw error; },
 };
 
@@ -291,14 +288,14 @@ function parse_frontmatter(text : string) : [string, Object]
         frontmatter = parse(frontmatter_str, {keepSourceTokens : true, stringKeys: true, strict: true});
     }
     if(typeof(frontmatter) !== 'object' || frontmatter === null)
-        frontmatter = {};
+        frontmatter = null;
     return [text, frontmatter];
 }
 
 function format_frontmatter_rows(frontmatter_rows : Array, frontMatterEmpty : boolean) : string
 {
     const frontmatter_str_inside = frontmatter_rows.filter(({frontmatter_key, frontmatter_val}) => frontmatter_key != '' || frontmatter_val != '').map(({frontmatter_key, frontmatter_val}) => `${frontmatter_key}: "${frontmatter_val}"`).join('\n');
-    const frontmatter_str = `---\n${frontmatter_str_inside}\n---\n\n`;
+    const frontmatter_str = frontmatter_str_inside ? `---\n${frontmatter_str_inside}\n---\n\n` : '---\n---\n\n';
     return (frontmatter_str_inside || !frontMatterEmpty) ? frontmatter_str : '';
 }
 
@@ -501,7 +498,7 @@ function App() {
                 new_file_name, 
                 reader.result.split(',').pop(),
                 null,
-                res => add_file_tree(res.name, url), 
+                res_created => filetree_add(res_created.name, res_created.url),
                 moncms_log
             );
             reader.onerror = () => moncms_log('FILELOAD error');
@@ -540,7 +537,7 @@ function App() {
             return;
 
         await github_api_delete_file(prep, curFile.sha, moncms_log);
-        delete_file_tree(fileName);
+        filetree_del(fileName);
         setUrl(prep.curdir_url());
         clear('', false, true);
     }
@@ -560,6 +557,8 @@ function App() {
             return moncms_log('cannot save a file without file name');
 
         const prep = github_api_prepare_params(url, token, true);
+        const curdir_url = prep.curdir_url();
+
         if(prep.error)
             return moncms_log(prep.error);
 
@@ -601,27 +600,34 @@ function App() {
         const should_update = Object.entries(curFile || {}).length != 0 && fileName == curFile.name;
         const should_create = Object.entries(curFile || {}).length == 0 && fileName;
 
-        if(should_update || should_create)
+        if(should_update)
         {
             const res_put = await github_api_upsert_file(prep, fileName, base64, curFile.sha, null, moncms_log);
-            setCurFile({encoding: 'base64', content : base64, ...res_put.content});
+            setCurFile(res_put);
+        }
+        else if(should_create)
+        {
+            const res_put = await github_api_upsert_file(prep, fileName, base64, curFile.sha, null, moncms_log);
+            setCurFile(res_put);
+            setUrl(res_put.url);
+            filetree_add(fileName, res_put.url);
         }
         else if(should_rename)
         {
-            const res_put = await github_api_rename_file(prep, fileName, base64, curFile, moncms_log);
+            const res_put = await github_api_rename_file(prep, fileName, base64, curFile.sha, prep.github_repo_curdir_path, moncms_log);
             setCurFile(res_put);
-            rename_file_tree(curFile.name, curFile);
+            filetree_rename(curFile.name, curFile);
         }
     }
 
-    function update_file_tree(files_and_dirs, curdir_url, parentdir_url, selected_file_name, ext = ['.gif', '.jpg', '.png', '.svg'])
+    function filetree_update(files_and_dirs, curdir_url, parentdir_url, selected_file_name, ext = ['.gif', '.jpg', '.png', '.svg'])
     {
         const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
-        const files = files_and_dirs.filter(j => j.type == 'file' && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
-        const dirs = files_and_dirs.filter(j => j.type == 'dir' && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
-        const images = files_and_dirs.filter(j => j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
+        const files   = files_and_dirs.filter(j => j.type == 'file' && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
+        const dirs   =  files_and_dirs.filter(j => j.type == 'dir'  && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
+        const images =  files_and_dirs.filter(j => j.type == 'file' &&  ext.some(e => j.name.endsWith(e))).sort(key_by_name);
         const file_tree = [
-            { name: '.', type: 'dir', url: curdir_url },
+            { name: '.' , type: 'dir', url: curdir_url },
             { name: '..', type: 'dir', url: parentdir_url ? parentdir_url : curdir_url },
             ...dirs,
             ...files,
@@ -632,23 +638,43 @@ function App() {
         setFileTreeValue(file_tree_value);
     }
 
-    function add_file_tree(file_name, url)
+    function filetree_add(file_name, url)
     {
         setFileTree([...fileTree, { name: file_name, type: 'file', url: url }]);
         setFileTreeValue(url);
     }
 
-    function delete_file_tree(selected_file_name)
+    function filetree_del(file_name)
     {
-        const file_tree = fileTree.filter(j => j.name != selected_file_name);
+        const file_tree = fileTree.filter(j => j.name != file_name);
         setFileTree(file_tree);
         setFileTreeValue(file_tree.length > 0 ? file_tree[0].url : '');
     }
 
-    function rename_file_tree(selected_file_name, curFile)
+    function filetree_rename(selected_file_name, curFile)
     {
         setFileTree(fileTree.map(j => j.name == selected_file_name ? curFile : j));
         setFileTreeValue(curFile.url);
+    }
+    
+    function frontmatter_updaterow(idx, name, value)
+    {
+        setFrontMatterRows(frontMatterRows.map((item, i) => i == idx ? {...item, [name] : value} : item));
+    }
+
+    function frontmatter_delrow(idx)
+    {
+        setFrontMatterRows(frontMatterRows.map((item, i) => (i == 0 && idx == 0) ? {...item, frontmatter_key : '', frontmatter_val : ''} : item).filter((item, i) => idx == 0 || i != idx));
+    }
+
+    function frontmatter_addrow(idx)
+    {
+        if(idx == 0)
+            setFrontMatterRows([frontmatter_rows_new(), ...frontMatterRows]);
+        else if(idx < frontMatterRows.length - 1)
+            setFrontMatterRows([...frontMatterRows.slice(0, idx + 1), frontmatter_rows_new(), ...frontMatterRows.slice(idx + 1)]);
+        else
+            setFrontMatterRows([...frontMatterRows, frontmatter_rows_new()]);
     }
 
     async function open_file_or_dir(url_value = '', token_value = '', HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
@@ -678,9 +704,9 @@ function App() {
         
         if(!prep.github_branch)
             prep.github_branch = await github_api_signin(prep, moncms_log);
-
-        let [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
         imageCache.prefix = prep.prefix();
+        const curdir_url = prep.curdir_url(), parentdir_url = prep.parentdir_url();
+        let [res_file, res_dir] = await github_api_get_file_and_dir(prep, moncms_log);
 
         const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
         const is_dir = res_file.content === undefined;
@@ -690,8 +716,6 @@ function App() {
         const image_listing = is_image ? `# ${res_file.name}\n![${res_file.name}](${res_file.download_url})` : images.map(j => `# ${j.name}\n![${j.name}](${j.download_url})`).join('\n\n');
             
         setCurFile(res_file);
-        
-        const curdir_url = prep.curdir_url(), parentdir_url = prep.parentdir_url();
 
         if(is_err)
         {
@@ -702,7 +726,7 @@ function App() {
             setFrontMatterRows([frontmatter_rows_new()]);
             setFrontMatterEmpty(true);
 
-            update_file_tree(res_dir, curdir_url, parentdir_url, '');
+            filetree_update(res_dir, curdir_url, parentdir_url, '');
             setFileName('');
             editorRef.current.update(() => {
                 const editorState = editorRef.current.getEditorState();
@@ -718,7 +742,7 @@ function App() {
             setFrontMatterRows([frontmatter_rows_new()]);
             setFrontMatterEmpty(true);
 
-            update_file_tree(res_dir, curdir_url, parentdir_url, res_file.name);
+            filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
             editorRef.current.update(() => {
                 const editorState = editorRef.current.getEditorState();
@@ -731,46 +755,25 @@ function App() {
         }
         else if(!is_image)
         {
-            const text = res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || '');
-            const frontmatter = parse_frontmatter(text).pop();
+            let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
+            [text, frontmatter] = parse_frontmatter(text);
             
-            const frontmatter_rows = Object.entries(frontmatter).map(([k, v]) => ({...frontmatter_rows_new(), frontmatter_key : k, frontmatter_val : v}));
+            const frontmatter_rows = Object.entries(frontmatter || {}).map(([k, v]) => ({...frontmatter_rows_new(), frontmatter_key : k, frontmatter_val : v}));
             setFrontMatterRows([frontmatter_rows_new(), ...frontmatter_rows]);
             setFrontMatterEmpty(frontmatter === null);
 
-            update_file_tree(res_dir, curdir_url, parentdir_url, res_file.name);
+            filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
             editorRef.current.update(() => {
                 const editorState = editorRef.current.getEditorState();
                 if (editorState != null) {
+                    // TODO: HARDEN Error: Create node: Attempted to create node _HorizontalRuleNode that was not configured to be used on the editor.
                     $convertFromMarkdownString(text, PLAYGROUND_TRANSFORMERS);
                     $getRoot().selectStart();
                 }
             });
             editorRef.current.setEditable(true);
         }
-    }
-
-    function onchange_frontmatter(name, value, idx)
-    {
-        setFrontMatterRows(frontMatterRows.map((item, i) => i == idx ? {...item, [name] : value} : item));
-    }
-
-    function onclick_frontmatter_delrow(event)
-    {
-        const idx = event.target.parentElement.parentElement.rowIndex;
-        setFrontMatterRows(frontMatterRows.map((item, i) => (i == 0 && idx == 0) ? {...item, frontmatter_key : '', frontmatter_val : ''} : item).filter((item, i) => idx == 0 || i != idx));
-    }
-
-    function onclick_frontmatter_addrow(event)
-    {
-        const idx = event.target.parentElement.parentElement.rowIndex;
-        if(idx == 0)
-            setFrontMatterRows([frontmatter_rows_new(), ...frontMatterRows]);
-        else if(idx < frontMatterRows.length - 1)
-            setFrontMatterRows([...frontMatterRows.slice(0, idx + 1), frontmatter_rows_new(), ...frontMatterRows.slice(idx + 1)]);
-        else
-            setFrontMatterRows([...frontMatterRows, frontmatter_rows_new()]);
     }
 
     async function onclick_signinout()
@@ -816,22 +819,22 @@ function App() {
   
   return (
     <>
-    <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" ref={urlRef} type="text" value={url} onChange={(event) => setUrl(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
-    <input  hidden={isCompact} id="html_token" placeholder="GitHub token:"  type="text" value={token} onChange={(event) => setToken(event.target.value)} onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
-    <input  hidden={isCompact} id="html_file_name" placeholder="File name:" type="text" ref={fileNameRef} value={fileName} onChange={(event) => setFileName(event.target.value)}  onKeyPress={(event) => event.code == 'Enter' && onclick_savefile()} />
+    <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" ref={urlRef} type="text" value={url} onChange={event => setUrl(event.target.value)}  onKeyPress={event => event.code == 'Enter' && open_file_or_dir(url, token)} />
+    <input  hidden={isCompact} id="html_token" placeholder="GitHub token:"  type="text" value={token} onChange={event => setToken(event.target.value)} onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
+    <input  hidden={isCompact} id="html_file_name" placeholder="File name:" type="text" ref={fileNameRef} value={fileName} onChange={event => setFileName(event.target.value)}  onKeyPress={event => event.code == 'Enter' && onclick_savefile()} />
     <input  hidden={isCompact} id="html_log" placeholder="Log:" title={logHistory} value={log} readOnly />
-    <select hidden={isCompact} id="html_file_tree" size="10" value={fileTreeValue} onChange={(event) => setFileTreeValue(event.target.value)} onKeyPress={(event) => (event.code == 'Space' || event.code == 'Enter') ? [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)] : []} onDoubleClick={(event) => [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)]}>
+    <select hidden={isCompact} id="html_file_tree" size="10" value={fileTreeValue} onChange={(event) => setFileTreeValue(event.target.value)} onKeyPress={event => (event.code == 'Space' || event.code == 'Enter') ? [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)] : []} onDoubleClick={(event) => [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)]}>
         {fileTree.map((f, i) => (<option key={f.name + ':' + f.url} value={f.url} title={f.url}>{f.name + (f.type == 'dir' ? '/' : '')}</option>))}
     </select>
     <table  hidden={isCompact} id="html_frontmatter">
         <tbody>
-            {frontMatterRows.map(({frontmatter_key, frontmatter_val, frontmatter_id}, i) => (
+            {frontMatterRows.map(({frontmatter_key, frontmatter_val, frontmatter_id}, idx) => (
                 <tr key={frontmatter_id}>
-                    <td><input type="text" name="frontmatter_key" placeholder="Frontmatter key:"   value={frontmatter_key} onChange={(event) => onchange_frontmatter(event.target.name, event.target.value, i)} /></td>
-                    <td><input type="text" name="frontmatter_val" placeholder="Frontmatter value:" value={frontmatter_val} onChange={(event) => onchange_frontmatter(event.target.name, event.target.value, i)} /></td>
+                    <td><input type="text" name="frontmatter_key" placeholder="Frontmatter key:"   value={frontmatter_key} onChange={event => frontmatter_updaterow(idx, event.target.name, event.target.value)} /></td>
+                    <td><input type="text" name="frontmatter_val" placeholder="Frontmatter value:" value={frontmatter_val} onChange={event => frontmatter_updaterow(idx, event.target.name, event.target.value)} /></td>
                     <td>
-                        <button onClick={onclick_frontmatter_addrow}>Add another row</button>
-                        <button onClick={onclick_frontmatter_delrow}>Delete this row</button>
+                        <button onClick={event => frontmatter_addrow(event.target.parentElement.parentElement.rowIndex)}>Add another row</button>
+                        <button onClick={event => frontmatter_delrow(event.target.parentElement.parentElement.rowIndex)}>Delete this row</button>
                     </td>
                 </tr>
             ))}
@@ -847,7 +850,7 @@ function App() {
         <button onClick={onclick_upload}>Upload Files</button>
         <input type="file" id="html_files" ref={filesRef} onChange={onchange_files} multiple hidden />
         
-        <button onClick={(event) => {setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
+        <button onClick={event => {setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
         <button onClick={onclick_signinout} className={isSignedIn ? "signout" : "signin"} ></button>
         <button onClick={() => setIsCompact(!isCompact)}>Toggle Compact View</button>
     </div>
