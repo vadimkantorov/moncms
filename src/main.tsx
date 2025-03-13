@@ -41,6 +41,7 @@ import ImagesPlugin from './plugins/ImagesPlugin';
 import {parseAllowedColor, parseAllowedFontSize} from './styleConfig';
 
 import { Octokit } from "@octokit/rest";
+import { parse, stringify, YAMLError } from "yaml";
 
 export function join2(path1 : string, path2: string): string
 {
@@ -81,10 +82,9 @@ export function github_api_prepare_params(github_url : String, github_token : St
         github_repo_curdir_path : '',
         github_repo_parentdir_path : '',
 
-        curdir_url: '',
-        parentdir_url: '',
-
-        prefix_without_branch: ''
+        curdir_url: () => '',
+        parentdir_url: () => '',
+        prefix : () => ''
     };
     if (!github_url) {
         prep.error = 'no github_url provided';
@@ -144,10 +144,9 @@ export function github_api_prepare_params(github_url : String, github_token : St
     prep.github_repo_curdir_path = github_repo_dir_path ? github_path : github_repo_file_path ? (slashIdx2 != -1 ? github_path.slice(0, slashIdx2) : '') : null;
     prep.github_repo_parentdir_path = github_repo_dir_path ? (slashIdx2 != -1 ? github_path.slice(0, slashIdx2) : '') : github_repo_file_path ? ((slashIdx2 != -1 && slashIdx1 != -1) ? github_path.slice(0, slashIdx1) : (slashIdx2 != -1 && slashIdx1 == -1) ? '' : null) : null;
 
-    prep.prefix_without_branch = `https://raw.githubusercontent.com/${github_owner}/${github_repo}`;
-
-    prep.curdir_url = () => prep.github_branch ? `https://github.com/${prep.github_owner}/${prep.github_repo}/tree/${prep.github_branch}/${prep.github_repo_curdir_path || ""}` : (`https://github.com/${prep.github_owner}/${prep.github_repo}`);
-    prep.parentdir_url = () => prep.github_repo_parentdir_path != null ? (prep.github_branch ? `https://github.com/${prep.github_owner}/${prep.github_repo}/tree/${prep.github_branch}/${prep.github_repo_parentdir_path}` : `https://github.com/${prep.github_owner}/${prep.github_repo}`) : prep.curdir_url();
+    prep.curdir_url = () => prep.github_branch ? `${prep.github_repo_url}/tree/${prep.github_branch}/${prep.github_repo_curdir_path || ""}` : prep.github_repo_url;
+    prep.parentdir_url = () => prep.github_repo_parentdir_path != null ? (prep.github_branch ? `${prep.github_repo_url}/tree/${prep.github_branch}/${prep.github_repo_parentdir_path}` : prep.github_repo_url) : prep.curdir_url();
+    prep.prefix = () => `https://raw.githubusercontent.com/${prep.github_owner}/${prep.github_repo}/${prep.github_branch}`;
 
     return prep;
 }
@@ -197,16 +196,16 @@ export async function github_api_get_file_dir(prep, log, default_file_name = 'RE
     {   
         if(prep.github_path != prep.github_path_dir)
         {
-            resp_file = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path, ref: prep.github_branch});
-            resp_dir = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path_dir, ref: prep.github_branch});
+            resp_file = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path, ref: prep.github_branch, headers : prep.headers});
+            resp_dir = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path_dir, ref: prep.github_branch, headers : prep.headers});
             [res_file, res_dir] = [resp_file.data, resp_dir.data];
         }
         else
         {
-            resp_dir = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path_dir, ref: prep.github_branch});
+            resp_dir = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path_dir, ref: prep.github_branch, headers : prep.headers});
             res_dir = resp_dir.data;
             const github_path = [''].concat(res_dir.filter(j => j.name.toLowerCase() == default_file_name.toLowerCase()).map(j => j.path)).pop();
-            resp_file = github_path ? (await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: github_path, ref: prep.github_branch})) : {data : []};
+            resp_file = github_path ? (await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: github_path, ref: prep.github_branch, headers : prep.headers})) : {data : []};
             [res_file, res_dir] = [resp_file.data, resp_dir.data];
         }
     }
@@ -291,37 +290,18 @@ function parse_frontmatter(text : string) : [string, Object]
     {
         const frontmatter_str = m[1];
         text = text.substring(m[0].length);
-
-        const procval = s => (s.length >= 2 && s[0] == '"' && s[s.length - 1] == '"') ? s.slice(1, s.length - 1) : (s.length >= 2 && s[0] == "'" && s[s.length - 1] == "'") ? s.slice(1, s.length - 1) : s;
-
-        for(const line of frontmatter_str.split('\n'))
-        {
-            const line_strip = line.trim();
-            const is_list_item = line_strip.startsWith('- ');
-            if(!line || line.startsWith('#'))
-                continue;
-
-            const colonIdx = line.indexOf(':');
-            const key = colonIdx != -1 ? line.slice(0, colonIdx).trim() : '';
-            const val = colonIdx != -1 ? line.substring(1 + colonIdx).trim() : is_list_item ? line_strip.substring(2).trim() : '';
-            
-            if(colonIdx != -1)
-            {
-                if(!frontmatter)
-                    frontmatter = {};
-                frontmatter[key] = val ? procval(val) : [];
-            }
-            else if(is_list_item)
-            {
-                if(!frontmatter)
-                    frontmatter = {};
-                if(!front_matter[key])
-                    frontmatter[key] = [];
-                frontmatter[key].push(procval(val));
-            }
-        }
+        frontmatter = parse(frontmatter_str, {keepSourceTokens : true, stringKeys: true, strict: true});
     }
+    if(typeof(frontmatter) !== 'object' || frontmatter === null)
+        frontmatter = {};
     return [text, frontmatter];
+}
+
+function format_frontmatter_rows(frontmatter_rows : Array, frontMatterEmpty : boolean) : string
+{
+    const frontmatter_str_inside = frontmatter_rows.filter(({frontmatter_key, frontmatter_val}) => frontmatter_key != '' || frontmatter_val != '').map(({frontmatter_key, frontmatter_val}) => `${frontmatter_key}: "${frontmatter_val}"`).join('\n');
+    const frontmatter_str = `---\n${frontmatter_str_inside}\n---\n\n`;
+    return (frontmatter_str_inside || !frontMatterEmpty) ? frontmatter_str : '';
 }
 
 function update_location(path : string)
@@ -394,14 +374,7 @@ async function github_discover_url(url : string, key = 'moncmsdefault', HTTP_OK 
     return '';
 }
 
-function format_frontmatter(frontMatter : Array, frontMatterEmpty : boolean) : string
-{
-    const frontmatter_str_inside = frontMatter.filter(({frontmatter_key, frontmatter_val}) => frontmatter_key != '' || frontmatter_val != '').map(({frontmatter_key, frontmatter_val}) => `${frontmatter_key}: "${frontmatter_val}"`).join('\n');
-    const frontmatter_str = `---\n${frontmatter_str_inside}\n---\n\n`;
-    return (frontmatter_str_inside || !frontMatterEmpty) ? frontmatter_str : '';
-}
-
-function newrow_frontmatter()
+function frontmatter_rows_new()
 {
     return {frontmatter_id: self.crypto.randomUUID(), frontmatter_key: '', frontmatter_val: ''};
 }
@@ -480,7 +453,7 @@ function App() {
     const [fileName, setFileName] = useState('');
     const [isCompact, setIsCompact] = useState(false);
     const [isSignedIn, setIsSignedIn] = useState(is_signed_in_value);
-    const [frontMatter, setFrontMatter] = useState([newrow_frontmatter()]);
+    const [frontMatterRows, setFrontMatterRows] = useState([frontmatter_rows_new()]);
     const [frontMatterEmpty, setFrontMatterEmpty] = useState(true);
 
     const [curFile, setCurFile] = useState({});
@@ -509,7 +482,7 @@ function App() {
         if(file_tree)
             setFileTree([]);
         if(front_matter)
-            setFrontMatter([newrow_frontmatter()]);
+            setFrontMatterRows([frontmatter_rows_new()]);
         
         editorRef.current?.update(() => {
             const editorState = editorRef.current?.getEditorState();
@@ -549,7 +522,7 @@ function App() {
         const new_path = event.target.dataset.newpath.replaceAll('${date}', date.toString()).replaceAll('${time}', time.toString());
         clear(event.target.dataset.message, false, true);
         setFileName(new_path);
-        fileNameRef.current.focus();
+        //fileNameRef.current.focus();
     }
 
     async function onclick_delfile(event)
@@ -599,7 +572,7 @@ function App() {
             return moncms_log(prep.error);
 
         const frontmatter_empty = frontMatterEmpty == true;
-        const frontmatter_str = format_frontmatter(frontMatter, frontmatter_empty);
+        const frontmatter_str = format_frontmatter_rows(frontMatterRows, frontmatter_empty);
         
         let [markdown, imageNodes] = await new Promise(resolve => editorRef.current.read(() => {
             let markdown = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS);
@@ -714,7 +687,7 @@ function App() {
             prep.github_branch = await github_api_signin(prep, moncms_log);
 
         let [res_file, res_dir] = await github_api_get_file_dir(prep, moncms_log);
-        imageCache.prefix = prep.prefix_without_branch + '/' + prep.github_branch;
+        imageCache.prefix = prep.prefix();
 
         const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
         const is_dir = res_file.content === undefined;
@@ -733,7 +706,7 @@ function App() {
         }
         else if(is_dir)
         {
-            setFrontMatter([newrow_frontmatter()]);
+            setFrontMatterRows([frontmatter_rows_new()]);
             setFrontMatterEmpty(true);
 
             update_file_tree(res_dir, curdir_url, parentdir_url, '');
@@ -749,7 +722,7 @@ function App() {
         }
         else if(is_image)
         {
-            setFrontMatter([newrow_frontmatter()]);
+            setFrontMatterRows([frontmatter_rows_new()]);
             setFrontMatterEmpty(true);
 
             update_file_tree(res_dir, curdir_url, parentdir_url, res_file.name);
@@ -765,9 +738,11 @@ function App() {
         }
         else if(!is_image)
         {
-            let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
-            [text, frontmatter] = parse_frontmatter(text);
-            setFrontMatter([newrow_frontmatter(), ...Object.entries(frontmatter || {}).map(([k, v]) => ({frontmatter_key : k, frontmatter_val : v}))]);
+            const text = res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || '');
+            const frontmatter = parse_frontmatter(text).pop();
+            
+            const frontmatter_rows = Object.entries(frontmatter).map(([k, v]) => ({...frontmatter_rows_new(), frontmatter_key : k, frontmatter_val : v}));
+            setFrontMatterRows([frontmatter_rows_new(), ...frontmatter_rows]);
             setFrontMatterEmpty(frontmatter === null);
 
             update_file_tree(res_dir, curdir_url, parentdir_url, res_file.name);
@@ -785,24 +760,24 @@ function App() {
 
     function onchange_frontmatter(name, value, idx)
     {
-        setFrontMatter(frontMatter.map((item, i) => i == idx ? {...item, [name] : value} : item));
+        setFrontMatterRows(frontMatterRows.map((item, i) => i == idx ? {...item, [name] : value} : item));
     }
 
     function onclick_frontmatter_delrow(event)
     {
         const idx = event.target.parentElement.parentElement.rowIndex;
-        setFrontMatter(frontMatter.map((item, i) => (i == 0 && idx == 0) ? {...item, frontmatter_key : '', frontmatter_val : ''} : item).filter((item, i) => idx == 0 || i != idx));
+        setFrontMatterRows(frontMatterRows.map((item, i) => (i == 0 && idx == 0) ? {...item, frontmatter_key : '', frontmatter_val : ''} : item).filter((item, i) => idx == 0 || i != idx));
     }
 
     function onclick_frontmatter_addrow(event)
     {
         const idx = event.target.parentElement.parentElement.rowIndex;
         if(idx == 0)
-            setFrontMatter([newrow_frontmatter(), ...frontMatter]);
-        else if(idx < frontMatter.length - 1)
-            setFrontMatter([...frontMatter.slice(0, idx + 1), newrow_frontmatter(), ...frontMatter.slice(idx + 1)]);
+            setFrontMatterRows([frontmatter_rows_new(), ...frontMatterRows]);
+        else if(idx < frontMatterRows.length - 1)
+            setFrontMatterRows([...frontMatterRows.slice(0, idx + 1), frontmatter_rows_new(), ...frontMatterRows.slice(idx + 1)]);
         else
-            setFrontMatter([...frontMatter, newrow_frontmatter()]);
+            setFrontMatterRows([...frontMatterRows, frontmatter_rows_new()]);
     }
 
     async function onclick_signinout()
@@ -857,7 +832,7 @@ function App() {
     </select>
     <table  hidden={isCompact} id="html_frontmatter">
         <tbody>
-            {frontMatter.map(({frontmatter_key, frontmatter_val, frontmatter_id}, i) => (
+            {frontMatterRows.map(({frontmatter_key, frontmatter_val, frontmatter_id}, i) => (
                 <tr key={frontmatter_id}>
                     <td><input type="text" name="frontmatter_key" placeholder="Frontmatter key:"   value={frontmatter_key} onChange={(event) => onchange_frontmatter(event.target.name, event.target.value, i)} /></td>
                     <td><input type="text" name="frontmatter_val" placeholder="Frontmatter value:" value={frontmatter_val} onChange={(event) => onchange_frontmatter(event.target.name, event.target.value, i)} /></td>
