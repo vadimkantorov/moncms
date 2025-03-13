@@ -285,16 +285,32 @@ function parse_frontmatter(text : string) : [string, Object]
     {
         const frontmatter_str = m[1];
         text = text.substring(m[0].length);
-        frontmatter = parse(frontmatter_str, {keepSourceTokens : true, stringKeys: true, strict: true});
+        const parsed = parse(frontmatter_str, {keepSourceTokens : true, stringKeys: true, strict: true});
+        if(typeof(frontmatter) !== 'object')
+            return [text, null];
+
+        frontmatter = {};
+        for(const [frontmatter_key, frontmatter_val] of Object.entries(parsed))
+            frontmatter[frontmatter_key] = ['string', 'number', 'boolean'].includes(typeof(frontmatter_val)) ? frontmatter_val.toString() : JSON.stringify(frontmatter_val);
     }
-    if(typeof(frontmatter) !== 'object' || frontmatter === null)
-        frontmatter = null;
     return [text, frontmatter];
 }
 
 function format_frontmatter_rows(frontmatter_rows : Array, frontMatterEmpty : boolean) : string
 {
-    const frontmatter_str_inside = frontmatter_rows.filter(({frontmatter_key, frontmatter_val}) => frontmatter_key != '' || frontmatter_val != '').map(({frontmatter_key, frontmatter_val}) => `${frontmatter_key}: "${frontmatter_val}"`).join('\n');
+    const frontmatter = {};
+    for(let {frontmatter_key, frontmatter_val} of frontmatter_rows)
+    {
+        if(frontmatter_key == '') continue;
+        try
+        {
+            frontmatter_val = JSON.parse(frontmatter_val);
+        }
+        catch
+        { }
+        frontmatter[frontmatter_key] = frontmatter_val;
+    }
+    const frontmatter_str_inside = stringify(frontmatter).trim();
     const frontmatter_str = frontmatter_str_inside ? `---\n${frontmatter_str_inside}\n---\n\n` : '---\n---\n\n';
     return (frontmatter_str_inside || !frontMatterEmpty) ? frontmatter_str : '';
 }
