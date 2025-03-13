@@ -1,4 +1,6 @@
 packages/
 dist/
 node_modules/
+moncmsblog/
+
 package-lock.json
