@@ -466,7 +466,7 @@ function App() {
     function moncms_log(text : string)
     {
         setLog(fmt_log(text));
-        setLogHistory(fmt_log(text) + '\n' + logHistory);
+        setLogHistory(prev => fmt_log(text) + '\n' + prev);
     }
 
     function clear(markdown = '', file_tree = true, front_matter = true)
