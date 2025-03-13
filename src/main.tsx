@@ -95,8 +95,6 @@ export function github_api_prepare_params(github_url : String, github_token : St
         return prep;
     }
 
-    // https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28
-    // https://raw.githubusercontent.com/vadimkantorov/moncmsblog/refs/heads/master/moncms-content/uploads/2025/03/r%C3%A9sistance%20et%20libert%C3%A9.png
     const github_url_normalized = github_url.replace('https://raw.githubusercontent.com', 'https://github.com');
 
     let github_owner = '', github_repo = '', github_repo_tag = '', github_repo_file_path = '', github_repo_dir_path = '';
@@ -306,7 +304,6 @@ function format_frontmatter_rows(frontmatter_rows : Array, frontMatterEmpty : bo
 
 function update_location(path : string)
 {
-    // https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
     window.history.replaceState({}, document.title, path );
 }
 
@@ -559,11 +556,6 @@ function App() {
 
     async function onclick_savefile()
     {
-        // https://stackoverflow.com/questions/37504383/button-inside-a-label
-        // https://stackoverflow.com/questions/31563444/rename-a-file-with-github-api
-        // https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
-        // https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
-
         if(!fileName)
             return moncms_log('cannot save a file without file name');
 
@@ -629,8 +621,8 @@ function App() {
         const dirs = files_and_dirs.filter(j => j.type == 'dir' && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
         const images = files_and_dirs.filter(j => j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
         const file_tree = [
-            { name: '.', type: 'dir', url: curdir_url }, 
-            { name: '..', type: 'dir', url: parentdir_url ? parentdir_url : curdir_url }, 
+            { name: '.', type: 'dir', url: curdir_url },
+            { name: '..', type: 'dir', url: parentdir_url ? parentdir_url : curdir_url },
             ...dirs,
             ...files,
             ...images
@@ -669,11 +661,12 @@ function App() {
         }
         if(!token_value)
         {
-            token_value = cache_load(prep.github_repo_url); // FIXME: set to html_token.value
+            token_value = cache_load(prep.github_repo_url);
             prep = github_api_prepare_params(url_value, token_value); 
             if(token_value)
             {
                 setIsSignedIn(true);
+                setToken(token_value);
                 moncms_log('got from cache for ' + prep.github_repo_url);
             }
         }
@@ -867,9 +860,7 @@ function App() {
         <div className="editor-inner">
           <RichTextPlugin
             contentEditable={
-              <ContentEditable
-                className="editor-input"
-              />
+              <ContentEditable className="editor-input" />
             }
             ErrorBoundary={LexicalErrorBoundary}
           />
