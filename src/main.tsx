@@ -66,26 +66,25 @@ export function github_api_format_error(resp, res = {})
 export function github_api_prepare_params(github_url : String, github_token : String = '', must_have_token : boolean = false) : Object
 {
     const prep = {
-        headers: {},
         error: '',
+        headers: {'If-None-Match': ''},
 
         github_token: '',
         github_owner: '',
         github_repo: '',
-        github_path: '',
-        github_path_dir: '',
         github_branch: '',
 
-        github_repo_url: '',
+        github_path: '',
+        github_path_dir: '',
 
-        contents_api_url_get: '',
-        contents_api_url_put: '',
-        contents_api_dir_url_put: '',
-        contents_api_dir_url_get: '',
+        github_repo_url: '',
+        github_repo_curdir_path : '',
+        github_repo_parentdir_path : '',
+
         curdir_url: '',
         parentdir_url: '',
 
-        prefix: ''
+        prefix_without_branch: ''
     };
     if (!github_url) {
         prep.error = 'no github_url provided';
@@ -132,6 +131,8 @@ export function github_api_prepare_params(github_url : String, github_token : St
 
     const github_path = github_repo_file_path || github_repo_dir_path;
     const github_repo_parent_path = !github_path ? '' : github_path.includes('/') ? dirname(github_path) : '';
+    const slashIdx2 = github_path.lastIndexOf('/');
+    const slashIdx1 = github_path.slice(0, slashIdx2).lastIndexOf('/');
 
     prep.github_token = github_token;
     prep.github_owner = github_owner;
@@ -140,30 +141,13 @@ export function github_api_prepare_params(github_url : String, github_token : St
     prep.github_branch = github_repo_tag;
     prep.github_path_dir = github_repo_dir_path ? github_repo_dir_path : github_repo_parent_path;
     prep.github_repo_url = `https://github.com/${github_owner}/${github_repo}`;
-    prep.contents_api_url_get = `https://api.github.com/repos/${github_owner}/${github_repo}/contents/${github_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : '');
-    prep.contents_api_url_put = `https://api.github.com/repos/${github_owner}/${github_repo}/contents/${github_path}`;
-    prep.contents_api_dir_url_put = github_repo_dir_path ? prep.contents_api_url_put : `https://api.github.com/repos/${github_owner}/${github_repo}/contents/${dirname(github_path)}`;
-
-    prep.contents_api_dir_url_get = github_repo_dir_path ? prep.contents_api_url_get : (`https://api.github.com/repos/${github_owner}/${github_repo}/contents/${github_repo_parent_path}` + (github_repo_tag ? `?ref=${github_repo_tag}` : ''));
-
-    const slashIdx2 = github_path.lastIndexOf('/');
-    const slashIdx1 = github_path.slice(0, slashIdx2).lastIndexOf('/');
-
-    const github_repo_curdir_path = github_repo_dir_path ? github_path : github_repo_file_path ? (slashIdx2 != -1 ? github_path.slice(0, slashIdx2) : '') : null;
-
-    const github_repo_parentdir_path = github_repo_dir_path ? (slashIdx2 != -1 ? github_path.slice(0, slashIdx2) : '') : github_repo_file_path ? ((slashIdx2 != -1 && slashIdx1 != -1) ? github_path.slice(0, slashIdx1) : (slashIdx2 != -1 && slashIdx1 == -1) ? '' : null) : null;
-
-    prep.curdir_url = `https://github.com/${github_owner}/${github_repo}/tree/${github_repo_tag}/${github_repo_curdir_path || ""}`;
-    prep.parentdir_url = github_repo_parentdir_path != null ? `https://github.com/${github_owner}/${github_repo}/tree/${github_repo_tag}/${github_repo_parentdir_path}` : prep.curdir_url;
+    prep.github_repo_curdir_path = github_repo_dir_path ? github_path : github_repo_file_path ? (slashIdx2 != -1 ? github_path.slice(0, slashIdx2) : '') : null;
+    prep.github_repo_parentdir_path = github_repo_dir_path ? (slashIdx2 != -1 ? github_path.slice(0, slashIdx2) : '') : github_repo_file_path ? ((slashIdx2 != -1 && slashIdx1 != -1) ? github_path.slice(0, slashIdx1) : (slashIdx2 != -1 && slashIdx1 == -1) ? '' : null) : null;
 
     prep.prefix_without_branch = `https://raw.githubusercontent.com/${github_owner}/${github_repo}`;
-    // https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28
-    prep.headers = {
-        'X-GitHub-Api-Version': '2022-11-28',
-        'Accept': 'application/vnd.github+json',
-        'If-None-Match': '',
-        'Authorization': github_token ? `Bearer ${github_token}` : ''
-    };
+
+    prep.curdir_url = () => prep.github_branch ? `https://github.com/${prep.github_owner}/${prep.github_repo}/tree/${prep.github_branch}/${prep.github_repo_curdir_path || ""}` : (`https://github.com/${prep.github_owner}/${prep.github_repo}`);
+    prep.parentdir_url = () => prep.github_repo_parentdir_path != null ? (prep.github_branch ? `https://github.com/${prep.github_owner}/${prep.github_repo}/tree/${prep.github_branch}/${prep.github_repo_parentdir_path}` : `https://github.com/${prep.github_owner}/${prep.github_repo}`) : prep.curdir_url();
 
     return prep;
 }
@@ -209,7 +193,7 @@ export async function github_api_get_file_dir(prep, log, default_file_name = 'RE
     const octokit = new Octokit({auth: prep.github_token});
 
     let resp_file = {}, resp_dir = {}, res_file = {}, res_dir = [];
-    //try
+    try
     {   
         if(prep.github_path != prep.github_path_dir)
         {
@@ -226,11 +210,11 @@ export async function github_api_get_file_dir(prep, log, default_file_name = 'RE
             [res_file, res_dir] = [resp_file.data, resp_dir.data];
         }
     }
-    //catch
-    //{
-    //    log('error: github_api_get_file_dir');
-    //    [res_file, res_dir] = [{}, []];
-    //}
+    catch
+    {
+        log('error: github_api_get_file_dir');
+        [res_file, res_dir] = [{}, []];
+    }
     
     return [(Object.entries(res_file).length != 0 ? ({name : res_file.name, type : res_file.type, content : res_file.content, sha : res_file.sha, encoding: res_file.encoding, download_url : res_file.download_url, url : decodeURI(res_file.html_url)}) : {}), res_dir.map(f => ({name : f.name, type : f.type, encoding : f.encoding, content : f.content, sha : f.sha, download_url : f.download_url, url : decodeURI(f.html_url)}))];
 }
@@ -250,7 +234,7 @@ export async function github_api_upsert_file(prep, new_file_name, base64, sha, a
 
 export async function github_api_rename_file(prep, new_file_name, base64, retrieved_contents_sha, log, message = 'no commit message')
 {
-    const [resp_put, res_put] = await github_api_upsert_file({...prep, contents_api_url_put : join2(prep.contents_api_dir_url_put, new_file_name)}, null, base64, log);
+    const [resp_put, res_put] = await github_api_upsert_file(prep, null, base64, log);
     const retrieved_contents = {encoding: 'base64', content : base64, ...res_put.content};
     const res_del = await github_api_delete_file(prep, retrieved_contents_sha, log);
     return retrieved_contents;
@@ -453,8 +437,8 @@ function init_fields(window_location, meta_key = 'moncmsdefault')
             url_value = query_string.get('github_url');
         if(query_string.has('github_token'))
             token_value = query_string.get('github_token');
-        if(!url_value)
-            url_value = find_meta(document, meta_key);
+        //if(!url_value)
+        //    url_value = find_meta(document, meta_key);
         if(url_value && !token_value)
         {
             token_value = load_token(url_value);
@@ -587,7 +571,7 @@ function App() {
 
         await github_api_delete_file(prep, curFile.sha, moncms_log);
         delete_file_tree(fileName);
-        setUrl(prep.curdir_url);
+        setUrl(prep.curdir_url());
         clear('', false, true);
     }
 
@@ -741,6 +725,8 @@ function App() {
             
         setCurFile(res_file);
         
+        const curdir_url = prep.curdir_url(), parentdir_url = prep.parentdir_url();
+
         if(is_err)
         {
             clear('', true, true);
@@ -750,7 +736,7 @@ function App() {
             setFrontMatter([newrow_frontmatter()]);
             setFrontMatterEmpty(true);
 
-            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, '');
+            update_file_tree(res_dir, curdir_url, parentdir_url, '');
             setFileName('');
             editorRef.current.update(() => {
                 const editorState = editorRef.current.getEditorState();
@@ -766,7 +752,7 @@ function App() {
             setFrontMatter([newrow_frontmatter()]);
             setFrontMatterEmpty(true);
 
-            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
+            update_file_tree(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
             editorRef.current.update(() => {
                 const editorState = editorRef.current.getEditorState();
@@ -784,7 +770,7 @@ function App() {
             setFrontMatter([newrow_frontmatter(), ...Object.entries(frontmatter || {}).map(([k, v]) => ({frontmatter_key : k, frontmatter_val : v}))]);
             setFrontMatterEmpty(frontmatter === null);
 
-            update_file_tree(res_dir, prep.curdir_url, prep.parentdir_url, res_file.name);
+            update_file_tree(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
             editorRef.current.update(() => {
                 const editorState = editorRef.current.getEditorState();
