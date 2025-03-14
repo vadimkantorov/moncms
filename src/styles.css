@@ -144,6 +144,10 @@ h1 {
   color: rgb(33, 111, 219);
   text-decoration: none;
 }
+.editor-link:hover {
+  text-decoration: underline;
+  cursor: pointer;
+}
 
 .tree-view-output {
   display: block;

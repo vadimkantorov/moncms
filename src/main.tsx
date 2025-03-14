@@ -10,12 +10,14 @@
 
 import { Octokit } from "@octokit/rest";
 import { parse, stringify, YAMLError } from "yaml";
+import Prism from "prismjs"; if (typeof globalThis.Prism === 'undefined') { globalThis.Prism = Prism;}
 
 import './styles.css';
 
 import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 
+import {EditorState, $getRoot, $createParagraphNode, $createTextNode, $isTextNode, $nodesOfType, DOMConversionMap, DOMExportOutput, DOMExportOutputMap, isHTMLElement, Klass, LexicalEditor} from 'lexical';
 import {EditorRefPlugin} from "@lexical/react/LexicalEditorRefPlugin";
 import {AutoFocusPlugin} from '@lexical/react/LexicalAutoFocusPlugin';
 import {LexicalComposer} from '@lexical/react/LexicalComposer';
@@ -23,44 +25,73 @@ import {ContentEditable} from '@lexical/react/LexicalContentEditable';
 import {LexicalErrorBoundary} from '@lexical/react/LexicalErrorBoundary';
 import {HistoryPlugin} from '@lexical/react/LexicalHistoryPlugin';
 import {RichTextPlugin} from '@lexical/react/LexicalRichTextPlugin';
-import {EditorState, $getRoot, $createParagraphNode, $createTextNode, $isTextNode, $nodesOfType,
-    DOMConversionMap, DOMExportOutput, DOMExportOutputMap, isHTMLElement, Klass, LexicalEditor,
-} from 'lexical';
-import Prism from "prismjs"; if (typeof globalThis.Prism === 'undefined') { globalThis.Prism = Prism;}
-import {ImageCacheContext, ImageCache} from './plugins/ImagesPlugin';
-import {PLAYGROUND_TRANSFORMERS} from './plugins/MarkdownTransformers';
 import { $convertToMarkdownString, $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
-import ToolbarPlugin from './plugins/ToolbarPlugin';
-import ImagesPlugin from './plugins/ImagesPlugin';
+
+import {ImageCacheContext, ImageCache} from './plugins/ImagesPlugin';
+import {LexicalAutoLinkPlugin} from './plugins/AutoLinkPlugin';
+import {ToolbarPlugin} from './plugins/ToolbarPlugin';
+import {ImagesPlugin} from './plugins/ImagesPlugin';
+import {PLAYGROUND_TRANSFORMERS} from './plugins/MarkdownTransformers';
 
 import {LexicalNode, ParagraphNode, TextNode} from 'lexical';
 import { HorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
 import { CodeNode } from '@lexical/code';
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import { LinkNode } from "@lexical/link";
+import { LinkNode, AutoLinkNode } from "@lexical/link";
 import { HashtagNode } from "@lexical/hashtag";
 import { ListNode, ListItemNode } from "@lexical/list";
 import { ImageNode } from './nodes/ImageNode';
 
-export function join2(path1 : string, path2: string): string
-{
-    const path1_ = path1[path1.length - 1] == '/' ? path1.slice(0, path1.length - 1) : path1;
-    const _path2 = path2[0] == '/' ? path2.substring(1) : path2;
-    return (path1 && path2) ? (path1_ + '/' + _path2) : (path1 && !path2) ? path1 : (!path1 && path2) ? path2 : '';
-}
+const moncms_prefix = 'moncms';
 
-export function dirname(path : string) : string
-{
-    if (!path)
-        return '';
-    return path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
-}
+const theme = {
+    code: 'editor-code',
+    heading: {
+        h1: 'editor-heading-h1',
+        h2: 'editor-heading-h2',
+        h3: 'editor-heading-h3',
+        h4: 'editor-heading-h4',
+        h5: 'editor-heading-h5',
+    },
+    image: 'editor-image',
+    link: 'editor-link',
+    list: {
+        listitem: 'editor-listitem',
+        nested: {
+        listitem: 'editor-nested-listitem',
+        },
+        ol: 'editor-list-ol',
+        ul: 'editor-list-ul',
+    },
+    ltr: 'ltr',
+    paragraph: 'editor-paragraph',
+    placeholder: 'editor-placeholder',
+    quote: 'editor-quote',
+    rtl: 'rtl',
+    text: {
+        bold: 'editor-text-bold',
+        code: 'editor-text-code',
+        hashtag: 'editor-text-hashtag',
+        italic: 'editor-text-italic',
+        overflowed: 'editor-text-overflowed',
+        strikethrough: 'editor-text-strikethrough',
+        underline: 'editor-text-underline',
+        underlineStrikethrough: 'editor-text-underlineStrikethrough',
+    },
+};
 
-export function github_api_format_error(resp, res = {})
+const editorConfig = {
+    theme: theme,
+    namespace: moncms_prefix,
+    nodes: [ParagraphNode, TextNode, HeadingNode, ListNode, ListItemNode, CodeNode, ImageNode, HorizontalRuleNode, LinkNode, AutoLinkNode],
+    onError(error: Error) { throw error; },
+};
+
+export function github_api_format_error(resp)
 {
-    const resp_status = resp.status || '000';
-    const res_message = (res || {}).message || '';
-    return `${resp_status}: ` + ({200: 'OK', 201: 'OK Created', 404: 'Resource not found', 409: 'Conflict', 422: 'Already Exists. Validation failed, or the endpoint has been spammed.', 401: 'Unauthorized', 500 : 'Internal Server Error', 403: 'Forbidden: ' + res_message}[resp_status] || '');
+    const status = resp.status || '000';
+    const message = (resp?.response?.data?.message) || '';
+    return (status != 200 ? ' error ' : ' ok ') + `| ${status} | ` + ({200: 'OK', 201: 'OK Created', 404: 'Resource not found', 409: 'Conflict', 422: 'Already Exists. Validation failed, or the endpoint has been spammed.', 401: 'Unauthorized', 500 : 'Internal Server Error', 403: 'Forbidden: '}[status] || '') + ' | ' + message;
 }
 
 export function github_api_prepare_params(github_url : String, github_token : String = '', must_have_token : boolean = false) : Object
@@ -126,6 +157,8 @@ export function github_api_prepare_params(github_url : String, github_token : St
     github_repo_dir_path = github_repo_dir_path.replace(/\/$/g, '');
     github_repo_tag = github_repo_tag.replace(/\/$/g, '');
 
+    const dirname = path => (!path) ? '' : (path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '');
+
     const github_path = github_repo_file_path || github_repo_dir_path;
     const github_repo_parent_path = !github_path ? '' : github_path.includes('/') ? dirname(github_path) : '';
     const slashIdx2 = github_path.lastIndexOf('/');
@@ -150,153 +183,122 @@ export function github_api_prepare_params(github_url : String, github_token : St
 
 export async function github_api_signin(prep, log)
 {
-    const octokit = new Octokit({auth: prep.github_token});
+    let res_get = '';
     try
     {
-        const resp_get = await octokit.rest.repos.get({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_repo_url, ref: prep.github_branch});
-        const res_get = resp_get.data;
-        log('github_api_signin: OK');
-        return res_get.default_branch;
+        const octokit = new Octokit({auth: prep.github_token});
+        const resp_get = await octokit.rest.repos.get({owner: prep.github_owner, repo : prep.github_repo, ref: prep.github_branch});
+        res_get = resp_get.data.default_branch;
+        log('github_api_signin:' + github_api_format_error(resp_get));
     }
-    catch
+    catch(exc)
     {
-        log('github_api_signin: error');
-        return '';
+        log('github_api_signin:' + github_api_format_error(exc));
+        res_get = '';
     }
     return '';
 }
 
 export async function github_api_delete_file(prep, sha, log, message = 'no commit message', HTTP_OK = 200)
 {
-    const octokit = new Octokit({auth: prep.github_token});
-
+    let res_del = false;
     try
     {
+        const octokit = new Octokit({auth: prep.github_token});
         const resp_del = await octokit.rest.repos.deleteFile({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path, ref: prep.github_branch, message : message, sha : sha});
-        log('github_api_delete_file: ok');
-        return resp_del.status == HTTP_OK;
+        res_del = resp_del.status == HTTP_OK;
+        log('github_api_delete_file:' + github_api_format_error(resp_del));
     }
-    catch
+    catch(exc)
     {
-        log('github_api_delete_file: error');
-        return false;
+        log('github_api_delete_file:' + github_api_format_error(exc));
+        res_del = false;
     }
-    return false;
+    return res_del;
 }
 
 export async function github_api_get_file_and_dir(prep, log, default_file_name = 'README.md')
 {
-    const octokit = new Octokit({auth: prep.github_token});
-
-    let resp_file = {}, resp_dir = {}, res_file = {}, res_dir = [];
+    let res_file = {}, res_dir = [];
     try
     {   
+        const octokit = new Octokit({auth: prep.github_token});
         if(prep.github_path != prep.github_path_dir)
         {
-            resp_file = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path, ref: prep.github_branch, headers : prep.headers});
-            resp_dir = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path_dir, ref: prep.github_branch, headers : prep.headers});
+            const resp_file = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path, ref: prep.github_branch, headers : prep.headers});
+            const resp_dir = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path_dir, ref: prep.github_branch, headers : prep.headers});
             [res_file, res_dir] = [resp_file.data, resp_dir.data];
         }
         else
         {
-            resp_dir = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path_dir, ref: prep.github_branch, headers : prep.headers});
+            const resp_dir = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path_dir, ref: prep.github_branch, headers : prep.headers});
             res_dir = resp_dir.data;
             const github_path = [''].concat(res_dir.filter(j => j.name.toLowerCase() == default_file_name.toLowerCase()).map(j => j.path)).pop();
-            resp_file = github_path ? (await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: github_path, ref: prep.github_branch, headers : prep.headers})) : {data : []};
+            const resp_file = github_path ? (await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: github_path, ref: prep.github_branch, headers : prep.headers})) : {data : []};
             [res_file, res_dir] = [resp_file.data, resp_dir.data];
         }
+        log('github_api_get_file_and_dir: | file: ' + github_api_format_error(resp_file) + ' | dir: ' + github_api_format_error(resp_dir));
     }
-    catch
+    catch(exc)
     {
-        log('error: github_api_get_file_dir');
+        log('github_api_get_file_and_dir:' + github_api_format_error(exc));
         [res_file, res_dir] = [{}, []];
     }
     
     return [(Object.entries(res_file).length != 0 ? ({name : res_file.name, type : res_file.type, content : res_file.content, sha : res_file.sha, encoding: res_file.encoding, download_url : res_file.download_url, url : decodeURI(res_file.html_url)}) : {}), res_dir.map(f => ({name : f.name, type : f.type, url : decodeURI(f.html_url)}))];
 }
 
-export async function github_api_upsert_file(prep, github_path, base64, sha, callback_created, log, message = 'no commit message', HTTP_CREATED = 201, HTTP_EXISTS = 422)
+export async function github_api_upsert_file(prep, github_path, base64, sha, callback_created, log, message = 'no commit message', HTTP_CREATED = 201)
 {
-    const octokit = new Octokit({auth: prep.github_token});
-    const resp_put = await octokit.rest.repos.createOrUpdateFileContents({owner: prep.github_owner, repo : prep.github_repo, path: github_path, branch: prep.github_branch, message : message, content: base64, sha : sha});
-    const res_put = {...resp_put.data.content, encoding: 'base64', content : base64, url : decodeURI(resp_put.data.content.html_url)};
-
-    if(resp_put.status == HTTP_CREATED && callback_created != null)
-        callback_created(res_put);
-
-    return res_put;
-}
-
-export async function github_api_rename_file(prep, new_file_name, base64, retrieved_contents_sha, github_repo_curdir_path, log, message = 'no commit message')
-{
-    const res_put = await github_api_upsert_file(prep, join2(github_repo_curdir_path, new_file_name), base64, log);
-    const res_del = await github_api_delete_file(prep, retrieved_contents_sha, log);
-    return res_put;
-}
-
-const theme = {
-  code: 'editor-code',
-  heading: {
-    h1: 'editor-heading-h1',
-    h2: 'editor-heading-h2',
-    h3: 'editor-heading-h3',
-    h4: 'editor-heading-h4',
-    h5: 'editor-heading-h5',
-  },
-  image: 'editor-image',
-  link: 'editor-link',
-  list: {
-    listitem: 'editor-listitem',
-    nested: {
-      listitem: 'editor-nested-listitem',
-    },
-    ol: 'editor-list-ol',
-    ul: 'editor-list-ul',
-  },
-  ltr: 'ltr',
-  paragraph: 'editor-paragraph',
-  placeholder: 'editor-placeholder',
-  quote: 'editor-quote',
-  rtl: 'rtl',
-  text: {
-    bold: 'editor-text-bold',
-    code: 'editor-text-code',
-    hashtag: 'editor-text-hashtag',
-    italic: 'editor-text-italic',
-    overflowed: 'editor-text-overflowed',
-    strikethrough: 'editor-text-strikethrough',
-    underline: 'editor-text-underline',
-    underlineStrikethrough: 'editor-text-underlineStrikethrough',
-  },
-};
-
-const editorConfig = {
-    theme: theme,
-    namespace: 'moncms',
-    nodes: [ParagraphNode, TextNode, HeadingNode, ListNode, ListItemNode, CodeNode, ImageNode, HorizontalRuleNode],
-    onError(error: Error) { throw error; },
-};
-
-function parse_frontmatter(text : string) : [string, Object]
-{
-    const m = text.match(/^---\n(.*?)\n---\n*/s);
-    let frontmatter = null;
-    if(m)
+    let res_put = {};
+    try
     {
-        const frontmatter_str = m[1];
-        text = text.substring(m[0].length);
-        const parsed = parse(frontmatter_str, {keepSourceTokens : true, stringKeys: true, strict: true});
-        if(typeof(frontmatter) !== 'object')
-            return [text, null];
-
-        frontmatter = {};
-        for(const [frontmatter_key, frontmatter_val] of Object.entries(parsed))
-            frontmatter[frontmatter_key] = ['string', 'number', 'boolean'].includes(typeof(frontmatter_val)) ? frontmatter_val.toString() : JSON.stringify(frontmatter_val);
+        const octokit = new Octokit({auth: prep.github_token});
+        const resp_put = await octokit.rest.repos.createOrUpdateFileContents({owner: prep.github_owner, repo : prep.github_repo, path: github_path, branch: prep.github_branch, message : message, content: base64, sha : sha});
+        res_put = {...resp_put.data.content, encoding: 'base64', content : base64, url : decodeURI(resp_put.data.content.html_url)};
+        if(resp_put.status == HTTP_CREATED && callback_created != null) callback_created(res_put);
+        log('github_api_upsert_file:' + github_api_format_error(resp_put));
     }
-    return [text, frontmatter];
+    catch(exc)
+    {
+        log('github_api_upsert_file:' + github_api_format_error(exc));
+        res_put = {};
+    }
+    return res_put;
 }
 
-function format_frontmatter_rows(frontmatter_rows : Array, frontMatterEmpty : boolean) : string
+export async function github_api_rename_file(prep, new_file_name, base64, retrieved_contents_sha, github_repo_curdir_path, log, message = 'no commit message', HTTP_OK = 200)
+{
+    let res_put = {};
+    try
+    {
+        const octokit = new Octokit({auth: prep.github_token});
+        
+        const join2 = (path1 : string, path2: string) => (path1 && path2) ? ((path1[path1.length - 1] == '/' ? path1.slice(0, path1.length - 1) : path1) + '/' + (path2[0] == '/' ? path2.substring(1) : path2)) : (path1 && !path2) ? path1 : (!path1 && path2) ? path2 : '';
+        const new_github_path = join2(github_repo_curdir_path, new_file_name);
+        
+        const resp_put = await octokit.rest.repos.createOrUpdateFileContents({owner: prep.github_owner, repo : prep.github_repo, path: new_github_path, branch: prep.github_branch, message : message, content: base64, sha : sha});
+        res_put = resp_put.status == HTTP_OK ? {...resp_put.data.content, encoding: 'base64', content : base64, url : decodeURI(resp_put.data.content.html_url)} : {};
+        
+        const resp_del = resp_put.status == HTTP_OK ? await octokit.rest.repos.deleteFile({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path, ref: prep.github_branch, message : message, sha : sha}) : {};
+        res_put = resp_del.status != HTTP_OK ? res_put : {};
+
+        log('github_api_rename_file: | put: ' + github_api_format_error(resp_put) + ' | del: ' + github_api_format_error(resp_del));
+    }
+    catch(exc)
+    {
+        log('github_api_rename_file:' + github_api_format_error(exc));
+        res_put = {};
+    }
+    return res_put;
+}
+
+function frontmatter_rows_new()
+{
+    return {frontmatter_id: self.crypto.randomUUID(), frontmatter_key: '', frontmatter_val: ''};
+}
+
+function frontmatter_rows_format(frontmatter_rows : Array, frontMatterEmpty : boolean) : string
 {
     const frontmatter = {};
     for(let {frontmatter_key, frontmatter_val} of frontmatter_rows)
@@ -315,27 +317,46 @@ function format_frontmatter_rows(frontmatter_rows : Array, frontMatterEmpty : bo
     return (frontmatter_str_inside || !frontMatterEmpty) ? frontmatter_str : '';
 }
 
+function frontmatter_parse(text : string) : [string, Object]
+{
+    const m = text.match(/^---\n(.*?)\n---\n*/s);
+    let frontmatter = null;
+    if(m)
+    {
+        const frontmatter_str = m[1];
+        text = text.substring(m[0].length);
+        const parsed = parse(frontmatter_str, {keepSourceTokens : true, stringKeys: true, strict: true});
+        if(typeof(frontmatter) !== 'object')
+            return [text, null];
+
+        frontmatter = {};
+        for(const [frontmatter_key, frontmatter_val] of Object.entries(parsed))
+            frontmatter[frontmatter_key] = ['string', 'number', 'boolean'].includes(typeof(frontmatter_val)) ? frontmatter_val.toString() : JSON.stringify(frontmatter_val);
+    }
+    return [text, frontmatter];
+}
+
 function update_location(path : string)
 {
     window.history.replaceState({}, document.title, path );
 }
 
-function cache_has(key : string, prefix = 'moncms_')
+function cache_has(key : string)
 {
-    return localStorage.getItem(prefix + key) != null;
+    return localStorage.getItem(moncms_prefix + key) != null;
 }
 
-function cache_load(key : string, prefix = 'moncms_')
+function cache_load(key : string)
 {
-    return localStorage.getItem(prefix + key) || '';
+    return localStorage.getItem(moncms_prefix + key) || '';
 }
 
-function cache_save(key : string, value : string = '', prefix = 'moncms_')
+function cache_save(key : string, value : string = '')
 {
     if (value)
-        localStorage.setItem(prefix + key, value);
+        localStorage.setItem(moncms_prefix + key, value);
     else
-        localStorage.removeItem(prefix + key);
+        localStorage.removeItem(moncms_prefix + key);
 }
 
 function load_token(url_value)
@@ -365,7 +386,7 @@ function find_meta(doc, key)
     return (Array.from(doc.querySelectorAll('meta')).filter(meta => meta.name == key).pop() || {}).content || '';
 }
 
-async function github_discover_url(url : string, key = 'moncmsdefault', HTTP_OK = 200) : string
+async function github_discover_url(url : string, key : string, HTTP_OK = 200) : string
 {
     if(!url)
         return '';
@@ -382,11 +403,6 @@ async function github_discover_url(url : string, key = 'moncmsdefault', HTTP_OK 
         return find_meta(doc, key);
     }
     return '';
-}
-
-function frontmatter_rows_new()
-{
-    return {frontmatter_id: self.crypto.randomUUID(), frontmatter_key: '', frontmatter_val: ''};
 }
 
 function encode_string_as_base64(str:string): string
@@ -410,7 +426,7 @@ async function upload_image_from_bloburl(prep, bloburl, imageCache, log)
 
 const imageCache = new ImageCache();
 
-function init_fields(window_location, meta_key = 'moncmsdefault')
+function init_fields(window_location)
 {
     let url_value = '', token_value = '', is_signed_in_value = false, log_value = '';
     if(window_location.search)
@@ -420,8 +436,7 @@ function init_fields(window_location, meta_key = 'moncmsdefault')
             url_value = query_string.get('github_url');
         if(query_string.has('github_token'))
             token_value = query_string.get('github_token');
-        //if(!url_value)
-        //    url_value = find_meta(document, meta_key);
+        //if(!url_value) url_value = find_meta(document, moncms_prefix);
         if(url_value && !token_value)
         {
             token_value = load_token(url_value);
@@ -442,7 +457,7 @@ function init_fields(window_location, meta_key = 'moncmsdefault')
     }
     if(url_value)
     {
-        is_signed_in_value = load_token(url_value) != '';
+        is_signed_in_value = cache_has(url_value);
     }
 
     return [url_value, token_value, is_signed_in_value, log_value];
@@ -579,7 +594,7 @@ function App() {
             return moncms_log(prep.error);
 
         const frontmatter_empty = frontMatterEmpty == true;
-        const frontmatter_str = format_frontmatter_rows(frontMatterRows, frontmatter_empty);
+        const frontmatter_str = frontmatter_rows_format(frontMatterRows, frontmatter_empty);
         
         let [markdown, imageNodes] = await new Promise(resolve => editorRef.current.read(() => {
             let markdown = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS);
@@ -712,7 +727,7 @@ function App() {
                 moncms_log('got from cache for ' + prep.github_repo_url);
             }
         }
-        else if(cache_load(prep.github_repo_url) != '')
+        else if(cache_has(prep.github_repo_url))
         {
             setIsSignedIn(true);
             moncms_log('found in cache for ' + prep.github_repo_url);
@@ -772,7 +787,7 @@ function App() {
         else if(!is_image)
         {
             let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
-            [text, frontmatter] = parse_frontmatter(text);
+            [text, frontmatter] = frontmatter_parse(text);
             
             const frontmatter_rows = Object.entries(frontmatter || {}).map(([k, v]) => ({...frontmatter_rows_new(), frontmatter_key : k, frontmatter_val : v}));
             setFrontMatterRows([frontmatter_rows_new(), ...frontmatter_rows]);
@@ -868,7 +883,7 @@ function App() {
         
         <button onClick={event => {setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
         <button onClick={onclick_signinout} className={isSignedIn ? "signout" : "signin"} ></button>
-        <button onClick={() => setIsCompact(!isCompact)}>Toggle Compact View</button>
+        <button onClick={() => setIsCompact(!isCompact)}>Compact View</button>
     </div>
     <div className="editor-shell">
     <ImageCacheContext.Provider value={imageCache}><LexicalComposer initialConfig={editorConfig}>
@@ -884,6 +899,7 @@ function App() {
             ErrorBoundary={LexicalErrorBoundary}
           />
           <HistoryPlugin />
+          <LexicalAutoLinkPlugin />
           {/*<AutoFocusPlugin />*/}
         </div>
       </div>
@@ -893,6 +909,8 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render
+if(!window.root)
+    window.root = ReactDOM.createRoot(document.getElementById('root'));
+window.root.render
 (<div className="App"><App /></div>);
 //(<React.StrictMode><div className="App"><App /></div></React.StrictMode>);
