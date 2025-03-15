@@ -28,9 +28,9 @@ import {RichTextPlugin} from '@lexical/react/LexicalRichTextPlugin';
 import { $convertToMarkdownString, $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 
 import {ImageCacheContext, ImageCache} from './plugins/ImagesPlugin';
-import {LexicalAutoLinkPlugin} from './plugins/AutoLinkPlugin';
-import {ToolbarPlugin} from './plugins/ToolbarPlugin';
-import {ImagesPlugin} from './plugins/ImagesPlugin';
+import LexicalAutoLinkPlugin from './plugins/AutoLinkPlugin';
+import ToolbarPlugin from './plugins/ToolbarPlugin';
+import ImagesPlugin from './plugins/ImagesPlugin';
 import {PLAYGROUND_TRANSFORMERS} from './plugins/MarkdownTransformers';
 
 import {LexicalNode, ParagraphNode, TextNode} from 'lexical';
@@ -87,11 +87,11 @@ const editorConfig = {
     onError(error: Error) { throw error; },
 };
 
-export function github_api_format_error(resp)
+export function github_api_format_error(resp, HTTP_OK = 200, HTTP_CREATED = 201)
 {
     const status = resp.status || '000';
-    const message = (resp?.response?.data?.message) || '';
-    return (status != 200 ? ' error ' : ' ok ') + `| ${status} | ` + ({200: 'OK', 201: 'OK Created', 404: 'Resource not found', 409: 'Conflict', 422: 'Already Exists. Validation failed, or the endpoint has been spammed.', 401: 'Unauthorized', 500 : 'Internal Server Error', 403: 'Forbidden: '}[status] || '') + ' | ' + message;
+    const message = ((resp?.response?.data?.message) || ((resp?.message || '') + (resp?.stack || '')) ||'').replaceAll('\n', ' ');
+    return ([HTTP_OK, HTTP_CREATED].includes(status) ? ' ok ' : ' error ') + `| ${status} | ` + ({200: 'OK', 201: 'OK Created', 404: 'Resource not found', 409: 'Conflict', 422: 'Already Exists. Validation failed, or the endpoint has been spammed.', 401: 'Unauthorized', 500 : 'Internal Server Error', 403: 'Forbidden: '}[status] || '') + ' | ' + message;
 }
 
 export function github_api_prepare_params(github_url : String, github_token : String = '', must_have_token : boolean = false) : Object
@@ -125,6 +125,7 @@ export function github_api_prepare_params(github_url : String, github_token : St
         return prep;
     }
 
+    // TODO: make work for new format: https://raw.githubusercontent.com/vadimkantorov/moncmsblog/refs/heads/master/README.md
     const github_url_normalized = github_url.replace('https://raw.githubusercontent.com', 'https://github.com');
 
     let github_owner = '', github_repo = '', github_repo_tag = '', github_repo_file_path = '', github_repo_dir_path = '';
@@ -219,22 +220,22 @@ export async function github_api_delete_file(prep, sha, log, message = 'no commi
 
 export async function github_api_get_file_and_dir(prep, log, default_file_name = 'README.md')
 {
-    let res_file = {}, res_dir = [];
+    let res_file = {}, res_dir = [], resp_file = {}, resp_dir = {};
     try
     {   
         const octokit = new Octokit({auth: prep.github_token});
         if(prep.github_path != prep.github_path_dir)
         {
-            const resp_file = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path, ref: prep.github_branch, headers : prep.headers});
-            const resp_dir = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path_dir, ref: prep.github_branch, headers : prep.headers});
+            resp_file = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path, ref: prep.github_branch, headers : prep.headers});
+            resp_dir = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path_dir, ref: prep.github_branch, headers : prep.headers});
             [res_file, res_dir] = [resp_file.data, resp_dir.data];
         }
         else
         {
-            const resp_dir = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path_dir, ref: prep.github_branch, headers : prep.headers});
+            resp_dir = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path_dir, ref: prep.github_branch, headers : prep.headers});
             res_dir = resp_dir.data;
             const github_path = [''].concat(res_dir.filter(j => j.name.toLowerCase() == default_file_name.toLowerCase()).map(j => j.path)).pop();
-            const resp_file = github_path ? (await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: github_path, ref: prep.github_branch, headers : prep.headers})) : {data : []};
+            resp_file = github_path ? (await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: github_path, ref: prep.github_branch, headers : prep.headers})) : {data : []};
             [res_file, res_dir] = [resp_file.data, resp_dir.data];
         }
         log('github_api_get_file_and_dir: | file: ' + github_api_format_error(resp_file) + ' | dir: ' + github_api_format_error(resp_dir));
@@ -248,13 +249,22 @@ export async function github_api_get_file_and_dir(prep, log, default_file_name =
     return [(Object.entries(res_file).length != 0 ? ({name : res_file.name, type : res_file.type, content : res_file.content, sha : res_file.sha, encoding: res_file.encoding, download_url : res_file.download_url, url : decodeURI(res_file.html_url)}) : {}), res_dir.map(f => ({name : f.name, type : f.type, url : decodeURI(f.html_url)}))];
 }
 
-export async function github_api_upsert_file(prep, github_path, base64, sha, callback_created, log, message = 'no commit message', HTTP_CREATED = 201)
+export async function github_api_upsert_file(prep, github_path, base64, sha, callback_created, log, message = 'no commit message', HTTP_OK = 200, HTTP_CREATED = 201)
 {
     let res_put = {};
     try
     {
         const octokit = new Octokit({auth: prep.github_token});
-        const resp_put = await octokit.rest.repos.createOrUpdateFileContents({owner: prep.github_owner, repo : prep.github_repo, path: github_path, branch: prep.github_branch, message : message, content: base64, sha : sha});
+        const resp_get = sha == null ? await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: github_path, ref: prep.github_branch, headers : prep.headers}) : {};
+        if(sha == null && resp_get.status == HTTP_OK)
+        {
+            sha = resp_get.data.sha;
+            if(resp_get.data.encoding == 'base64' && resp_get.data.content.replaceAll('\n', '') == base64.replaceAll('\n', ''))
+            {
+                return {...resp_get.data, encoding: 'base64', content : base64, url : decodeURI(resp_get.data.html_url)};
+            }
+        }
+        const resp_put = await octokit.rest.repos.createOrUpdateFileContents({owner: prep.github_owner, repo : prep.github_repo, path: github_path, branch: prep.github_branch, message : message, content: base64, ...(sha ? {sha : sha} : {})});
         res_put = {...resp_put.data.content, encoding: 'base64', content : base64, url : decodeURI(resp_put.data.content.html_url)};
         if(resp_put.status == HTTP_CREATED && callback_created != null) callback_created(res_put);
         log('github_api_upsert_file:' + github_api_format_error(resp_put));
@@ -267,7 +277,7 @@ export async function github_api_upsert_file(prep, github_path, base64, sha, cal
     return res_put;
 }
 
-export async function github_api_rename_file(prep, new_file_name, base64, retrieved_contents_sha, github_repo_curdir_path, log, message = 'no commit message', HTTP_OK = 200)
+export async function github_api_rename_file(prep, new_file_name, base64, sha, github_repo_curdir_path, log, message = 'no commit message', HTTP_OK = 200)
 {
     let res_put = {};
     try
@@ -277,7 +287,7 @@ export async function github_api_rename_file(prep, new_file_name, base64, retrie
         const join2 = (path1 : string, path2: string) => (path1 && path2) ? ((path1[path1.length - 1] == '/' ? path1.slice(0, path1.length - 1) : path1) + '/' + (path2[0] == '/' ? path2.substring(1) : path2)) : (path1 && !path2) ? path1 : (!path1 && path2) ? path2 : '';
         const new_github_path = join2(github_repo_curdir_path, new_file_name);
         
-        const resp_put = await octokit.rest.repos.createOrUpdateFileContents({owner: prep.github_owner, repo : prep.github_repo, path: new_github_path, branch: prep.github_branch, message : message, content: base64, sha : sha});
+        const resp_put = await octokit.rest.repos.createOrUpdateFileContents({owner: prep.github_owner, repo : prep.github_repo, path: new_github_path, branch: prep.github_branch, message : message, content: base64});
         res_put = resp_put.status == HTTP_OK ? {...resp_put.data.content, encoding: 'base64', content : base64, url : decodeURI(resp_put.data.content.html_url)} : {};
         
         const resp_del = resp_put.status == HTTP_OK ? await octokit.rest.repos.deleteFile({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path, ref: prep.github_branch, message : message, sha : sha}) : {};
@@ -520,6 +530,10 @@ function App() {
 
     function onchange_files(event)
     {
+        const prep = github_api_prepare_params(url, token, true);
+        if(prep.error)
+            return moncms_log(prep.error);
+
         for(const file of event.target.files)
         {
             const new_file_name = file.name;
@@ -529,10 +543,10 @@ function App() {
                 new_file_name, 
                 reader.result.split(',').pop(),
                 null,
-                res_created => filetree_add(res_created.name, res_created.url),
+                res_created => filetree_add(res_created.name, res_created.url, false),
                 moncms_log
             );
-            reader.onerror = () => moncms_log('FILELOAD error');
+            reader.onerror = () => moncms_log('upload: error');
             reader.readAsDataURL(file);
         }
         event.target.value = '';
@@ -564,18 +578,22 @@ function App() {
         const prep = github_api_prepare_params(url, token, true);
         if(prep.error)
             return moncms_log(prep.error);
+
         if(!window.confirm(event.target.dataset.message + ` [${curFile.name}]`))
             return;
 
-        await github_api_delete_file(prep, curFile.sha, moncms_log);
-        filetree_del(fileName);
-        setUrl(prep.curdir_url());
-        clear('', false, true);
+        const res_del = await github_api_delete_file(prep, curFile.sha, moncms_log);
+        if(res_del)
+        {
+            filetree_del(fileName);
+            setUrl(prep.curdir_url());
+            clear('', false, true);
+        }
     }
 
     function onclick_upload()
     {
-        const prep = github_api_prepare_params(url, value, true);
+        const prep = github_api_prepare_params(url, token, true);
         if(prep.error)
             return moncms_log(prep.error);
         
@@ -620,7 +638,7 @@ function App() {
         const base64 = encode_string_as_base64(frontmatter_str + markdown);
 
         if(curFile.encoding == 'base64'
-            && curFile.content.replaceAll('\n', '') == base64
+            && curFile.content.replaceAll('\n', '') == base64.replaceAll('\n', '')
             && fileName == curFile.name
             && frontmatter_empty
             && !frontmatter_str
@@ -638,10 +656,10 @@ function App() {
         }
         else if(should_create)
         {
-            const res_put = await github_api_upsert_file(prep, fileName, base64, curFile.sha, null, moncms_log);
+            const res_put = await github_api_upsert_file(prep, fileName, base64, '', null, moncms_log);
             setCurFile(res_put);
             setUrl(res_put.url);
-            filetree_add(fileName, res_put.url);
+            filetree_add(fileName, res_put.url, true);
         }
         else if(should_rename)
         {
@@ -669,10 +687,11 @@ function App() {
         setFileTreeValue(file_tree_value);
     }
 
-    function filetree_add(file_name, url)
+    function filetree_add(file_name, url, update_selected = true)
     {
         setFileTree([...fileTree, { name: file_name, type: 'file', url: url }]);
-        setFileTreeValue(url);
+        if(update_selected)
+            setFileTreeValue(url);
     }
 
     function filetree_del(file_name)
@@ -864,8 +883,8 @@ function App() {
                     <td><input type="text" name="frontmatter_key" placeholder="Frontmatter key:"   value={frontmatter_key} onChange={event => frontmatter_updaterow(idx, event.target.name, event.target.value)} /></td>
                     <td><input type="text" name="frontmatter_val" placeholder="Frontmatter value:" value={frontmatter_val} onChange={event => frontmatter_updaterow(idx, event.target.name, event.target.value)} /></td>
                     <td>
-                        <button onClick={event => frontmatter_addrow(event.target.parentElement.parentElement.rowIndex)}>Add another row</button>
-                        <button onClick={event => frontmatter_delrow(event.target.parentElement.parentElement.rowIndex)}>Delete this row</button>
+                        <button onClick={event => frontmatter_addrow(event.target.parentElement.parentElement.rowIndex)}>Add Another Row</button>
+                        <button onClick={event => frontmatter_delrow(event.target.parentElement.parentElement.rowIndex)}>Delete This Row</button>
                     </td>
                 </tr>
             ))}
@@ -909,8 +928,8 @@ function App() {
   );
 }
 
-if(!window.root)
-    window.root = ReactDOM.createRoot(document.getElementById('root'));
-window.root.render
+//if(!window.root)
+//    window.root = ReactDOM.createRoot(document.getElementById('root'));
+ReactDOM.createRoot(document.getElementById('root')).render
 (<div className="App"><App /></div>);
 //(<React.StrictMode><div className="App"><App /></div></React.StrictMode>);
