@@ -12,7 +12,7 @@ import { Octokit } from "@octokit/rest";
 import { parse, stringify, YAMLError } from "yaml";
 import Prism from "prismjs"; if (typeof globalThis.Prism === 'undefined') { globalThis.Prism = Prism;}
 
-import './styles.css';
+import '../assets/styles.css';
 
 import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
