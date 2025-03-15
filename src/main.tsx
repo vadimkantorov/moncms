@@ -900,8 +900,8 @@ function App() {
         <button onClick={onclick_upload}>Upload Files</button>
         <input type="file" id="html_files" ref={filesRef} onChange={onchange_files} multiple hidden />
         
-        <button onClick={event => {setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
         <button onClick={onclick_signinout} className={isSignedIn ? "signout" : "signin"} ></button>
+        <button onClick={event => {setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
         <button onClick={() => setIsCompact(!isCompact)}>Compact View</button>
     </div>
     <div className="editor-shell">
