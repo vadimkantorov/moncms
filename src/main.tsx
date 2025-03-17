@@ -42,6 +42,8 @@ import { HashtagNode } from "@lexical/hashtag";
 import { ListNode, ListItemNode } from "@lexical/list";
 import { ImageNode } from './nodes/ImageNode';
 
+const imageCache = new ImageCache();
+
 const moncms_prefix = 'moncms';
 
 const theme = {
@@ -154,9 +156,16 @@ export function github_api_prepare_params(github_url : String, github_token : St
         prep.error = 'github_url could not be matched';
         return prep;
     }
+    
     github_repo = github_repo.replace(/\/$/g, '');
     github_repo_dir_path = github_repo_dir_path.replace(/\/$/g, '');
     github_repo_tag = github_repo_tag.replace(/\/$/g, '');
+
+    if((!github_owner) || (!github_repo))
+    {
+        prep.error = "github_owner or github_repo could not be extracted";
+        return prep;
+    }
 
     const dirname = path => (!path) ? '' : (path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '');
 
@@ -329,8 +338,8 @@ function frontmatter_rows_format(frontmatter_rows : Array, frontMatterEmpty : bo
 
 function frontmatter_parse(text : string) : [string, Object]
 {
-    const m = text.match(/^---\n(.*?)\n---\n*/s);
     let frontmatter = null;
+    const m = text.match(/^---\n(.*?)\n---\n*/s);
     if(m)
     {
         const frontmatter_str = m[1];
@@ -351,12 +360,12 @@ function update_location(path : string)
     window.history.replaceState({}, document.title, path );
 }
 
-function cache_has(key : string)
+function cache_has(key : string) : boolean
 {
     return localStorage.getItem(moncms_prefix + key) != null;
 }
 
-function cache_load(key : string)
+function cache_load(key : string) : string
 {
     return localStorage.getItem(moncms_prefix + key) || '';
 }
@@ -369,29 +378,35 @@ function cache_save(key : string, value : string = '')
         localStorage.removeItem(moncms_prefix + key);
 }
 
-function load_token(url_value)
+function load_token(url_value : string) : string
 {
     const prep = github_api_prepare_params(url_value);
     return prep.github_repo_url ? cache_load(prep.github_repo_url) : '';
 }
 
-function fmt_log(text : string)
+function fmt_exc(exc : Error) : string
+{
+    return (((exc.message || '') + ' | ' +  (exc.stack || '')) ||'').replaceAll('\n', ' ');
+}
+
+function fmt_log(text : string) : string
 {
     const now = new Date().toISOString();
 
     return `${now}: ${text}`;
 }
 
-function fmt_upload_path(basename: string)
+function fmt_upload_path(basename: string, upload_path_template : string = '/moncms-content/uploads/${yyyy}/${mm}/${basename}') : string
 {
     const now = new Date().toISOString();
     const yyyy = now.slice(0, 4);
     const mm = now.slice(5, 7);
 
-    return `/moncms-content/uploads/${yyyy}/${mm}/${basename}`;
+    const upload_path = upload_path_template.replaceAll('${yyyy}', yyyy).replaceAll('${mm}', mm).replaceAll('${basename}', basename);
+    return upload_path;
 }
 
-function find_meta(doc, key)
+function find_meta(doc : Document, key : string) : string
 {
     return (Array.from(doc.querySelectorAll('meta')).filter(meta => meta.name == key).pop() || {}).content || '';
 }
@@ -434,8 +449,6 @@ async function upload_image_from_bloburl(prep, bloburl, imageCache, log)
     return src_new;
 }
 
-const imageCache = new ImageCache();
-
 function init_fields(window_location)
 {
     let url_value = '', token_value = '', is_signed_in_value = false, log_value = '';
@@ -473,6 +486,19 @@ function init_fields(window_location)
     return [url_value, token_value, is_signed_in_value, log_value];
 }
 
+function try_catch(log, fn)
+{
+    try
+    {
+        return fn();
+    }
+    catch(exc)
+    {
+        log(fmt_exc(exc));
+        return null;
+    }
+}
+
 function App() {    
     const [url_value, token_value, is_signed_in_value, log_value] = init_fields(window.location);
 
@@ -499,18 +525,19 @@ function App() {
     useEffect(() => 
     {
         if(url)
-            open_file_or_dir(url, token);
+            open_file_or_dir(url, token).then(moncms_log);
         else
             urlRef.current.focus();
     }, []);
 
-    function moncms_log(text : string)
+    function moncms_log(err : string | Error)
     {
+        const text = (typeof(err) == 'string') ? err : fmt_exc(err);
         setLog(fmt_log(text));
         setLogHistory(prev => fmt_log(text) + '\n' + prev);
     }
 
-    function clear(markdown = '', file_tree = true, front_matter = true)
+    function clear(markdown = '', file_tree : boolean = true, front_matter : boolean = true)
     {
         setCurFile({});
         setFileName('');
@@ -552,34 +579,31 @@ function App() {
         event.target.value = '';
     }
 
-    async function onclick_createfiledir(event, iso_date_fmt = '0000-00-00', iso_time_fmt = 'T00:00:00')
+    async function onclick_createfiledir(newpath_template : string, clear_message : string, iso_date_fmt : string = '0000-00-00', iso_time_fmt : string = 'T00:00:00')
     {
         const now = new Date().toISOString();
         const time = now.slice(iso_date_fmt.length, iso_date_fmt.length + iso_time_fmt.length).replace('T', '').toLowerCase().replaceAll(':', '');
         const date = now.slice(0, iso_date_fmt.length).replace('T', '');
         
-        const new_path = event.target.dataset.newpath.replaceAll('${date}', date.toString()).replaceAll('${time}', time.toString());
-        clear(event.target.dataset.message, false, true);
+        const new_path = newpath_template.replaceAll('${date}', date.toString()).replaceAll('${time}', time.toString());
+        clear(clear_message, false, true);
         setFileName(new_path);
         //fileNameRef.current.focus();
     }
 
-    async function onclick_delfile(event)
+    async function onclick_delfile(confirmation_message : string)
     {
         if(!fileName)
             return moncms_log('cannot delete current directory');
 
         if(Object.entries(curFile).length == 0)
-        {
-            clear('', false, true);
-            return;
-        }
+            return clear('', false, true);
 
         const prep = github_api_prepare_params(url, token, true);
         if(prep.error)
             return moncms_log(prep.error);
 
-        if(!window.confirm(event.target.dataset.message + ` [${curFile.name}]`))
+        if(!window.confirm(confirmation_message + ` [${curFile.name}]`))
             return;
 
         const res_del = await github_api_delete_file(prep, curFile.sha, moncms_log);
@@ -727,7 +751,7 @@ function App() {
             setFrontMatterRows([...frontMatterRows, frontmatter_rows_new()]);
     }
 
-    async function open_file_or_dir(url_value = '', token_value = '', HTTP_OK = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
+    async function open_file_or_dir(url_value : string = '', token_value : string = '', HTTP_OK : number = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
     {
         let prep = github_api_prepare_params(url_value, token_value);
         if(prep.error)
@@ -834,11 +858,8 @@ function App() {
                 return moncms_log('cannot signin, no token provided');
 
             const prep = github_api_prepare_params(url, token);
-            if(!prep.github_repo_url || prep.error)
-            {
-                if(!prep.error) moncms_log(prep.error);
-                return;
-            }
+            if(prep.error)
+                return moncms_log(prep.error);
 
             cache_save(prep.github_repo_url, null);
 
@@ -869,9 +890,9 @@ function App() {
   
   return (
     <>
-    <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" ref={urlRef} type="text" value={url} onChange={event => setUrl(event.target.value)}  onKeyPress={event => event.code == 'Enter' && open_file_or_dir(url, token)} />
-    <input  hidden={isCompact} id="html_token" placeholder="GitHub token:"  type="text" value={token} onChange={event => setToken(event.target.value)} onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token)} />
-    <input  hidden={isCompact} id="html_file_name" placeholder="File name:" type="text" ref={fileNameRef} value={fileName} onChange={event => setFileName(event.target.value)}  onKeyPress={event => event.code == 'Enter' && onclick_savefile()} />
+    <input placeholder="GitHub or public URL:" title="GitHub or public URL:" id="html_url" ref={urlRef} type="text" value={url} onChange={event => setUrl(event.target.value)}  onKeyPress={event => event.code == 'Enter' && open_file_or_dir(url, token).catch(moncms_log)} />
+    <input  hidden={isCompact} id="html_token" placeholder="GitHub token:"  type="text" value={token} onChange={event => setToken(event.target.value)} onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token).catch(moncms_log)} />
+    <input  hidden={isCompact} id="html_file_name" placeholder="File name:" type="text" ref={fileNameRef} value={fileName} onChange={event => setFileName(event.target.value)}  onKeyPress={event => event.code == 'Enter' && onclick_savefile().catch(moncms_log)} />
     <input  hidden={isCompact} id="html_log" placeholder="Log:" title={logHistory} value={log} readOnly />
     <select hidden={isCompact} id="html_file_tree" size="10" value={fileTreeValue} onChange={(event) => setFileTreeValue(event.target.value)} onKeyPress={event => (event.code == 'Space' || event.code == 'Enter') ? [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)] : []} onDoubleClick={(event) => [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)]}>
         {fileTree.map((f, i) => (<option key={f.name + ':' + f.url} value={f.url} title={f.url}>{f.name + (f.type == 'dir' ? '/' : '')}</option>))}
@@ -893,14 +914,14 @@ function App() {
     <div id="moncms_toolbar">
         <button onClick={() => open_file_or_dir(url, token)}>Open</button>
         <button onClick={onclick_savefile}>Save File</button>
-        <button onClick={onclick_delfile} id="html_delfile" data-message="Do you really want to delete this file?">Delete File</button>
-        <button onClick={onclick_createfiledir} id="html_createfile" data-newpath="${date}-new-post-draft-at-${time}.md" data-message="### modify the file name, modify this content and click Save File to actually create and save the file">New File</button>
-        <button onClick={onclick_createfiledir} id="html_createdir" data-newpath="new-dir-at-${time}/.gitignore" data-message="### modify the directory name, and then click Save File to create the file and the directory">New Folder</button>
+        <button onClick={event => onclick_delfile(event.target.dataset.message).catch(moncms_log)} id="html_delfile" data-message="Do you really want to delete this file?">Delete File</button>
+        <button onClick={event => onclick_createfiledir(event.target.dataset.newpath, event.target.dataset.message)} id="html_createfile" data-newpath="${date}-new-post-draft-at-${time}.md" data-message="### modify the file name, modify this content and click Save File to actually create and save the file">New File</button>
+        <button onClick={event => onclick_createfiledir(event.target.dataset.newpath, event.target.dataset.message)} id="html_createdir"  data-newpath="new-dir-at-${time}/.gitignore"        data-message="### modify the directory name, and then click Save File to create the file and the directory">New Folder</button>
         
         <button onClick={onclick_upload}>Upload Files</button>
         <input type="file" id="html_files" ref={filesRef} onChange={onchange_files} multiple hidden />
         
-        <button onClick={onclick_signinout} className={isSignedIn ? "signout" : "signin"} ></button>
+        <button onClick={() => onclick_signinout().catch(moncms_log)} className={isSignedIn ? "signout" : "signin"} ></button>
         <button onClick={event => {setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
         <button onClick={() => setIsCompact(!isCompact)}>Compact View</button>
     </div>
