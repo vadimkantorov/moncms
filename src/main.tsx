@@ -25,12 +25,15 @@ import {ContentEditable} from '@lexical/react/LexicalContentEditable';
 import {LexicalErrorBoundary} from '@lexical/react/LexicalErrorBoundary';
 import {HistoryPlugin} from '@lexical/react/LexicalHistoryPlugin';
 import {RichTextPlugin} from '@lexical/react/LexicalRichTextPlugin';
+import {HorizontalRulePlugin} from '@lexical/react/LexicalHorizontalRulePlugin';
 import { $convertToMarkdownString, $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 
 import {ImageCacheContext, ImageCache} from './plugins/ImagesPlugin';
 import LexicalAutoLinkPlugin from './plugins/AutoLinkPlugin';
 import ToolbarPlugin from './plugins/ToolbarPlugin';
+import ShortcutsPlugin from './plugins/ShortcutsPlugin';
 import ImagesPlugin from './plugins/ImagesPlugin';
+import LinkPlugin from './plugins/LinkPlugin';
 import {PLAYGROUND_TRANSFORMERS} from './plugins/MarkdownTransformers';
 
 import {LexicalNode, ParagraphNode, TextNode} from 'lexical';
@@ -41,6 +44,7 @@ import { LinkNode, AutoLinkNode } from "@lexical/link";
 import { HashtagNode } from "@lexical/hashtag";
 import { ListNode, ListItemNode } from "@lexical/list";
 import { ImageNode } from './nodes/ImageNode';
+import { ToolbarContext } from "./context/ToolbarContext";
 
 const imageCache = new ImageCache();
 
@@ -521,11 +525,13 @@ function App() {
     const [fileTree, setFileTree] = useState([]);
     const [fileTreeValue, setFileTreeValue] = useState('');
 
+    const [isLinkEditMode, setIsLinkEditMode] = useState<boolean>(false);
+
     //const url_discovered = await github_discover_url(window.location.href, meta_key);
     useEffect(() => 
     {
         if(url)
-            open_file_or_dir(url, token).then(moncms_log);
+            open_file_or_dir(url, token).catch(moncms_log);
         else
             urlRef.current.focus();
     }, []);
@@ -926,11 +932,12 @@ function App() {
         <button onClick={() => setIsCompact(!isCompact)}>Compact View</button>
     </div>
     <div className="editor-shell">
-    <ImageCacheContext.Provider value={imageCache}><LexicalComposer initialConfig={editorConfig}>
-      <EditorRefPlugin editorRef={editorRef} />
+    <ImageCacheContext.Provider value={imageCache}><LexicalComposer initialConfig={editorConfig}><EditorRefPlugin editorRef={editorRef} /><ToolbarContext>
       <div className="editor-container">
-        <ToolbarPlugin />
+        <ToolbarPlugin setIsLinkEditMode={setIsLinkEditMode} />
+        <ShortcutsPlugin setIsLinkEditMode={setIsLinkEditMode} />
         <ImagesPlugin />
+        <HorizontalRulePlugin />
         <div className="editor-inner">
           <RichTextPlugin
             contentEditable={
@@ -940,10 +947,11 @@ function App() {
           />
           <HistoryPlugin />
           <LexicalAutoLinkPlugin />
+          <LinkPlugin />
           {/*<AutoFocusPlugin />*/}
         </div>
       </div>
-    </LexicalComposer></ImageCacheContext.Provider>
+      </ToolbarContext></LexicalComposer></ImageCacheContext.Provider>
     </div>
     </>
   );

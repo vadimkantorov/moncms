@@ -59,7 +59,7 @@ import TabFocusPlugin from './plugins/TabFocusPlugin';
 import TableCellActionMenuPlugin from './plugins/TableActionMenuPlugin';
 import TableCellResizer from './plugins/TableCellResizer';
 import TableOfContentsPlugin from './plugins/TableOfContentsPlugin';
-import ToolbarPlugin from './plugins/ToolbarPlugin';
+import ToolbarPlugin from './plugins/ToolbarPluginSimple';
 import TreeViewPlugin from './plugins/TreeViewPlugin';
 import TwitterPlugin from './plugins/TwitterPlugin';
 import YouTubePlugin from './plugins/YouTubePlugin';

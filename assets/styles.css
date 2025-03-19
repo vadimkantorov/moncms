@@ -431,53 +431,6 @@ pre::-webkit-scrollbar-thumb {
   background-size: contain;
 }
 
-i.undo {
-  background-image: url("../assets/icons/arrow-counterclockwise.svg")
-}
-
-i.redo {
-  background-image: url("../assets/icons/arrow-clockwise.svg")
-}
-
-i.bold {
-  background-image: url("../assets/icons/type-bold.svg")
-}
-
-i.italic {
-  background-image: url("../assets/icons/type-italic.svg")
-}
-
-i.underline {
-  background-image: url("../assets/icons/type-underline.svg")
-}
-
-i.strikethrough {
-  background-image: url("../assets/icons/type-strikethrough.svg") 
-}
-
-i.left-align {
-  background-image: url("../assets/icons/text-left.svg")
-}
-
-i.center-align {
-  background-image: url("../assets/icons/text-center.svg")
-}
-
-i.right-align {
-  background-image: url("../assets/icons/text-right.svg")
-}
-
-i.justify-align {
-  background-image: url("../assets/icons/justify.svg")
-}
-
-i.image {
-  background-image: url("../assets/icons/file-image.svg");
-}
-
-i.markdown {
-    background-image: url("../assets/icons/markdown.svg");
-  }
 /********************************************/
 
 .editor-shell span.editor-image {
@@ -696,4 +649,683 @@ i.markdown {
     min-width: 100%;
     color: #000;
     overflow: hidden;
+  }
+
+
+  .dropdown {
+    z-index: 100;
+    display: block;
+    position: fixed;
+    box-shadow: 0 12px 28px 0 rgba(0, 0, 0, 0.2), 0 2px 4px 0 rgba(0, 0, 0, 0.1),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+    border-radius: 8px;
+    min-height: 40px;
+    background-color: #fff;
+  }
+  
+  .dropdown .item {
+    margin: 0 8px 0 8px;
+    padding: 8px;
+    color: #050505;
+    cursor: pointer;
+    line-height: 16px;
+    font-size: 15px;
+    display: flex;
+    align-content: center;
+    flex-direction: row;
+    flex-shrink: 0;
+    justify-content: space-between;
+    background-color: #fff;
+    border-radius: 8px;
+    border: 0;
+    max-width: 250px;
+    min-width: 100px;
+  }
+  
+  .dropdown .item.wide {
+    align-items: center;
+    width: 248px;
+  }
+  
+  .dropdown .item.wide .icon-text-container {
+    display: flex;
+  
+    .text {
+      min-width: 120px;
+    }
+  }
+  
+  .dropdown .item .shortcut {
+    color: #939393;
+    align-self: flex-end;
+  }
+  
+  .dropdown .item .active {
+    display: flex;
+    width: 20px;
+    height: 20px;
+    background-size: contain;
+  }
+  
+  .dropdown .item:first-child {
+    margin-top: 8px;
+  }
+  
+  .dropdown .item:last-child {
+    margin-bottom: 8px;
+  }
+  
+  .dropdown .item:hover {
+    background-color: #eee;
+  }
+  
+  .dropdown .item .text {
+    display: flex;
+    line-height: 20px;
+    flex-grow: 1;
+    min-width: 150px;
+  }
+  
+  .dropdown .item .icon {
+    display: flex;
+    width: 20px;
+    height: 20px;
+    user-select: none;
+    margin-right: 12px;
+    line-height: 16px;
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+  
+  .dropdown .divider {
+    width: auto;
+    background-color: #eee;
+    margin: 4px 8px;
+    height: 1px;
+  }
+  
+  @media screen and (max-width: 1100px) {
+    .dropdown-button-text {
+      display: none !important;
+    }
+  
+    .dialog-dropdown > .dropdown-button-text {
+      display: flex !important;
+    }
+  
+    .font-size .dropdown-button-text {
+      display: flex !important;
+    }
+  
+    .code-language .dropdown-button-text {
+      display: flex !important;
+    }
+  }
+
+  button.item.dropdown-item-active {
+    background-color: rgba(223, 232, 250, 0.3);
+  }
+  
+  button.item.dropdown-item-active i {
+    opacity: 1;
+  }
+
+
+  button.toolbar-item:disabled .icon,
+  button.toolbar-item:disabled .text,
+  button.toolbar-item:disabled i.format,
+  button.toolbar-item:disabled .chevron-down {
+    opacity: 0.2;
+  }
+  
+  
+.toolbar i.chevron-down,
+.toolbar-item i.chevron-down {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  user-select: none;
+}
+
+.toolbar i.chevron-down.inside {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  margin-left: -25px;
+  margin-top: 11px;
+  margin-right: 10px;
+  pointer-events: none;
+}
+
+
+.link-editor .button.active,
+.toolbar .button.active {
+  background-color: rgb(223, 232, 250);
+}
+
+.link-editor .link-input {
+  display: block;
+  width: calc(100% - 75px);
+  box-sizing: border-box;
+  margin: 12px 12px;
+  padding: 8px 12px;
+  border-radius: 15px;
+  background-color: #eee;
+  font-size: 15px;
+  color: rgb(5, 5, 5);
+  border: 0;
+  outline: 0;
+  position: relative;
+  font-family: inherit;
+}
+
+.link-editor .link-view {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 8px 12px;
+  padding: 8px 12px;
+  border-radius: 15px;
+  font-size: 15px;
+  color: rgb(5, 5, 5);
+  border: 0;
+  outline: 0;
+  position: relative;
+  font-family: inherit;
+}
+
+.link-editor .link-view a {
+  display: block;
+  word-break: break-word;
+  width: calc(100% - 33px);
+}
+
+.link-editor div.link-edit {
+  background-image: url("../assets/icons/pencil-fill.svg");
+  background-size: 16px;
+  background-position: center;
+  background-repeat: no-repeat;
+  width: 35px;
+  vertical-align: -0.25em;
+  position: absolute;
+  right: 30px;
+  top: 0;
+  bottom: 0;
+  cursor: pointer;
+}
+
+.link-editor div.link-trash {
+  background-image: url("../assets/icons/trash.svg");
+  background-size: 16px;
+  background-position: center;
+  background-repeat: no-repeat;
+  width: 35px;
+  vertical-align: -0.25em;
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  cursor: pointer;
+}
+
+.link-editor div.link-cancel {
+  background-image: url("../assets/icons/close.svg");
+  background-size: 16px;
+  background-position: center;
+  background-repeat: no-repeat;
+  width: 35px;
+  vertical-align: -0.25em;
+  margin-right: 28px;
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  cursor: pointer;
+}
+
+.link-editor div.link-confirm {
+  background-image: url("../assets/icons/success-alt.svg");
+  background-size: 16px;
+  background-position: center;
+  background-repeat: no-repeat;
+  width: 35px;
+  vertical-align: -0.25em;
+  margin-right: 2px;
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  cursor: pointer;
+}
+
+.link-editor .link-input a {
+  color: rgb(33, 111, 219);
+  text-decoration: underline;
+  white-space: nowrap;
+  overflow: hidden;
+  margin-right: 30px;
+  text-overflow: ellipsis;
+}
+
+.link-editor .link-input a:hover {
+  text-decoration: underline;
+}
+
+.link-editor .font-size-wrapper,
+.link-editor .font-family-wrapper {
+  display: flex;
+  margin: 0 4px;
+}
+
+.link-editor select {
+  padding: 6px;
+  border: none;
+  background-color: rgba(0, 0, 0, 0.075);
+  border-radius: 4px;
+}
+
+
+/********************************************/
+  
+i.undo {
+    background-image: url("../assets/icons/arrow-counterclockwise.svg")
+  }
+  
+  i.redo {
+    background-image: url("../assets/icons/arrow-clockwise.svg")
+  }
+  
+  i.bold {
+    background-image: url("../assets/icons/type-bold.svg")
+  }
+  
+  i.italic {
+    background-image: url("../assets/icons/type-italic.svg")
+  }
+  
+  i.underline {
+    background-image: url("../assets/icons/type-underline.svg")
+  }
+  
+  i.strikethrough {
+    background-image: url("../assets/icons/type-strikethrough.svg") 
+  }
+  
+  i.left-align {
+    background-image: url("../assets/icons/text-left.svg")
+  }
+  
+  i.center-align {
+    background-image: url("../assets/icons/text-center.svg")
+  }
+  
+  i.right-align {
+    background-image: url("../assets/icons/text-right.svg")
+  }
+  
+  i.justify-align {
+    background-image: url("../assets/icons/justify.svg")
+  }
+  
+  i.image {
+    background-image: url("../assets/icons/file-image.svg");
+  }
+  
+  i.markdown {
+      background-image: url("../assets/icons/markdown.svg");
+    }
+
+
+    i.palette {
+        background-image: url("../assets/icons/palette.svg");
+      }
+      
+      i.bucket {
+        background-image: url("../assets/icons/paint-bucket.svg");
+      }
+      
+      i.bold {
+        background-image: url("../assets/icons/type-bold.svg");
+      }
+      
+      i.italic {
+        background-image: url("../assets/icons/type-italic.svg");
+      }
+      
+      i.clear {
+        background-image: url("../assets/icons/trash.svg");
+      }
+      
+      i.code {
+        background-image: url("../assets/icons/code.svg");
+      }
+      
+      i.underline {
+        background-image: url("../assets/icons/type-underline.svg");
+      }
+      
+      i.uppercase {
+        background-image: url("../assets/icons/type-uppercase.svg");
+      }
+      
+      i.lowercase {
+        background-image: url("../assets/icons/type-lowercase.svg");
+      }
+      
+      i.capitalize {
+        background-image: url("../assets/icons/type-capitalize.svg");
+      }
+      
+      i.strikethrough {
+        background-image: url("../assets/icons/type-strikethrough.svg");
+      }
+      
+      i.subscript {
+        background-image: url("../assets/icons/type-subscript.svg");
+      }
+      
+      i.superscript {
+        background-image: url("../assets/icons/type-superscript.svg");
+      }
+      
+      i.highlight {
+        background-image: url("../assets/icons/highlighter.svg");
+      }
+      
+      i.link {
+        background-image: url("../assets/icons/link.svg");
+      }
+      
+      i.horizontal-rule {
+        background-image: url("../assets/icons/horizontal-rule.svg");
+      }
+      
+      .icon.plus {
+        background-image: url("../assets/icons/plus.svg");
+      }
+      
+      .icon.caret-right {
+        background-image: url("../assets/icons/caret-right-fill.svg");
+      }
+      
+      .icon.dropdown-more {
+        background-image: url("../assets/icons/dropdown-more.svg");
+      }
+      
+      .icon.font-color {
+        background-image: url("../assets/icons/font-color.svg");
+      }
+      
+      .icon.font-family {
+        background-image: url("../assets/icons/font-family.svg");
+      }
+      
+      .icon.bg-color {
+        background-image: url("../assets/icons/bg-color.svg");
+      }
+      
+      .icon.table {
+        background-color: #6c757d;
+        mask-image: url("../assets/icons/table.svg");
+        -webkit-mask-image: url("../assets/icons/table.svg");
+        mask-repeat: no-repeat;
+        -webkit-mask-repeat: no-repeat;
+        mask-size: contain;
+        -webkit-mask-size: contain;
+      }
+      
+      i.image {
+        background-image: url("../assets/icons/file-image.svg");
+      }
+      
+      i.table {
+        background-image: url("../assets/icons/table.svg");
+      }
+      
+      i.close {
+        background-image: url("../assets/icons/close.svg");
+      }
+      
+      i.figma {
+        background-image: url("../assets/icons/figma.svg");
+      }
+      
+      i.poll {
+        background-image: url("../assets/icons/card-checklist.svg");
+      }
+      
+      i.columns {
+        background-image: url("../assets/icons/3-columns.svg");
+      }
+      
+      i.x {
+        background-image: url("../assets/icons/x.svg");
+      }
+      
+      i.youtube {
+        background-image: url("../assets/icons/youtube.svg");
+      }
+      
+      .icon.left-align,
+      i.left-align {
+        background-image: url("../assets/icons/text-left.svg");
+      }
+      
+      .icon.center-align,
+      i.center-align {
+        background-image: url("../assets/icons/text-center.svg");
+      }
+      
+      .icon.right-align,
+      i.right-align {
+        background-image: url("../assets/icons/text-right.svg");
+      }
+      
+      .icon.justify-align,
+      i.justify-align {
+        background-image: url("../assets/icons/justify.svg");
+      }
+      
+      .icon.vertical-top,
+      i.left-align {
+        background-image: url("../assets/icons/vertical-top.svg");
+      }
+      
+      .icon.vertical-middle,
+      i.center-align {
+        background-image: url("../assets/icons/vertical-middle.svg");
+      }
+      
+      .icon.vertical-bottom,
+      i.right-align {
+        background-image: url("../assets/icons/vertical-bottom.svg");
+      }
+      
+      i.indent {
+        background-image: url("../assets/icons/indent.svg");
+      }
+      
+      i.markdown {
+        background-image: url("../assets/icons/markdown.svg");
+      }
+      
+      i.outdent {
+        background-image: url("../assets/icons/outdent.svg");
+      }
+      
+      i.undo {
+        background-image: url("../assets/icons/arrow-counterclockwise.svg");
+      }
+      
+      i.redo {
+        background-image: url("../assets/icons/arrow-clockwise.svg");
+      }
+      
+      i.sticky {
+        background-image: url("../assets/icons/sticky.svg");
+      }
+      
+      i.mic {
+        background-image: url("../assets/icons/mic.svg");
+      }
+      
+      i.import {
+        background-image: url("../assets/icons/upload.svg");
+      }
+      
+      i.export {
+        background-image: url("../assets/icons/download.svg");
+      }
+      
+      i.share {
+        background-image: url("../assets/icons/send.svg");
+      }
+      
+      i.diagram-2 {
+        background-image: url("../assets/icons/diagram-2.svg");
+      }
+      
+      i.user {
+        background-image: url("../assets/icons/user.svg");
+      }
+      
+      i.equation {
+        background-image: url("../assets/icons/plus-slash-minus.svg");
+      }
+      
+      i.gif {
+        background-image: url("../assets/icons/filetype-gif.svg");
+      }
+      
+      i.copy {
+        background-image: url("../assets/icons/copy.svg");
+      }
+      
+      i.success {
+        background-image: url("../assets/icons/success.svg");
+      }
+      
+      i.prettier {
+        background-image: url("../assets/icons/prettier.svg");
+      }
+      
+      i.prettier-error {
+        background-image: url("../assets/icons/prettier-error.svg");
+      }
+      
+      i.page-break,
+      .icon.page-break {
+        background-image: url("../assets/icons/scissors.svg");
+      }
+      
+
+      
+.icon.paragraph {
+    background-image: url("../assets/icons/text-paragraph.svg");
+  }
+  
+  .icon.h1 {
+    background-image: url("../assets/icons/type-h1.svg");
+  }
+  
+  .icon.h2 {
+    background-image: url("../assets/icons/type-h2.svg");
+  }
+  
+  .icon.h3 {
+    background-image: url("../assets/icons/type-h3.svg");
+  }
+  
+  .icon.h4 {
+    background-image: url("../assets/icons/type-h4.svg");
+  }
+  
+  .icon.h5 {
+    background-image: url("../assets/icons/type-h5.svg");
+  }
+  
+  .icon.h6 {
+    background-image: url("../assets/icons/type-h6.svg");
+  }
+  
+  .icon.bullet-list,
+  .icon.bullet {
+    background-image: url("../assets/icons/list-ul.svg");
+  }
+  
+  .icon.check-list,
+  .icon.check {
+    background-image: url("../assets/icons/square-check.svg");
+  }
+  
+  .icon.numbered-list,
+  .icon.number {
+    background-image: url("../assets/icons/list-ol.svg");
+  }
+  
+  .icon.quote {
+    background-image: url("../assets/icons/chat-square-quote.svg");
+  }
+  
+  .icon.code {
+    background-image: url("../assets/icons/code.svg");
+  }
+
+  
+.actions i.indent {
+    background-image: url("../assets/icons/indent.svg");
+  }
+  
+  .actions i.outdent {
+    background-image: url("../assets/icons/outdent.svg");
+  }
+  
+  .actions i.lock {
+    background-image: url("../assets/icons/lock-fill.svg");
+  }
+  
+  .actions i.image {
+    background-image: url("../assets/icons/file-image.svg");
+  }
+  
+  .actions i.table {
+    background-image: url("../assets/icons/table.svg");
+  }
+  
+  .actions i.unlock {
+    background-image: url("../assets/icons/lock.svg");
+  }
+  
+  .actions i.left-align {
+    background-image: url("../assets/icons/text-left.svg");
+  }
+  
+  .actions i.center-align {
+    background-image: url("../assets/icons/text-center.svg");
+  }
+  
+  .actions i.right-align {
+    background-image: url("../assets/icons/text-right.svg");
+  }
+  
+  .actions i.justify-align {
+    background-image: url("../assets/icons/justify.svg");
+  }
+  
+  .actions i.disconnect {
+    background-image: url("../assets/icons/plug.svg");
+  }
+  
+  .actions i.connect {
+    background-image: url("../assets/icons/plug-fill.svg");
+  }
+  
+  i.chevron-down {
+    background-color: transparent;
+    background-size: contain;
+    display: inline-block;
+    height: 8px;
+    width: 8px;
+    background-image: url("../assets/icons/chevron-down.svg");
   }

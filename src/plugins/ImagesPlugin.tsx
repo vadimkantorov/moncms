@@ -52,7 +52,8 @@ import '../ui/Input.css';
 
 import type {JSX} from 'react';
 
-import '../ui/Button.css';
+
+import Button from '../ui/Button';
 
 import {ReactNode} from 'react';
 
@@ -63,41 +64,6 @@ function joinClasses(
     return args.filter(Boolean).join(' ');
   }
   
-
-function Button({
-  'data-test-id': dataTestId,
-  children,
-  className,
-  onClick,
-  disabled,
-  small,
-  title,
-}: {
-  'data-test-id'?: string;
-  children: ReactNode;
-  className?: string;
-  disabled?: boolean;
-  onClick: () => void;
-  small?: boolean;
-  title?: string;
-}): JSX.Element {
-  return (
-    <button
-      disabled={disabled}
-      className={joinClasses(
-        'Button__root',
-        disabled && 'Button__disabled',
-        small && 'Button__small',
-        className,
-      )}
-      onClick={onClick}
-      title={title}
-      aria-label={title}
-      {...(dataTestId && {'data-test-id': dataTestId})}>
-      {children}
-    </button>
-  );
-}
 
 
 export class ImageCache 
