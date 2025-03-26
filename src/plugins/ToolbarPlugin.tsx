@@ -864,29 +864,36 @@ function ElementFormatDropdown({
   );
 }
 
-export  function ToolbarPluginSimple() {
-  const [editor] = useLexicalComposerContext();
+export default function ToolbarPlugin({
+  //editor,
+  //activeEditor,
+  //setActiveEditor,
+  setIsLinkEditMode,
+}: {
+  //editor: LexicalEditor;
+  //activeEditor: LexicalEditor;
+  //setActiveEditor: Dispatch<LexicalEditor>;
+  setIsLinkEditMode: Dispatch<boolean>;
+}): JSX.Element {
+  const [editor] = useLexicalComposerContext(); const activeEditor = editor;
+  const [selectedElementKey, setSelectedElementKey] = useState<NodeKey | null>(
+    null,
+  );
+  const [modal, showModal] = useModal();
+  const [isEditable, setIsEditable] = useState(() => editor.isEditable());
+  const {toolbarState, updateToolbarState} = useToolbarState();
+
   const toolbarRef = useRef(null);
+
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
   const [isUnderline, setIsUnderline] = useState(false);
   const [isStrikethrough, setIsStrikethrough] = useState(false);
-  const [modal, showModal] = useModal();
 
-  const $updateToolbar = useCallback(() => {
-    const selection = $getSelection();
-    if ($isRangeSelection(selection)) {
-      // Update text format
-      setIsBold(selection.hasFormat('bold'));
-      setIsItalic(selection.hasFormat('italic'));
-      setIsUnderline(selection.hasFormat('underline'));
-      setIsStrikethrough(selection.hasFormat('strikethrough'));
-    }
-  }, []);
-  
   const shouldPreserveNewLinesInMarkdown = true;
+
   const handleMarkdownToggle = useCallback(() => {
     editor.update(() => {
       const root = $getRoot();
@@ -914,180 +921,14 @@ export  function ToolbarPluginSimple() {
     });
   }, [editor, shouldPreserveNewLinesInMarkdown]);
 
-  useEffect(() => {
-    return mergeRegister(
-      editor.registerUpdateListener(({editorState}) => {
-        editorState.read(() => {
-          $updateToolbar();
-        });
-      }),
-      editor.registerCommand(
-        SELECTION_CHANGE_COMMAND,
-        (_payload, _newEditor) => {
-          $updateToolbar();
-          return false;
-        },
-        LowPriority,
-      ),
-      editor.registerCommand(
-        CAN_UNDO_COMMAND,
-        (payload) => {
-          setCanUndo(payload);
-          return false;
-        },
-        LowPriority,
-      ),
-      editor.registerCommand(
-        CAN_REDO_COMMAND,
-        (payload) => {
-          setCanRedo(payload);
-          return false;
-        },
-        LowPriority,
-      ),
-    );
-  }, [editor, $updateToolbar]);
 
-  return (
-    <div className="toolbar" ref={toolbarRef}>
-      <button
-        className="toolbar-item spaced"
-        onClick={handleMarkdownToggle}
-        title="Convert From Markdown"
-        type="button"
-        aria-label="Convert from markdown">
-        <i className="format markdown" />
-      </button>
-      <button
-        disabled={!canUndo}
-        onClick={() => {
-          editor.dispatchCommand(UNDO_COMMAND, undefined);
-        }}
-        className="toolbar-item spaced"
-        aria-label="Undo">
-        <i className="format undo" />
-      </button>
-      <button
-        disabled={!canRedo}
-        onClick={() => {
-          editor.dispatchCommand(REDO_COMMAND, undefined);
-        }}
-        className="toolbar-item"
-        aria-label="Redo">
-        <i className="format redo" />
-      </button>
-      <Divider />
-      <button
-        onClick={() => {
-          editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold');
-        }}
-        className={'toolbar-item spaced ' + (isBold ? 'active' : '')}
-        aria-label="Format Bold">
-        <i className="format bold" />
-      </button>
-      <button
-        onClick={() => {
-          editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic');
-        }}
-        className={'toolbar-item spaced ' + (isItalic ? 'active' : '')}
-        aria-label="Format Italics">
-        <i className="format italic" />
-      </button>
-      <button
-        onClick={() => {
-          editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline');
-        }}
-        className={'toolbar-item spaced ' + (isUnderline ? 'active' : '')}
-        aria-label="Format Underline">
-        <i className="format underline" />
-      </button>
-      <button
-        onClick={() => {
-          editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'strikethrough');
-        }}
-        className={'toolbar-item spaced ' + (isStrikethrough ? 'active' : '')}
-        aria-label="Format Strikethrough">
-        <i className="format strikethrough" />
-      </button>
-      <Divider />
-      <button
-        onClick={() => {
-          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'left');
-        }}
-        className="toolbar-item spaced"
-        aria-label="Left Align">
-        <i className="format left-align" />
-      </button>
-      <button
-        onClick={() => {
-          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'center');
-        }}
-        className="toolbar-item spaced"
-        aria-label="Center Align">
-        <i className="format center-align" />
-      </button>
-      <button
-        onClick={() => {
-          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'right');
-        }}
-        className="toolbar-item spaced"
-        aria-label="Right Align">
-        <i className="format right-align" />
-      </button>
-      <button
-        onClick={() => {
-          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'justify');
-        }}
-        className="toolbar-item"
-        aria-label="Justify Align">
-        <i className="format justify-align" />
-      </button>
-
-      {/*disabled={!isEditable} */}
-      <button
-        onClick={() => {
-            showModal('Insert Image', (onClose: () => void) => (
-            <InsertImageDialog
-                activeEditor={editor}
-                onClose={onClose}
-            />
-            ));
-        }}
-        className="toolbar-item spaced active"
-        title="Insert image"
-        type="button"
-        aria-label="Insert image block">
-        <i className="icon image" />
-      </button>
-        {modal}
-      {' '}
-    </div>
-  );
-}
-
-
-export default function ToolbarPlugin({
-  //editor,
-  //activeEditor,
-  //setActiveEditor,
-  setIsLinkEditMode,
-}: {
-  //editor: LexicalEditor;
-  //activeEditor: LexicalEditor;
-  //setActiveEditor: Dispatch<LexicalEditor>;
-  setIsLinkEditMode: Dispatch<boolean>;
-}): JSX.Element {
-  const [editor] = useLexicalComposerContext(); const activeEditor = editor;
-  const [selectedElementKey, setSelectedElementKey] = useState<NodeKey | null>(
-    null,
-  );
-  const [modal, showModal] = useModal();
-  const [isEditable, setIsEditable] = useState(() => editor.isEditable());
-  const {toolbarState, updateToolbarState} = useToolbarState();
 
   const $updateToolbar = useCallback(() => {
     const selection = $getSelection();
+
+
     if ($isRangeSelection(selection)) {
+
       if (activeEditor !== editor && $isEditorIsNestedEditor(activeEditor)) {
         const rootElement = activeEditor.getRootElement();
         updateToolbarState(
@@ -1202,13 +1043,18 @@ export default function ToolbarPlugin({
     }
     if ($isRangeSelection(selection) || $isTableSelection(selection)) {
       // Update text format
+      setIsBold(selection.hasFormat('bold'));
+      setIsItalic(selection.hasFormat('italic'));
+      setIsUnderline(selection.hasFormat('underline'));
+      setIsStrikethrough(selection.hasFormat('strikethrough'));
+
+
       updateToolbarState('isBold', selection.hasFormat('bold'));
       updateToolbarState('isItalic', selection.hasFormat('italic'));
       updateToolbarState('isUnderline', selection.hasFormat('underline'));
-      updateToolbarState(
-        'isStrikethrough',
-        selection.hasFormat('strikethrough'),
-      );
+      updateToolbarState('isStrikethrough', selection.hasFormat('strikethrough'));
+
+
       updateToolbarState('isSubscript', selection.hasFormat('subscript'));
       updateToolbarState('isSuperscript', selection.hasFormat('superscript'));
       updateToolbarState('isHighlight', selection.hasFormat('highlight'));
@@ -1223,19 +1069,21 @@ export default function ToolbarPlugin({
     }
   }, [activeEditor, editor, updateToolbarState]);
 
-  /*
+  
   useEffect(() => {
     return editor.registerCommand(
       SELECTION_CHANGE_COMMAND,
       (_payload, newEditor) => {
-        setActiveEditor(newEditor);
+        //setActiveEditor(newEditor);
         $updateToolbar();
         return false;
       },
       COMMAND_PRIORITY_CRITICAL,
     );
-  }, [editor, $updateToolbar, setActiveEditor]);
-  */
+  }, [editor, $updateToolbar, 
+  //setActiveEditor
+  ]);
+  
 
   useEffect(() => {
     activeEditor.getEditorState().read(() => {
@@ -1256,6 +1104,7 @@ export default function ToolbarPlugin({
       activeEditor.registerCommand<boolean>(
         CAN_UNDO_COMMAND,
         (payload) => {
+          setCanUndo(payload);
           updateToolbarState('canUndo', payload);
           return false;
         },
@@ -1263,7 +1112,8 @@ export default function ToolbarPlugin({
       ),
       activeEditor.registerCommand<boolean>(
         CAN_REDO_COMMAND,
-        (payload) => {
+        (payload) => {  
+          setCanRedo(payload);
           updateToolbarState('canRedo', payload);
           return false;
         },
@@ -1331,39 +1181,11 @@ export default function ToolbarPlugin({
     activeEditor.dispatchCommand(INSERT_IMAGE_COMMAND, payload);
   };
 
-  const canViewerSeeInsertDropdown = !toolbarState.isImageCaption;
-  const canViewerSeeInsertCodeButton = !toolbarState.isImageCaption;
-
-  const shouldPreserveNewLinesInMarkdown = true;
-  const handleMarkdownToggle = useCallback(() => {
-    editor.update(() => {
-      const root = $getRoot();
-      const firstChild = root.getFirstChild();
-      if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'markdown') {
-        $convertFromMarkdownString(
-          firstChild.getTextContent(),
-          PLAYGROUND_TRANSFORMERS,
-          undefined, // node
-          shouldPreserveNewLinesInMarkdown,
-        );
-      } else {
-        const markdown = $convertToMarkdownString(
-          PLAYGROUND_TRANSFORMERS,
-          undefined, //node
-          shouldPreserveNewLinesInMarkdown,
-        );
-        const codeNode = $createCodeNode('markdown');
-        codeNode.append($createTextNode(markdown));
-        root.clear().append(codeNode);
-        if (markdown.length === 0) {
-          codeNode.select();
-        }
-      }
-    });
-  }, [editor, shouldPreserveNewLinesInMarkdown]);
+  const canViewerSeeInsertDropdown = false;//!toolbarState.isImageCaption;
+  const canViewerSeeInsertCodeButton = false;//!toolbarState.isImageCaption;
 
   return (
-    <div className="toolbar">
+    <div className="toolbar" ref={toolbarRef}>
       <button
         className="toolbar-item spaced"
         onClick={handleMarkdownToggle}
@@ -1372,6 +1194,10 @@ export default function ToolbarPlugin({
         aria-label="Convert from markdown">
         <i className="format markdown" />
       </button>
+      
+      <Divider />
+
+
       <button
         disabled={!toolbarState.canUndo || !isEditable}
         onClick={() => {
@@ -1383,6 +1209,17 @@ export default function ToolbarPlugin({
         aria-label="Undo">
         <i className="format undo" />
       </button>
+      {/*
+      <button
+        disabled={!canUndo}
+        onClick={() => {
+          editor.dispatchCommand(UNDO_COMMAND, undefined);
+        }}
+        className="toolbar-item spaced"
+        aria-label="Undo">
+        <i className="format undo" />
+      </button>
+      */}
       <button
         disabled={!toolbarState.canRedo || !isEditable}
         onClick={() => {
@@ -1394,7 +1231,146 @@ export default function ToolbarPlugin({
         aria-label="Redo">
         <i className="format redo" />
       </button>
+      {/*
+      <button
+        disabled={!canRedo}
+        onClick={() => {
+          editor.dispatchCommand(REDO_COMMAND, undefined);
+        }}
+        className="toolbar-item"
+        aria-label="Redo">
+        <i className="format redo" />
+      </button>
+      */}
       <Divider />
+ 
+          <button
+            disabled={!isEditable}
+            onClick={() => {
+              activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold');
+            }}
+            className={
+              'toolbar-item spaced ' + (toolbarState.isBold ? 'active' : '')
+            }
+            title={`Bold (${SHORTCUTS.BOLD})`}
+            type="button"
+            aria-label={`Format text as bold. Shortcut: ${SHORTCUTS.BOLD}`}>
+            <i className="format bold" />
+          </button>
+          {/*
+            <button
+            onClick={() => {
+            editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold');
+            }}
+            className={'toolbar-item spaced ' + (isBold ? 'active' : '')}
+            aria-label="Format Bold">
+            <i className="format bold" />
+          </button>
+          */}
+          <button
+            disabled={!isEditable}
+            onClick={() => {
+              activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic');
+            }}
+            className={
+              'toolbar-item spaced ' + (toolbarState.isItalic ? 'active' : '')
+            }
+            title={`Italic (${SHORTCUTS.ITALIC})`}
+            type="button"
+            aria-label={`Format text as italics. Shortcut: ${SHORTCUTS.ITALIC}`}>
+            <i className="format italic" />
+          </button>
+          {/*
+      <button
+        onClick={() => {
+          editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic');
+        }}
+        className={'toolbar-item spaced ' + (isItalic ? 'active' : '')}
+        aria-label="Format Italics">
+        <i className="format italic" />
+      </button>
+      */}
+
+          <button
+            disabled={!isEditable}
+            onClick={() => {
+              activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline');
+            }}
+            className={
+              'toolbar-item spaced ' +
+              (toolbarState.isUnderline ? 'active' : '')
+            }
+            title={`Underline (${SHORTCUTS.UNDERLINE})`}
+            type="button"
+            aria-label={`Format text to underlined. Shortcut: ${SHORTCUTS.UNDERLINE}`}>
+            <i className="format underline" />
+          </button>
+
+      {/*
+      <button
+        onClick={() => {
+          editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline');
+        }}
+        className={'toolbar-item spaced ' + (isUnderline ? 'active' : '')}
+        aria-label="Format Underline">
+        <i className="format underline" />
+      </button>
+      */}
+
+        {/*
+          <button
+        onClick={() => {
+          editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'strikethrough');
+        }}
+        className={'toolbar-item spaced ' + (isStrikethrough ? 'active' : '')}
+        aria-label="Format Strikethrough">
+        <i className="format strikethrough" />
+      </button>
+      */}
+      
+<button
+        onClick={() => {
+          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'left');
+        }}
+        className="toolbar-item spaced"
+        aria-label="Left Align">
+        <i className="format left-align" />
+      </button>
+      <button
+        onClick={() => {
+          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'center');
+        }}
+        className="toolbar-item spaced"
+        aria-label="Center Align">
+        <i className="format center-align" />
+      </button>
+      <button
+        onClick={() => {
+          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'right');
+        }}
+        className="toolbar-item spaced"
+        aria-label="Right Align">
+        <i className="format right-align" />
+      </button>
+      {/*
+      <button
+        onClick={() => {
+          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'justify');
+        }}
+        className="toolbar-item"
+        aria-label="Justify Align">
+        <i className="format justify-align" />
+      </button>
+      */}
+      <ElementFormatDropdown
+        disabled={!isEditable}
+        value={toolbarState.elementFormat}
+        editor={activeEditor}
+        isRTL={toolbarState.isRTL}
+      />
+        
+ 
+
       {toolbarState.blockType in blockTypeToBlockName &&
         activeEditor === editor && (
           <>
@@ -1404,7 +1380,7 @@ export default function ToolbarPlugin({
               rootType={toolbarState.rootType}
               editor={activeEditor}
             />
-            <Divider />
+            
           </>
         )}
       {toolbarState.blockType === 'code' ? (
@@ -1440,47 +1416,7 @@ export default function ToolbarPlugin({
             editor={activeEditor}
             disabled={!isEditable}
           />
-          <Divider />
-          <button
-            disabled={!isEditable}
-            onClick={() => {
-              activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold');
-            }}
-            className={
-              'toolbar-item spaced ' + (toolbarState.isBold ? 'active' : '')
-            }
-            title={`Bold (${SHORTCUTS.BOLD})`}
-            type="button"
-            aria-label={`Format text as bold. Shortcut: ${SHORTCUTS.BOLD}`}>
-            <i className="format bold" />
-          </button>
-          <button
-            disabled={!isEditable}
-            onClick={() => {
-              activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic');
-            }}
-            className={
-              'toolbar-item spaced ' + (toolbarState.isItalic ? 'active' : '')
-            }
-            title={`Italic (${SHORTCUTS.ITALIC})`}
-            type="button"
-            aria-label={`Format text as italics. Shortcut: ${SHORTCUTS.ITALIC}`}>
-            <i className="format italic" />
-          </button>
-          <button
-            disabled={!isEditable}
-            onClick={() => {
-              activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline');
-            }}
-            className={
-              'toolbar-item spaced ' +
-              (toolbarState.isUnderline ? 'active' : '')
-            }
-            title={`Underline (${SHORTCUTS.UNDERLINE})`}
-            type="button"
-            aria-label={`Format text to underlined. Shortcut: ${SHORTCUTS.UNDERLINE}`}>
-            <i className="format underline" />
-          </button>
+          
           {canViewerSeeInsertCodeButton && (
             <button
               disabled={!isEditable}
@@ -1496,17 +1432,7 @@ export default function ToolbarPlugin({
               <i className="format code" />
             </button>
           )}
-          <button
-            disabled={!isEditable}
-            onClick={insertLink}
-            className={
-              'toolbar-item spaced ' + (toolbarState.isLink ? 'active' : '')
-            }
-            aria-label="Insert link"
-            title={`Insert link (${SHORTCUTS.INSERT_LINK})`}
-            type="button">
-            <i className="format link" />
-          </button>
+          
           <DropdownColorPicker
             disabled={!isEditable}
             buttonClassName="toolbar-item color-picker"
@@ -1841,15 +1767,53 @@ export default function ToolbarPlugin({
               </DropDown>
             </>
           )}
+          <Divider />
+                {/*disabled={!isEditable} */}
+      <button
+        onClick={() => {
+            showModal('Insert Image', (onClose: () => void) => (
+            <InsertImageDialog
+                activeEditor={editor}
+                onClose={onClose}
+            />
+            ));
+        }}
+        className="toolbar-item spaced"
+        title="Insert image"
+        type="button"
+        aria-label="Insert image block">
+        <i className="icon image" />
+      </button>
+
+        <button
+            onClick={() => {
+            activeEditor.dispatchCommand(
+                INSERT_HORIZONTAL_RULE_COMMAND,
+                undefined,
+            );
+            }}
+            className="toolbar-item spaced"
+            title="Insert Horizontal Rule"
+            type="button">
+            <i className="icon horizontal-rule" />
+            <span className="text">Hor. Rule</span>
+        </button>
+
+        <button
+            disabled={!isEditable}
+            onClick={insertLink}
+            className={
+              'toolbar-item spaced ' + (toolbarState.isLink ? 'active' : '')
+            }
+            aria-label="Insert link"
+            title={`Insert link (${SHORTCUTS.INSERT_LINK})`}
+            type="button">
+            <i className="format link" />
+          </button>
+      
         </>
       )}
-      <Divider />
-      <ElementFormatDropdown
-        disabled={!isEditable}
-        value={toolbarState.elementFormat}
-        editor={activeEditor}
-        isRTL={toolbarState.isRTL}
-      />
+     
 
       {modal}
     </div>

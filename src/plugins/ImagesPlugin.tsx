@@ -42,28 +42,12 @@ import {DialogActions, DialogButtonsList} from '../ui/Dialog';
 
 import '../ui/Input.css';
 
-/**
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- */
-
 import type {JSX} from 'react';
 
 
 import Button from '../ui/Button';
 
 import {ReactNode} from 'react';
-
-function joinClasses(
-    ...args: Array<string | boolean | null | undefined>
-  ) {
-    //import joinClasses from '../utils/joinClasses';
-    return args.filter(Boolean).join(' ');
-  }
-  
 
 
 export class ImageCache 
