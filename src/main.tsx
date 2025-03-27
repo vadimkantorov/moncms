@@ -564,21 +564,32 @@ function App() {
     function onchange_files(event)
     {
         const prep = github_api_prepare_params(url, token, true);
-        if(prep.error)
-            return moncms_log(prep.error);
-
+        const is_connected = prep.error == '';
+        
         for(const file of event.target.files)
         {
             const new_file_name = file.name;
             const reader = new FileReader();
-            reader.onload = () => github_api_upsert_file(
-                prep, 
-                new_file_name, 
-                reader.result.split(',').pop(),
-                null,
-                res_created => filetree_add(res_created.name, res_created.url, false),
-                moncms_log
-            );
+            reader.onload = () => 
+            {
+                const base64 = reader.result.split(',').pop();
+                if(is_connected)
+                {
+                    github_api_upsert_file(
+                        prep, 
+                        new_file_name, 
+                        base64,
+                        null,
+                        res_created => filetree_add(new_file_name, res_created.url, false),
+                        moncms_log
+                    );
+                }
+                else
+                {
+                    //TODO: filetree_add(new_file_name, url);
+                    moncms_log(prep.error);
+                }
+            }
             reader.onerror = () => moncms_log('upload: error');
             reader.readAsDataURL(file);
         }
@@ -619,15 +630,6 @@ function App() {
             setUrl(prep.curdir_url());
             clear('', false, true);
         }
-    }
-
-    function onclick_upload()
-    {
-        const prep = github_api_prepare_params(url, token, true);
-        if(prep.error)
-            return moncms_log(prep.error);
-        
-        filesRef.current.click();
     }
 
     async function onclick_savefile()
@@ -717,37 +719,37 @@ function App() {
         setFileTreeValue(file_tree_value);
     }
 
-    function filetree_add(file_name, url, update_selected = true)
+    function filetree_add(file_name : string, url : string, update_selected : boolean = true)
     {
         setFileTree([...fileTree, { name: file_name, type: 'file', url: url }]);
         if(update_selected)
             setFileTreeValue(url);
     }
 
-    function filetree_del(file_name)
+    function filetree_del(file_name : string)
     {
         const file_tree = fileTree.filter(j => j.name != file_name);
         setFileTree(file_tree);
         setFileTreeValue(file_tree.length > 0 ? file_tree[0].url : '');
     }
 
-    function filetree_rename(selected_file_name, curFile)
+    function filetree_rename(selected_file_name : string, curFile : Object)
     {
         setFileTree(fileTree.map(j => j.name == selected_file_name ? curFile : j));
         setFileTreeValue(curFile.url);
     }
     
-    function frontmatter_updaterow(idx, name, value)
+    function frontmatter_updaterow(idx : number, name : string, value : string)
     {
         setFrontMatterRows(frontMatterRows.map((item, i) => i == idx ? {...item, [name] : value} : item));
     }
 
-    function frontmatter_delrow(idx)
+    function frontmatter_delrow(idx : number)
     {
         setFrontMatterRows(frontMatterRows.map((item, i) => (i == 0 && idx == 0) ? {...item, frontmatter_key : '', frontmatter_val : ''} : item).filter((item, i) => idx == 0 || i != idx));
     }
 
-    function frontmatter_addrow(idx)
+    function frontmatter_addrow(idx : number)
     {
         if(idx == 0)
             setFrontMatterRows([frontmatter_rows_new(), ...frontMatterRows]);
@@ -924,7 +926,7 @@ function App() {
         <button onClick={event => onclick_createfiledir(event.target.dataset.newpath, event.target.dataset.message)} id="html_createfile" data-newpath="${date}-new-post-draft-at-${time}.md" data-message="### modify the file name, modify this content and click Save File to actually create and save the file">New File</button>
         <button onClick={event => onclick_createfiledir(event.target.dataset.newpath, event.target.dataset.message)} id="html_createdir"  data-newpath="new-dir-at-${time}/.gitignore"        data-message="### modify the directory name, and then click Save File to create the file and the directory">New Folder</button>
         
-        <button onClick={onclick_upload}>Upload Files</button>
+        <button onClick={() => filesRef.current.click()}>Upload Files</button>
         <input type="file" id="html_files" ref={filesRef} onChange={onchange_files} multiple hidden />
         
         <button onClick={() => onclick_signinout().catch(moncms_log)} className={isSignedIn ? "signout" : "signin"} ></button>
