@@ -633,6 +633,20 @@ function App() {
         }
     }
 
+    function onclick_downloadfile(event, file_path : string = '', content : string = '', mime : string = '', timeout_millisec : number = 2000)
+    {
+        /*
+        const a = document.createElement('a');
+        a.download = file_path;
+        a.href = URL.createObjectURL(new Blob([content], {type: mime}));
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+  
+        setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, timeout_millisec);
+        */
+    }
+
     async function onclick_savefile()
     {
         if(!fileName)
@@ -932,6 +946,7 @@ function App() {
         
         <button onClick={() => filesRef.current.click()}>Upload Files</button>
         <input type="file" id="html_files" ref={filesRef} onChange={onchange_files} multiple hidden />
+        <button onClick={onclick_downloadfile}>Download File</button>
         
         <button onClick={() => onclick_signinout().catch(moncms_log)} className={isSignedIn ? "signout" : "signin"} ></button>
         <button onClick={event => {setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>

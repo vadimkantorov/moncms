@@ -1194,9 +1194,6 @@ export default function ToolbarPlugin({
         aria-label="Convert from markdown">
         <i className="format markdown" />
       </button>
-      
-      <Divider />
-
 
       <button
         disabled={!toolbarState.canUndo || !isEditable}
@@ -1244,6 +1241,62 @@ export default function ToolbarPlugin({
       */}
       <Divider />
  
+      {toolbarState.blockType in blockTypeToBlockName &&
+        activeEditor === editor && (
+          <>
+            <BlockFormatDropDown
+              disabled={!isEditable}
+              blockType={toolbarState.blockType}
+              rootType={toolbarState.rootType}
+              editor={activeEditor}
+            />
+            
+          </>
+        )}
+
+
+      
+        
+      <Divider />
+
+      
+
+      {toolbarState.blockType === 'code' ? (
+        <DropDown
+          disabled={!isEditable}
+          buttonClassName="toolbar-item code-language"
+          buttonLabel={getLanguageFriendlyName(toolbarState.codeLanguage)}
+          buttonAriaLabel="Select language">
+          {CODE_LANGUAGE_OPTIONS.map(([value, name]) => {
+            return (
+              <DropDownItem
+                className={`item ${dropDownActiveClass(
+                  value === toolbarState.codeLanguage,
+                )}`}
+                onClick={() => onCodeLanguageSelect(value)}
+                key={value}>
+                <span className="text">{name}</span>
+              </DropDownItem>
+            );
+          })}
+        </DropDown>
+      ) : (
+        <>
+          <FontDropDown
+            disabled={!isEditable}
+            style={'font-family'}
+            value={toolbarState.fontFamily}
+            editor={activeEditor}
+          />
+          <Divider />
+          <FontSize
+            selectionFontSize={toolbarState.fontSize.slice(0, -2)}
+            editor={activeEditor}
+            disabled={!isEditable}
+          />
+          <Divider />
+
+          
           <button
             disabled={!isEditable}
             onClick={() => {
@@ -1327,95 +1380,6 @@ export default function ToolbarPlugin({
         <i className="format strikethrough" />
       </button>
       */}
-      
-<button
-        onClick={() => {
-          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'left');
-        }}
-        className="toolbar-item spaced"
-        aria-label="Left Align">
-        <i className="format left-align" />
-      </button>
-      <button
-        onClick={() => {
-          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'center');
-        }}
-        className="toolbar-item spaced"
-        aria-label="Center Align">
-        <i className="format center-align" />
-      </button>
-      <button
-        onClick={() => {
-          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'right');
-        }}
-        className="toolbar-item spaced"
-        aria-label="Right Align">
-        <i className="format right-align" />
-      </button>
-      {/*
-      <button
-        onClick={() => {
-          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'justify');
-        }}
-        className="toolbar-item"
-        aria-label="Justify Align">
-        <i className="format justify-align" />
-      </button>
-      */}
-      <ElementFormatDropdown
-        disabled={!isEditable}
-        value={toolbarState.elementFormat}
-        editor={activeEditor}
-        isRTL={toolbarState.isRTL}
-      />
-        
- 
-
-      {toolbarState.blockType in blockTypeToBlockName &&
-        activeEditor === editor && (
-          <>
-            <BlockFormatDropDown
-              disabled={!isEditable}
-              blockType={toolbarState.blockType}
-              rootType={toolbarState.rootType}
-              editor={activeEditor}
-            />
-            
-          </>
-        )}
-      {toolbarState.blockType === 'code' ? (
-        <DropDown
-          disabled={!isEditable}
-          buttonClassName="toolbar-item code-language"
-          buttonLabel={getLanguageFriendlyName(toolbarState.codeLanguage)}
-          buttonAriaLabel="Select language">
-          {CODE_LANGUAGE_OPTIONS.map(([value, name]) => {
-            return (
-              <DropDownItem
-                className={`item ${dropDownActiveClass(
-                  value === toolbarState.codeLanguage,
-                )}`}
-                onClick={() => onCodeLanguageSelect(value)}
-                key={value}>
-                <span className="text">{name}</span>
-              </DropDownItem>
-            );
-          })}
-        </DropDown>
-      ) : (
-        <>
-          <FontDropDown
-            disabled={!isEditable}
-            style={'font-family'}
-            value={toolbarState.fontFamily}
-            editor={activeEditor}
-          />
-          <Divider />
-          <FontSize
-            selectionFontSize={toolbarState.fontSize.slice(0, -2)}
-            editor={activeEditor}
-            disabled={!isEditable}
-          />
           
           {canViewerSeeInsertCodeButton && (
             <button
@@ -1451,6 +1415,92 @@ export default function ToolbarPlugin({
             onChange={onBgColorSelect}
             title="bg color"
           />
+          <Divider />
+          <button
+            disabled={!isEditable}
+            onClick={insertLink}
+            className={
+              'toolbar-item spaced ' + (toolbarState.isLink ? 'active' : '')
+            }
+            aria-label="Insert link"
+            title={`Insert link (${SHORTCUTS.INSERT_LINK})`}
+            type="button">
+            <i className="format link" />
+          </button>
+
+          <button
+            onClick={() => {
+            activeEditor.dispatchCommand(
+                INSERT_HORIZONTAL_RULE_COMMAND,
+                undefined,
+            );
+            }}
+            className="toolbar-item spaced"
+            aria-label="Insert horizontal rule"
+            title="Insert horizontal rule"
+            type="button">
+            <i className="icon horizontal-rule" />
+        </button>
+
+          <button
+        onClick={() => {
+            showModal('Insert Image', (onClose: () => void) => (
+            <InsertImageDialog
+                activeEditor={editor}
+                onClose={onClose}
+            />
+            ));
+        }}
+        className="toolbar-item spaced"
+        title="Insert image"
+        type="button"
+        aria-label="Insert image block">
+        <i className="icon image" />
+      </button>
+        <Divider />
+       
+
+        <ElementFormatDropdown
+        disabled={!isEditable}
+        value={toolbarState.elementFormat}
+        editor={activeEditor}
+        isRTL={toolbarState.isRTL}
+      />    
+        <button
+        onClick={() => {
+          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'left');
+        }}
+        className="toolbar-item spaced"
+        aria-label="Left Align">
+        <i className="format left-align" />
+      </button>
+      <button
+        onClick={() => {
+          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'center');
+        }}
+        className="toolbar-item spaced"
+        aria-label="Center Align">
+        <i className="format center-align" />
+      </button>
+      <button
+        onClick={() => {
+          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'right');
+        }}
+        className="toolbar-item spaced"
+        aria-label="Right Align">
+        <i className="format right-align" />
+      </button>
+      {/*
+      <button
+        onClick={() => {
+          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'justify');
+        }}
+        className="toolbar-item"
+        aria-label="Justify Align">
+        <i className="format justify-align" />
+      </button>
+      */}
+
           <DropDown
             disabled={!isEditable}
             buttonClassName="toolbar-item spaced"
@@ -1579,6 +1629,9 @@ export default function ToolbarPlugin({
               <span className="shortcut">{SHORTCUTS.CLEAR_FORMATTING}</span>
             </DropDownItem>
           </DropDown>
+
+        
+
           {canViewerSeeInsertDropdown && (
             <>
               <Divider />
@@ -1767,49 +1820,9 @@ export default function ToolbarPlugin({
               </DropDown>
             </>
           )}
-          <Divider />
+          
                 {/*disabled={!isEditable} */}
-      <button
-        onClick={() => {
-            showModal('Insert Image', (onClose: () => void) => (
-            <InsertImageDialog
-                activeEditor={editor}
-                onClose={onClose}
-            />
-            ));
-        }}
-        className="toolbar-item spaced"
-        title="Insert image"
-        type="button"
-        aria-label="Insert image block">
-        <i className="icon image" />
-      </button>
-
-        <button
-            onClick={() => {
-            activeEditor.dispatchCommand(
-                INSERT_HORIZONTAL_RULE_COMMAND,
-                undefined,
-            );
-            }}
-            className="toolbar-item spaced"
-            title="Insert Horizontal Rule"
-            type="button">
-            <i className="icon horizontal-rule" />
-            <span className="text">Hor. Rule</span>
-        </button>
-
-        <button
-            disabled={!isEditable}
-            onClick={insertLink}
-            className={
-              'toolbar-item spaced ' + (toolbarState.isLink ? 'active' : '')
-            }
-            aria-label="Insert link"
-            title={`Insert link (${SHORTCUTS.INSERT_LINK})`}
-            type="button">
-            <i className="format link" />
-          </button>
+      
       
         </>
       )}
