@@ -565,6 +565,7 @@ function App() {
     {
         const prep = github_api_prepare_params(url, token, true);
         const is_connected = prep.error == '';
+        const no_files = fileTree.length == 0;
         
         for(const file of event.target.files)
         {
@@ -586,8 +587,8 @@ function App() {
                 }
                 else
                 {
-                    //TODO: filetree_add(new_file_name, url);
-                    moncms_log(prep.error);
+                    const url = URL.createObjectURL(file);
+                    filetree_add(new_file_name, url);
                 }
             }
             reader.onerror = () => moncms_log('upload: error');
@@ -759,7 +760,7 @@ function App() {
             setFrontMatterRows([...frontMatterRows, frontmatter_rows_new()]);
     }
 
-    async function open_file_or_dir(url_value : string = '', token_value : string = '', HTTP_OK : number = 200, ext = ['.gif', '.jpg', '.png', '.svg'])
+    async function open_file_or_dir(url_value : string = '', token_value : string = '', HTTP_OK : number = 200, ext : Array = ['.gif', '.jpg', '.png', '.svg'])
     {
         let prep = github_api_prepare_params(url_value, token_value);
         if(prep.error)
@@ -783,9 +784,9 @@ function App() {
             setIsSignedIn(true);
             moncms_log('found in cache for ' + prep.github_repo_url);
         }
-        
         if(!prep.github_branch)
             prep.github_branch = await github_api_signin(prep, moncms_log);
+
         imageCache.prefix = prep.prefix();
         const curdir_url = prep.curdir_url(), parentdir_url = prep.parentdir_url();
         let [res_file, res_dir] = await github_api_get_file_and_dir(prep, moncms_log);
@@ -810,7 +811,8 @@ function App() {
 
             filetree_update(res_dir, curdir_url, parentdir_url, '');
             setFileName('');
-            editorRef.current.update(() => {
+            editorRef.current.update(() => 
+            {
                 const editorState = editorRef.current.getEditorState();
                 if (editorState != null) {
                     $convertFromMarkdownString(image_listing, PLAYGROUND_TRANSFORMERS);
@@ -826,7 +828,8 @@ function App() {
 
             filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
-            editorRef.current.update(() => {
+            editorRef.current.update(() =>
+            {
                 const editorState = editorRef.current.getEditorState();
                 if (editorState != null) {
                     $convertFromMarkdownString(image_listing, PLAYGROUND_TRANSFORMERS);
@@ -846,7 +849,8 @@ function App() {
 
             filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
-            editorRef.current.update(() => {
+            editorRef.current.update(() =>
+            {
                 const editorState = editorRef.current.getEditorState();
                 if (editorState != null) {
                     // TODO: HARDEN Error: Create node: Attempted to create node _HorizontalRuleNode that was not configured to be used on the editor.
