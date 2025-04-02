@@ -247,7 +247,7 @@ export async function github_api_get_file_and_dir(prep, log, default_file_name =
         {
             resp_dir = await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: prep.github_path_dir, ref: prep.github_branch, headers : prep.headers});
             res_dir = resp_dir.data;
-            const github_path = [''].concat(res_dir.filter(j => j.name.toLowerCase() == default_file_name.toLowerCase()).map(j => j.path)).pop();
+            const github_path = res_dir.filter(j => j.name.toLowerCase() == default_file_name.toLowerCase()).map(j => j.path).pop() || '';
             resp_file = github_path ? (await octokit.rest.repos.getContent({owner: prep.github_owner, repo : prep.github_repo, path: github_path, ref: prep.github_branch, headers : prep.headers})) : {data : []};
             [res_file, res_dir] = [resp_file.data, resp_dir.data];
         }
@@ -564,16 +564,19 @@ function App() {
     function onchange_files(event)
     {
         const prep = github_api_prepare_params(url, token, true);
+        const files = event.target.files;
         const is_connected = prep.error == '';
         const no_files = fileTree.length == 0;
+        const single_file = files.length == 1;
         
-        for(const file of event.target.files)
+        for(const file of files)
         {
             const new_file_name = file.name;
             const reader = new FileReader();
             reader.onload = () => 
             {
-                const base64 = reader.result.split(',').pop();
+                const datauri = reader.result;
+                const base64 = datauri.split(',').pop();
                 if(is_connected)
                 {
                     github_api_upsert_file(
@@ -581,14 +584,14 @@ function App() {
                         new_file_name, 
                         base64,
                         null,
-                        res_created => filetree_add(new_file_name, res_created.url, false),
+                        res_created => filetree_add(new_file_name, res_created, false),
                         moncms_log
                     );
                 }
                 else
                 {
                     const url = URL.createObjectURL(file);
-                    filetree_add(new_file_name, url);
+                    filetree_add(new_file_name, {name : new_file_name, url : url, type : 'file', encoding: 'base64', content : base64});
                 }
             }
             reader.onerror = () => moncms_log('upload: error');
@@ -706,7 +709,7 @@ function App() {
             const res_put = await github_api_upsert_file(prep, fileName, base64, '', null, moncms_log);
             setCurFile(res_put);
             setUrl(res_put.url);
-            filetree_add(fileName, res_put.url, true);
+            filetree_add(fileName, res_put, true);
         }
         else if(should_rename)
         {
@@ -723,22 +726,22 @@ function App() {
         const dirs   =  files_and_dirs.filter(j => j.type == 'dir'  && !ext.some(e => j.name.endsWith(e))).sort(key_by_name);
         const images =  files_and_dirs.filter(j => j.type == 'file' &&  ext.some(e => j.name.endsWith(e))).sort(key_by_name);
         const file_tree = [
-            { name: '.' , type: 'dir', url: curdir_url },
-            { name: '..', type: 'dir', url: parentdir_url ? parentdir_url : curdir_url },
+            ...(curdir_url ? [{ name: '.' , type: 'dir', url: curdir_url }] : []),
+            ...((parentdir_url || curdir_url) ? [{ name: '..', type: 'dir', url: parentdir_url ? parentdir_url : curdir_url }] : []),
             ...dirs,
             ...files,
             ...images
         ];
-        const file_tree_value = ['', ...file_tree.filter(j => j.name == selected_file_name).map(j => j.url)].pop();
+        const file_tree_value = file_tree.filter(j => j.name == selected_file_name).map(j => j.url).pop() || '';
         setFileTree(file_tree);
         setFileTreeValue(file_tree_value);
     }
 
-    function filetree_add(file_name : string, url : string, update_selected : boolean = true)
+    function filetree_add(file_name : string, curFile : Object, update_selected : boolean = true)
     {
-        setFileTree([...fileTree, { name: file_name, type: 'file', url: url }]);
+        setFileTree([...fileTree, curFile]);
         if(update_selected)
-            setFileTreeValue(url);
+            setFileTreeValue(curFile.url);
     }
 
     function filetree_del(file_name : string)
@@ -748,9 +751,9 @@ function App() {
         setFileTreeValue(file_tree.length > 0 ? file_tree[0].url : '');
     }
 
-    function filetree_rename(selected_file_name : string, curFile : Object)
+    function filetree_rename(file_name : string, curFile : Object)
     {
-        setFileTree(fileTree.map(j => j.name == selected_file_name ? curFile : j));
+        setFileTree(fileTree.map(j => j.name == file_name ? curFile : j));
         setFileTreeValue(curFile.url);
     }
     
@@ -776,34 +779,46 @@ function App() {
 
     async function open_file_or_dir(url_value : string = '', token_value : string = '', HTTP_OK : number = 200, ext : Array = ['.gif', '.jpg', '.png', '.svg'])
     {
-        let prep = github_api_prepare_params(url_value, token_value);
-        if(prep.error)
+        const is_virtual_file = url_value.startsWith('blob:');
+        let res_file = {}, res_dir = [], curdir_url = '', parentdir_url = '';
+
+        if(is_virtual_file)
         {
-            clear('', true, true);
-            return moncms_log(prep.error);
+            res_dir = fileTree;
+            res_file = res_dir.filter(j => j.url == url_value).pop() || {};
         }
-        if(!token_value)
+        else
         {
-            token_value = cache_load(prep.github_repo_url);
-            prep = github_api_prepare_params(url_value, token_value); 
-            if(token_value)
+            let prep = github_api_prepare_params(url_value, token_value);
+            if(prep.error)
+            {
+                clear('', true, true);
+                return moncms_log(prep.error);
+            }
+            if(!token_value)
+            {
+                token_value = cache_load(prep.github_repo_url);
+                prep = github_api_prepare_params(url_value, token_value); 
+                if(token_value)
+                {
+                    setIsSignedIn(true);
+                    setToken(token_value);
+                    moncms_log('got from cache for ' + prep.github_repo_url);
+                }
+            }
+            else if(cache_has(prep.github_repo_url))
             {
                 setIsSignedIn(true);
-                setToken(token_value);
-                moncms_log('got from cache for ' + prep.github_repo_url);
+                moncms_log('found in cache for ' + prep.github_repo_url);
             }
-        }
-        else if(cache_has(prep.github_repo_url))
-        {
-            setIsSignedIn(true);
-            moncms_log('found in cache for ' + prep.github_repo_url);
-        }
-        if(!prep.github_branch)
-            prep.github_branch = await github_api_signin(prep, moncms_log);
+            if(!prep.github_branch)
+                prep.github_branch = await github_api_signin(prep, moncms_log);
 
-        imageCache.prefix = prep.prefix();
-        const curdir_url = prep.curdir_url(), parentdir_url = prep.parentdir_url();
-        let [res_file, res_dir] = await github_api_get_file_and_dir(prep, moncms_log);
+            imageCache.prefix = prep.prefix();
+            curdir_url = prep.curdir_url()
+            parentdir_url = prep.parentdir_url();
+            [res_file, res_dir] = await github_api_get_file_and_dir(prep, moncms_log);
+        }
 
         const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
         const is_dir = res_file.content === undefined;
@@ -823,12 +838,13 @@ function App() {
             setFrontMatterRows([frontmatter_rows_new()]);
             setFrontMatterEmpty(true);
 
-            filetree_update(res_dir, curdir_url, parentdir_url, '');
+            if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, '');
             setFileName('');
             editorRef.current.update(() => 
             {
                 const editorState = editorRef.current.getEditorState();
-                if (editorState != null) {
+                if (editorState != null)
+                {
                     $convertFromMarkdownString(image_listing, PLAYGROUND_TRANSFORMERS);
                     $getRoot().selectStart();
                 }
@@ -840,12 +856,13 @@ function App() {
             setFrontMatterRows([frontmatter_rows_new()]);
             setFrontMatterEmpty(true);
 
-            filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
+            if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
             editorRef.current.update(() =>
             {
                 const editorState = editorRef.current.getEditorState();
-                if (editorState != null) {
+                if (editorState != null)
+                {
                     $convertFromMarkdownString(image_listing, PLAYGROUND_TRANSFORMERS);
                     $getRoot().selectStart();
                 }
@@ -861,12 +878,13 @@ function App() {
             setFrontMatterRows([frontmatter_rows_new(), ...frontmatter_rows]);
             setFrontMatterEmpty(frontmatter === null);
 
-            filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
+            if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
             editorRef.current.update(() =>
             {
                 const editorState = editorRef.current.getEditorState();
-                if (editorState != null) {
+                if (editorState != null)
+                {
                     // TODO: HARDEN Error: Create node: Attempted to create node _HorizontalRuleNode that was not configured to be used on the editor.
                     $convertFromMarkdownString(text, PLAYGROUND_TRANSFORMERS);
                     $getRoot().selectStart();
