@@ -93,18 +93,21 @@ const editorConfig = {
     onError(error: Error) { throw error; },
 };
 
-export function github_api_format_error(resp, HTTP_OK = 200, HTTP_CREATED = 201)
+function github_api_format_error(resp, HTTP_OK = 200, HTTP_CREATED = 201)
 {
     const status = resp.status || '000';
     const message = ((resp?.response?.data?.message) || ((resp?.message || '') + (resp?.stack || '')) ||'').replaceAll('\n', ' ');
     return ([HTTP_OK, HTTP_CREATED].includes(status) ? ' ok ' : ' error ') + `| ${status} | ` + ({200: 'OK', 201: 'OK Created', 404: 'Resource not found', 409: 'Conflict', 422: 'Already Exists. Validation failed, or the endpoint has been spammed.', 401: 'Unauthorized', 500 : 'Internal Server Error', 403: 'Forbidden: '}[status] || '') + ' | ' + message;
 }
 
-export function github_api_prepare_params(github_url : String, github_token : String = '', must_have_token : boolean = false) : Object
+function github_api_prepare_params(github_url : String, github_token : String = '', must_have_token : boolean = false) : Object
 {
     const prep = {
         error: '',
-        headers: {'If-None-Match': ''},
+        headers: {
+            'If-None-Match': '', 
+            //Authorization : github_token ? `Bearer ${github_token}` : ''
+        },
 
         github_token: '',
         github_owner: '',
@@ -132,6 +135,7 @@ export function github_api_prepare_params(github_url : String, github_token : St
     }
 
     // TODO: make work for new format: https://raw.githubusercontent.com/vadimkantorov/moncmsblog/refs/heads/master/README.md
+    // TODO: make work for https://api.github.com/repos/vadimkantorov/moncmsblog/contents/moncms-content/uploads/2025/03/cat-typing.29244fe9.gif?ref=master
     const github_url_normalized = github_url.replace('https://raw.githubusercontent.com', 'https://github.com');
 
     let github_owner = '', github_repo = '', github_repo_tag = '', github_repo_file_path = '', github_repo_dir_path = '';
@@ -195,7 +199,7 @@ export function github_api_prepare_params(github_url : String, github_token : St
     return prep;
 }
 
-export async function github_api_signin(prep, log)
+async function github_api_signin(prep, log)
 {
     let res_get = '';
     try
@@ -213,7 +217,7 @@ export async function github_api_signin(prep, log)
     return '';
 }
 
-export async function github_api_delete_file(prep, sha, log, message = 'no commit message', HTTP_OK = 200)
+async function github_api_delete_file(prep, sha, log, message = 'no commit message', HTTP_OK = 200)
 {
     let res_del = false;
     try
@@ -231,7 +235,7 @@ export async function github_api_delete_file(prep, sha, log, message = 'no commi
     return res_del;
 }
 
-export async function github_api_get_file_and_dir(prep, log, default_file_name = 'README.md')
+async function github_api_get_file_and_dir(prep, log, default_file_name = 'README.md')
 {
     let res_file = {}, res_dir = [], resp_file = {}, resp_dir = {};
     try
@@ -258,11 +262,28 @@ export async function github_api_get_file_and_dir(prep, log, default_file_name =
         log('github_api_get_file_and_dir:' + github_api_format_error(exc));
         [res_file, res_dir] = [{}, []];
     }
-    
-    return [(Object.entries(res_file).length != 0 ? ({name : res_file.name, type : res_file.type, content : res_file.content, sha : res_file.sha, encoding: res_file.encoding, download_url : res_file.download_url, url : decodeURI(res_file.html_url)}) : {}), res_dir.map(f => ({name : f.name, type : f.type, url : decodeURI(f.html_url)}))];
+    console.log(res_dir);
+    return [(Object.entries(res_file).length != 0 ? ({name : res_file.name, type : res_file.type, content : res_file.content, sha : res_file.sha, encoding: res_file.encoding, download_url : res_file.download_url, url : decodeURI(res_file.html_url)}) : {}), res_dir.map(f => ({name : f.name, type : f.type, download_url : f.download_url, url : decodeURI(f.html_url)}))];
 }
 
-export async function github_api_upsert_file(prep, github_path, base64, sha, callback_created, log, message = 'no commit message', HTTP_OK = 200, HTTP_CREATED = 201)
+async function github_raw_get_file(prep, url, log)
+{
+    let res_get = null;
+    try
+    {
+        console.log(prep.headers);
+        const resp_get = await fetch(url, {headers : prep.headers});
+        res_get = await resp_get.blob();
+    }
+    catch(exc)
+    {
+        log('github_raw_get_file:' + github_api_format_error(exc));
+        res_get = null;
+    }
+    return res_get;
+}
+
+async function github_api_upsert_file(prep, github_path, base64, sha, callback_created, log, message = 'no commit message', HTTP_OK = 200, HTTP_CREATED = 201)
 {
     let res_put = {};
     try
@@ -290,7 +311,7 @@ export async function github_api_upsert_file(prep, github_path, base64, sha, cal
     return res_put;
 }
 
-export async function github_api_rename_file(prep, new_file_name, base64, sha, github_repo_curdir_path, log, message = 'no commit message', HTTP_OK = 200)
+async function github_api_rename_file(prep, new_file_name, base64, sha, github_repo_curdir_path, log, message = 'no commit message', HTTP_OK = 200)
 {
     let res_put = {};
     try
@@ -636,18 +657,67 @@ function App() {
         }
     }
 
-    function onclick_downloadfile(event, file_path : string = '', content : string = '', mime : string = '', timeout_millisec : number = 2000)
+    async function upload_images_and_get_editor_content_base64(upload: boolean = true) : [boolean, string, string]
     {
-        /*
+        let [markdown, imageNodes] = await new Promise(resolve => editorRef.current.read(() => {
+            let markdown = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS);
+            const imageNodes = $nodesOfType(ImageNode);
+            resolve([markdown, upload ? imageNodes : []]);
+        }));
+
+        let replace_map = {};
+        for(const node of imageNodes)
+        {
+            const src = node.getSrc();
+            if(src.startsWith('blob:'))
+            {
+                const src_new = await upload_image_from_bloburl(prep, src, imageCache, moncms_log);
+                editorRef.current.update(() => node.getWritable().setSrc(src_new));
+                replace_map[src] = src_new;
+            }
+        }
+        for(const [src, src_new] of Object.entries(replace_map))
+            markdown = markdown.replaceAll(src, src_new);
+        
+        const frontmatter_empty = frontMatterEmpty == true;
+        const frontmatter_str = frontmatter_rows_format(frontMatterRows, frontmatter_empty);
+        const base64 = encode_string_as_base64(frontmatter_str + markdown);
+        return [frontmatter_empty, frontmatter_str, base64];
+    }
+
+    async function onclick_downloadfile(event, timeout_millisec : number = 2000)
+    {
+        if(Object.entries(curFile).length == 0 || (curFile.encoding != 'base64' && !curFile.download_url))
+            return moncms_log('cannot download when no file opened');
+        
+        
         const a = document.createElement('a');
-        a.download = file_path;
-        a.href = URL.createObjectURL(new Blob([content], {type: mime}));
         a.style.display = 'none';
+        a.download = curFile.name;
+        if((curFile.encoding == 'none' && curFile.download_url))
+        {
+            const prep = github_api_prepare_params(url, token, true);
+            const blob = await github_raw_get_file(prep, curFile.download_url, moncms_log);
+            if(!blob)
+                return;
+
+            a.href = URL.createObjectURL(blob);
+        }
+        else
+        {
+            const base64 = (!editorRef.current.isEditable()) ? (curFile.content || '') : (await upload_images_and_get_editor_content_base64(false).pop());
+
+            a.href = 'data:;base64,' + base64;
+        }
+
         document.body.appendChild(a);
         a.click();
   
-        setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, timeout_millisec);
-        */
+        setTimeout(() =>
+        {
+            if(a.href.startsWith('blob:')) URL.revokeObjectURL(a.href);
+            document.body.removeChild(a); 
+        }, timeout_millisec);
     }
 
     async function onclick_savefile()
@@ -661,31 +731,7 @@ function App() {
         if(prep.error)
             return moncms_log(prep.error);
 
-        const frontmatter_empty = frontMatterEmpty == true;
-        const frontmatter_str = frontmatter_rows_format(frontMatterRows, frontmatter_empty);
-        
-        let [markdown, imageNodes] = await new Promise(resolve => editorRef.current.read(() => {
-            let markdown = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS);
-            const imageNodes = $nodesOfType(ImageNode);
-            resolve([markdown, imageNodes]);
-        }));
-
-        let replace_map = {};
-        for(const node of imageNodes)
-        {
-            const src = node.getSrc();
-            if(src.startsWith('blob:'))
-            {
-                const src_new = await upload_image_from_bloburl(prep, src, imageCache, moncms_log);
-                editorRef.current.update(() => node.getWritable().setSrc(src_new));
-                replace_map[src] = src_new;
-
-            }
-        }
-        for(const [src, src_new] of Object.entries(replace_map))
-            markdown = markdown.replaceAll(src, src_new);
-
-        const base64 = encode_string_as_base64(frontmatter_str + markdown);
+        const [frontmatter_empty, frontmatter_str, base64] = await upload_images_and_get_editor_content_base64(true);
 
         if(curFile.encoding == 'base64'
             && curFile.content.replaceAll('\n', '') == base64.replaceAll('\n', '')
@@ -786,6 +832,8 @@ function App() {
         {
             res_dir = fileTree;
             res_file = res_dir.filter(j => j.url == url_value).pop() || {};
+            curdir_url = '';
+            parentdir_url = '';
         }
         else
         {
