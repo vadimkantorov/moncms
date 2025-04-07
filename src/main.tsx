@@ -105,7 +105,7 @@ function github_api_prepare_params(github_url : String, github_token : String = 
     const prep = {
         error: '',
         headers: {
-            'If-None-Match': '', 
+            'If-None-Match': '',
             //Authorization : github_token ? `Bearer ${github_token}` : ''
         },
 
@@ -262,8 +262,25 @@ async function github_api_get_file_and_dir(prep, log, default_file_name = 'READM
         log('github_api_get_file_and_dir:' + github_api_format_error(exc));
         [res_file, res_dir] = [{}, []];
     }
-    console.log(res_dir);
     return [(Object.entries(res_file).length != 0 ? ({name : res_file.name, type : res_file.type, content : res_file.content, sha : res_file.sha, encoding: res_file.encoding, download_url : res_file.download_url, url : decodeURI(res_file.html_url)}) : {}), res_dir.map(f => ({name : f.name, type : f.type, download_url : f.download_url, url : decodeURI(f.html_url)}))];
+}
+
+async function github_api_get_file_raw(prep, sha, log)
+{
+    let res_blob = null, resp_blob = {};
+    try
+    {   
+        const octokit = new Octokit({auth: prep.github_token});
+        resp_blob = await octokit.rest.git.getBlob({owner: prep.github_owner, repo : prep.github_repo, file_sha: sha});
+        res_blob = resp_blob.data.content;
+        log('github_api_get_file_raw:' + github_api_format_error(resp_blob));
+    }
+    catch(exc)
+    {
+        log('github_api_get_file_raw:' + github_api_format_error(exc));
+        res_blob = null;
+    }
+    return res_blob;
 }
 
 async function github_raw_get_file(prep, url, log)
@@ -687,28 +704,33 @@ function App() {
 
     async function onclick_downloadfile(event, timeout_millisec : number = 2000)
     {
-        if(Object.entries(curFile).length == 0 || (curFile.encoding != 'base64' && !curFile.download_url))
+        if(Object.entries(curFile).length == 0)
             return moncms_log('cannot download when no file opened');
-        
         
         const a = document.createElement('a');
         a.style.display = 'none';
         a.download = curFile.name;
-        if((curFile.encoding == 'none' && curFile.download_url))
-        {
-            const prep = github_api_prepare_params(url, token, true);
-            const blob = await github_raw_get_file(prep, curFile.download_url, moncms_log);
-            if(!blob)
-                return;
+        let base64 = '';
 
-            a.href = URL.createObjectURL(blob);
+        if(editorRef.current.isEditable())
+        {
+            // TODO: ask to save the document first if logged in?
+            base64 = await upload_images_and_get_editor_content_base64(false).pop();
         }
         else
         {
-            const base64 = (!editorRef.current.isEditable()) ? (curFile.content || '') : (await upload_images_and_get_editor_content_base64(false).pop());
-
-            a.href = 'data:;base64,' + base64;
+            if(curFile.encoding == 'none')
+            {
+                // workaround for https://github.com/octokit/rest.js/issues/14
+                const prep = github_api_prepare_params(url, token, false);
+                const res_blob = await github_api_get_file_raw(prep, curFile.sha, moncms_log);
+                if(res_blob == null)
+                    return moncms_log('could not download a file');
+                [curFile.encoding, curFile.content] = ['base64', res_blob];
+            }
+            base64 = curFile.content;
         }
+        a.href = 'data:;base64,' + base64;
 
         document.body.appendChild(a);
         a.click();
