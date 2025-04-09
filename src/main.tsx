@@ -553,6 +553,7 @@ function App() {
     const [logHistory, setLogHistory] = useState(log_value);
     const [token, setToken] = useState(token_value);
     const [url, setUrl] = useState(url_value);
+    const [urlSuccess, setUrlSuccess] = useState('');
     const [fileName, setFileName] = useState('');
     const [isCompact, setIsCompact] = useState(false);
     const [isSignedIn, setIsSignedIn] = useState(is_signed_in_value);
@@ -674,12 +675,12 @@ function App() {
         }
     }
 
-    async function upload_images_and_get_editor_content_base64(upload: boolean = true) : [boolean, string, string]
+    async function get_editor_content_base64(upload_images: boolean = true) : [boolean, string, string]
     {
         let [markdown, imageNodes] = await new Promise(resolve => editorRef.current.read(() => {
             let markdown = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS);
             const imageNodes = $nodesOfType(ImageNode);
-            resolve([markdown, upload ? imageNodes : []]);
+            resolve([markdown, upload_images ? imageNodes : []]);
         }));
 
         let replace_map = {};
@@ -702,6 +703,20 @@ function App() {
         return [frontmatter_empty, frontmatter_str, base64];
     }
 
+    function set_editor_content(markdown: string, editable: boolean)
+    {
+        editorRef.current.update(() => 
+        {
+            const editorState = editorRef.current.getEditorState();
+            if (editorState != null)
+            {
+                $convertFromMarkdownString(markdown, PLAYGROUND_TRANSFORMERS);
+                $getRoot().selectStart();
+            }
+        });
+        editorRef.current.setEditable(editable);
+    }
+
     async function onclick_downloadfile(event, timeout_millisec : number = 2000)
     {
         if(Object.entries(curFile).length == 0)
@@ -715,7 +730,7 @@ function App() {
         if(editorRef.current.isEditable())
         {
             // TODO: ask to save the document first if logged in?
-            base64 = await upload_images_and_get_editor_content_base64(false).pop();
+            base64 = await get_editor_content_base64(false).pop();
         }
         else
         {
@@ -747,13 +762,15 @@ function App() {
         if(!fileName)
             return moncms_log('cannot save a file without file name');
 
+        // TODO: check if urlSuccess matches url - at least check, if we opened with a token successfully. what to do for new file?
+
         const prep = github_api_prepare_params(url, token, true);
         const curdir_url = prep.curdir_url();
 
         if(prep.error)
             return moncms_log(prep.error);
 
-        const [frontmatter_empty, frontmatter_str, base64] = await upload_images_and_get_editor_content_base64(true);
+        const [frontmatter_empty, frontmatter_str, base64] = await get_editor_content_base64(true);
 
         if(curFile.encoding == 'base64'
             && curFile.content.replaceAll('\n', '') == base64.replaceAll('\n', '')
@@ -893,6 +910,7 @@ function App() {
         const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
         const is_dir = res_file.content === undefined;
         const is_err = Object.entries(res_file).length == 0 && res_dir.length == 0;
+        const can_save = prep.error == '' && prep.github_token != '';
         const is_image = !is_dir && ext.some(e => res_file.name.endsWith(e));
         const images = res_dir.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
         const image_listing = is_image ? `# ${res_file.name}\n![${res_file.name}](${res_file.download_url})` : images.map(j => `# ${j.name}\n![${j.name}](${j.download_url})`).join('\n\n');
@@ -902,6 +920,7 @@ function App() {
         if(is_err)
         {
             clear('', true, true);
+            setUrlSuccess('');
         }
         else if(is_dir)
         {
@@ -910,16 +929,8 @@ function App() {
 
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, '');
             setFileName('');
-            editorRef.current.update(() => 
-            {
-                const editorState = editorRef.current.getEditorState();
-                if (editorState != null)
-                {
-                    $convertFromMarkdownString(image_listing, PLAYGROUND_TRANSFORMERS);
-                    $getRoot().selectStart();
-                }
-            });
-            editorRef.current.setEditable(false);
+            setUrlSuccess(can_save ? url : '');
+            set_editor_content(image_listing, false);
         }
         else if(is_image)
         {
@@ -928,16 +939,8 @@ function App() {
 
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
-            editorRef.current.update(() =>
-            {
-                const editorState = editorRef.current.getEditorState();
-                if (editorState != null)
-                {
-                    $convertFromMarkdownString(image_listing, PLAYGROUND_TRANSFORMERS);
-                    $getRoot().selectStart();
-                }
-            });
-            editorRef.current.setEditable(false);
+            setUrlSuccess(can_save ? url : '');
+            set_editor_content(image_listing, false);
         }
         else if(!is_image)
         {
@@ -950,17 +953,8 @@ function App() {
 
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
-            editorRef.current.update(() =>
-            {
-                const editorState = editorRef.current.getEditorState();
-                if (editorState != null)
-                {
-                    // TODO: HARDEN Error: Create node: Attempted to create node _HorizontalRuleNode that was not configured to be used on the editor.
-                    $convertFromMarkdownString(text, PLAYGROUND_TRANSFORMERS);
-                    $getRoot().selectStart();
-                }
-            });
-            editorRef.current.setEditable(true);
+            setUrlSuccess(can_save ? url : '');
+            set_editor_content(text, true);
         }
     }
 
