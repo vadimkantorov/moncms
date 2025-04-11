@@ -72,6 +72,8 @@ import {
   $createParagraphNode,
   $isTextNode,
   $createTextNode,
+  $selectAll,
+  $insertNodes
 } from 'lexical';
 import {Dispatch, useCallback, useEffect, useState, useRef} from 'react';
 import useModal from '../hooks/useModal';
@@ -83,6 +85,7 @@ import {
   MAX_ALLOWED_FONT_SIZE,
   MIN_ALLOWED_FONT_SIZE,
 } from '../context/ToolbarContext';
+import { $generateHtmlFromNodes, $generateNodesFromDOM } from "@lexical/html";
 
 //import {$createStickyNode} from '../../nodes/StickyNode';
 import DropDown, {DropDownItem} from '../ui/DropDown';
@@ -635,6 +638,7 @@ function BlockFormatDropDown({
         </div>
         <span className="shortcut">{SHORTCUTS.HEADING3}</span>
       </DropDownItem>
+      {/*
       <DropDownItem
         className={'item wide ' + dropDownActiveClass(blockType === 'bullet')}
         onClick={() => formatBulletList(editor, blockType)}>
@@ -662,6 +666,7 @@ function BlockFormatDropDown({
         </div>
         <span className="shortcut">{SHORTCUTS.CHECK_LIST}</span>
       </DropDownItem>
+      */}
       <DropDownItem
         className={'item wide ' + dropDownActiveClass(blockType === 'quote')}
         onClick={() => formatQuote(editor, blockType)}>
@@ -759,7 +764,7 @@ function ElementFormatDropdown({
   return (
     <DropDown
       disabled={disabled}
-      buttonLabel={formatOption.name}
+      
       buttonIconClassName={`icon ${
         isRTL ? formatOption.iconRTL : formatOption.icon
       }`}
@@ -837,6 +842,7 @@ function ElementFormatDropdown({
         />
         <span className="text">End Align</span>
       </DropDownItem>
+      {/*
       <Divider />
       <DropDownItem
         onClick={() => {
@@ -860,6 +866,7 @@ function ElementFormatDropdown({
         </div>
         <span className="shortcut">{SHORTCUTS.INDENT}</span>
       </DropDownItem>
+      */}
     </DropDown>
   );
 }
@@ -869,11 +876,15 @@ export default function ToolbarPlugin({
   //activeEditor,
   //setActiveEditor,
   setIsLinkEditMode,
+  isCompact,
+  setIsCompact,
 }: {
   //editor: LexicalEditor;
   //activeEditor: LexicalEditor;
   //setActiveEditor: Dispatch<LexicalEditor>;
   setIsLinkEditMode: Dispatch<boolean>;
+  isCompact: boolean;
+  setIsCompact: Dispatch<boolean>;
 }): JSX.Element {
   const [editor] = useLexicalComposerContext(); const activeEditor = editor;
   const [selectedElementKey, setSelectedElementKey] = useState<NodeKey | null>(
@@ -921,6 +932,28 @@ export default function ToolbarPlugin({
     });
   }, [editor, shouldPreserveNewLinesInMarkdown]);
 
+  const handleHtmlToggle = useCallback(() => {
+    editor.update(() => {
+      const root = $getRoot();
+      const firstChild = root.getFirstChild();
+      
+      if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'html') {
+        const parser = new DOMParser();
+        const dom = parser.parseFromString(firstChild.getTextContent(), "text/html");
+        const nodes = $generateNodesFromDOM(editor, dom);
+        root.clear().select().insertNodes(nodes);
+      }
+      else {
+        const html = $generateHtmlFromNodes(editor, $selectAll());
+        const codeNode = $createCodeNode('html');
+        codeNode.append($createTextNode(html));
+        root.clear().append(codeNode);
+        if (html.length === 0) {
+          codeNode.select();
+        }
+      }
+    });
+  }, [editor]);
 
 
   const $updateToolbar = useCallback(() => {
@@ -1194,6 +1227,14 @@ export default function ToolbarPlugin({
         aria-label="Convert from markdown">
         <i className="format markdown" />
       </button>
+      <button
+        className="toolbar-item spaced"
+        onClick={handleHtmlToggle}
+        title="Convert From Html"
+        type="button"
+        aria-label="Convert from html">
+        <i className="format html" />
+      </button>
 
       <button
         disabled={!toolbarState.canUndo || !isEditable}
@@ -1465,7 +1506,102 @@ export default function ToolbarPlugin({
         value={toolbarState.elementFormat}
         editor={activeEditor}
         isRTL={toolbarState.isRTL}
-      />    
+      />
+
+      {/*  
+      <button
+        onClick={() => formatCheckList(editor, toolbarState.blockType)}
+        className={'toolbar-item spaced ' + dropDownActiveClass(toolbarState.blockType === 'check')}
+        aria-label="Check List"
+        title={`Check List (${SHORTCUTS.CHECK_LIST})`}
+        type="button">
+        <i className="icon check-list" />
+      </button>
+      <button
+        onClick={() => formatBulletList(editor, toolbarState.blockType)}
+        className={'toolbar-item spaced ' + dropDownActiveClass(toolbarState.blockType === 'bullet')}
+        aria-label="Bullet List"
+        title={`Bullet List (${SHORTCUTS.BULLET_LIST})`}
+        type="button">
+        <i className="icon bullet-list" />
+      </button>
+      <button
+        onClick={() => formatNumberedList(editor, toolbarState.blockType)}
+        className={'toolbar-item spaced ' + dropDownActiveClass(toolbarState.blockType === 'number')}
+        aria-label="Numbered List"
+        title={`Numbered List (${SHORTCUTS.NUMBERED_LIST})`}
+        type="button">
+        <i className="icon numbered-list" />
+      </button>
+
+      <button
+        onClick={() => {
+          editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined);
+        }}
+        className="toolbar-item spaced"
+        aria-label="Outdent"
+        title={`Outdent (${SHORTCUTS.OUTDENT})`}
+        type="button">
+          <i className={'icon ' + (toolbarState.isRTL ? 'indent' : 'outdent')} />
+      </button>
+      <button
+        onClick={() => {
+          editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined);
+        }}
+        className="toolbar-item spaced"
+        aria-label="Indent"
+        title={`Indent (${SHORTCUTS.INDENT})`}
+        type="button">
+          <i className={'icon ' + (toolbarState.isRTL ? 'outdent' : 'indent')} />
+      </button>
+      <button
+            onClick={() => clearFormatting(activeEditor)}
+            className="toolbar-item spaced"
+            title={`Clear Formatting (${SHORTCUTS.CLEAR_FORMATTING})`}
+            aria-label="Clear Formatting">
+            
+            <i className="icon clear" />
+            
+        </button>
+*/}
+        
+        <DropDown
+      buttonClassName="toolbar-item"
+      buttonIconClassName='icon editing'
+      buttonLabel="Editing">
+      <DropDownItem
+        onClick={() => console.log("Editing")}
+        className="item wide">
+        
+        <div className="icon-text-container">
+          <i className="icon editing" />
+          <span className="text">Editing</span>
+        </div>
+        
+      </DropDownItem>
+
+      <DropDownItem
+      onClick={() => console.log("Viewing")}
+        className="item wide">
+        
+        <div className="icon-text-container">
+          <i className="icon viewing" />
+          <span className="text">Viewing</span>
+        </div>
+        
+      </DropDownItem>
+      </DropDown>
+      <Divider />
+      <button
+            onClick={() => setIsCompact(!isCompact)}
+            className="toolbar-item"
+            title="Compact View"
+            aria-label="Compact View">
+            
+            <i className={'icon ' + (isCompact ? 'chevron-down' : 'chevron-up')} />
+            
+        </button>
+        {/*
         <button
         onClick={() => {
           editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'left');
@@ -1490,6 +1626,7 @@ export default function ToolbarPlugin({
         aria-label="Right Align">
         <i className="format right-align" />
       </button>
+      */}
       {/*
       <button
         onClick={() => {
@@ -1501,6 +1638,9 @@ export default function ToolbarPlugin({
       </button>
       */}
 
+        
+
+        {/*
           <DropDown
             disabled={!isEditable}
             buttonClassName="toolbar-item spaced"
@@ -1629,7 +1769,7 @@ export default function ToolbarPlugin({
               <span className="shortcut">{SHORTCUTS.CLEAR_FORMATTING}</span>
             </DropDownItem>
           </DropDown>
-
+            */}
         
 
           {canViewerSeeInsertDropdown && (

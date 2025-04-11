@@ -775,13 +775,16 @@ pre::-webkit-scrollbar-thumb {
   button.toolbar-item:disabled .icon,
   button.toolbar-item:disabled .text,
   button.toolbar-item:disabled i.format,
-  button.toolbar-item:disabled .chevron-down {
+  button.toolbar-item:disabled .chevron-down,
+  button.toolbar-item:disabled .chevron-up {
     opacity: 0.2;
   }
   
   
 .toolbar i.chevron-down,
-.toolbar-item i.chevron-down {
+.toolbar-item i.chevron-down,
+.toolbar i.chevron-up,
+.toolbar-item i.chevron-up {
   margin-top: 3px;
   width: 16px;
   height: 16px;
@@ -789,7 +792,8 @@ pre::-webkit-scrollbar-thumb {
   user-select: none;
 }
 
-.toolbar i.chevron-down.inside {
+.toolbar i.chevron-down.inside,
+.toolbar i.chevron-up.inside {
   width: 16px;
   height: 16px;
   display: flex;
@@ -976,6 +980,9 @@ i.undo {
       background-image: url("../assets/icons/markdown.svg");
     }
 
+    i.html {
+        background-image: url("../assets/icons/html.svg");
+      }
 
     i.palette {
         background-image: url("../assets/icons/palette.svg");
@@ -1272,6 +1279,21 @@ i.undo {
     background-image: url("../assets/icons/code.svg");
   }
 
+  .icon.bullet-list,
+.icon.bullet {
+  background-image: url("../assets/icons/list-ul.svg");
+}
+
+.icon.check-list,
+.icon.check {
+  background-image: url("../assets/icons/square-check.svg");
+}
+
+.icon.numbered-list,
+.icon.number {
+  background-image: url("../assets/icons/list-ol.svg");
+}
+
   
 .actions i.indent {
     background-image: url("../assets/icons/indent.svg");
@@ -1328,4 +1350,19 @@ i.undo {
     height: 8px;
     width: 8px;
     background-image: url("../assets/icons/chevron-down.svg");
+  }
+  i.chevron-up {
+    background-color: transparent;
+    background-size: contain;
+    display: inline-block;
+    height: 8px;
+    width: 8px;
+    background-image: url("../assets/icons/chevron-up.svg");
+  }
+
+  .icon.viewing {
+    background-image: url("../assets/icons/viewing.svg");
+  }
+  .icon.editing {
+    background-image: url("../assets/icons/editing.svg");
   }

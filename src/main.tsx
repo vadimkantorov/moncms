@@ -26,6 +26,8 @@ import {LexicalErrorBoundary} from '@lexical/react/LexicalErrorBoundary';
 import {HistoryPlugin} from '@lexical/react/LexicalHistoryPlugin';
 import {RichTextPlugin} from '@lexical/react/LexicalRichTextPlugin';
 import {HorizontalRulePlugin} from '@lexical/react/LexicalHorizontalRulePlugin';
+import {CheckListPlugin} from '@lexical/react/LexicalCheckListPlugin';
+import {ListPlugin} from '@lexical/react/LexicalListPlugin';
 import { $convertToMarkdownString, $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 
 import {ImageCacheContext, ImageCache} from './plugins/ImagesPlugin';
@@ -865,7 +867,7 @@ function App() {
     async function open_file_or_dir(url_value : string = '', token_value : string = '', HTTP_OK : number = 200, ext : Array = ['.gif', '.jpg', '.png', '.svg'])
     {
         const is_virtual_file = url_value.startsWith('blob:');
-        let res_file = {}, res_dir = [], curdir_url = '', parentdir_url = '';
+        let res_file = {}, res_dir = [], curdir_url = '', parentdir_url = '', prep = {};
 
         if(is_virtual_file)
         {
@@ -873,10 +875,11 @@ function App() {
             res_file = res_dir.filter(j => j.url == url_value).pop() || {};
             curdir_url = '';
             parentdir_url = '';
+            prep = {error : '', github_token : ''};
         }
         else
         {
-            let prep = github_api_prepare_params(url_value, token_value);
+            prep = github_api_prepare_params(url_value, token_value);
             if(prep.error)
             {
                 clear('', true, true);
@@ -1027,17 +1030,17 @@ function App() {
         <button onClick={event => onclick_createfiledir(event.target.dataset.newpath, event.target.dataset.message)} id="html_createdir"  data-newpath="new-dir-at-${time}/.gitignore"        data-message="### modify the directory name, and then click Save File to create the file and the directory">New Folder</button>
         
         <button onClick={() => filesRef.current.click()}>Upload Files</button>
-        <input type="file" id="html_files" ref={filesRef} onChange={onchange_files} multiple hidden />
+        <input onChange={onchange_files} ref={filesRef} multiple hidden id="html_files" type="file" />
         <button onClick={onclick_downloadfile}>Download File</button>
         
         <button onClick={() => onclick_signinout().catch(moncms_log)} className={isSignedIn ? "signout" : "signin"} ></button>
         <button onClick={event => {setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
-        <button onClick={() => setIsCompact(!isCompact)}>Compact View</button>
+        {/*<button onClick={() => setIsCompact(!isCompact)}>Compact View</button>*/}
     </div>
     <div className="editor-shell">
     <ImageCacheContext.Provider value={imageCache}><LexicalComposer initialConfig={editorConfig}><EditorRefPlugin editorRef={editorRef} /><ToolbarContext>
       <div className="editor-container">
-        <ToolbarPlugin setIsLinkEditMode={setIsLinkEditMode} />
+        <ToolbarPlugin setIsLinkEditMode={setIsLinkEditMode} isCompact={isCompact} setIsCompact={setIsCompact} />
         <ShortcutsPlugin setIsLinkEditMode={setIsLinkEditMode} />
         <ImagesPlugin />
         <HorizontalRulePlugin />
@@ -1051,6 +1054,8 @@ function App() {
           <HistoryPlugin />
           <LexicalAutoLinkPlugin />
           <LinkPlugin />
+          <ListPlugin hasStrictIndent={false} />
+          <CheckListPlugin />
           {/*<AutoFocusPlugin />*/}
         </div>
       </div>
