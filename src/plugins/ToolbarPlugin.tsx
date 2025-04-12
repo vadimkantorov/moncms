@@ -933,6 +933,32 @@ export default function ToolbarPlugin({
   }, [editor, shouldPreserveNewLinesInMarkdown]);
 
   const handleHtmlToggle = useCallback(() => {
+    
+      // from https://github.com/facebook/lexical/blob/main/packages/lexical-devtools-core/src/generateContent.ts
+      function prettifyHTML(node: Element, level: number) {
+        const indentBefore = new Array(level++ + 1).join('  ');
+        const indentAfter = new Array(level - 1).join('  ');
+        let textNode;
+      
+        for (let i = 0; i < node.children.length; i++) {
+          textNode = document.createTextNode('\n' + indentBefore);
+          node.insertBefore(textNode, node.children[i]);
+          prettifyHTML(node.children[i], level);
+          if (node.lastElementChild === node.children[i]) {
+            textNode = document.createTextNode('\n' + indentAfter);
+            node.appendChild(textNode);
+          }
+        }
+      
+        return node;
+      }
+
+      function printPrettyHTML(str: string) {
+        const div = document.createElement('div');
+        div.innerHTML = str.trim();
+        return prettifyHTML(div, 0).innerHTML.trim();
+      }
+
     editor.update(() => {
       const root = $getRoot();
       const firstChild = root.getFirstChild();
@@ -944,7 +970,7 @@ export default function ToolbarPlugin({
         root.clear().select().insertNodes(nodes);
       }
       else {
-        const html = $generateHtmlFromNodes(editor, $selectAll());
+        const html = printPrettyHTML($generateHtmlFromNodes(editor, $selectAll()));
         const codeNode = $createCodeNode('html');
         codeNode.append($createTextNode(html));
         root.clear().append(codeNode);
@@ -1567,11 +1593,12 @@ export default function ToolbarPlugin({
         
         <DropDown
       buttonClassName="toolbar-item"
-      buttonIconClassName='icon editing'
-      buttonLabel="Editing">
+      buttonIconClassName={'icon ' + (isEditable ? 'editing' : 'viewing') } 
+      buttonLabel={isEditable ? 'Editing' : 'Viewing'}>
+
       <DropDownItem
         onClick={() => console.log("Editing")}
-        className="item wide">
+        className={"item wide " + dropDownActiveClass(isEditable)}>
         
         <div className="icon-text-container">
           <i className="icon editing" />
@@ -1582,7 +1609,7 @@ export default function ToolbarPlugin({
 
       <DropDownItem
       onClick={() => console.log("Viewing")}
-        className="item wide">
+        className={"item wide " + dropDownActiveClass(!isEditable)}>
         
         <div className="icon-text-container">
           <i className="icon viewing" />
