@@ -824,6 +824,8 @@ export default function ToolbarPlugin({
   setIsLinkEditMode,
   isCompact,
   setIsCompact,
+  editorMode,
+  setEditorMode
 }: {
   //editor: LexicalEditor;
   //activeEditor: LexicalEditor;
@@ -831,6 +833,8 @@ export default function ToolbarPlugin({
   setIsLinkEditMode: Dispatch<boolean>;
   isCompact: boolean;
   setIsCompact: Dispatch<boolean>;
+  editorMode: string;
+  setEditorMode: Dispatch<string>;
 }): JSX.Element {
   const [editor] = useLexicalComposerContext(); const activeEditor = editor;
   const [selectedElementKey, setSelectedElementKey] = useState<NodeKey | null>(

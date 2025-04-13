@@ -561,6 +561,7 @@ function App() {
     const [isSignedIn, setIsSignedIn] = useState(is_signed_in_value);
     const [frontMatterRows, setFrontMatterRows] = useState([frontmatter_rows_new()]);
     const [frontMatterEmpty, setFrontMatterEmpty] = useState(true);
+    const [editorMode, setEditorMode] = useState('');
 
     const [curFile, setCurFile] = useState({});
     const [fileTree, setFileTree] = useState([]);
@@ -1040,7 +1041,7 @@ function App() {
     <div className="editor-shell">
     <ImageCacheContext.Provider value={imageCache}><LexicalComposer initialConfig={editorConfig}><EditorRefPlugin editorRef={editorRef} /><ToolbarContext>
       <div className="editor-container">
-        <ToolbarPlugin setIsLinkEditMode={setIsLinkEditMode} isCompact={isCompact} setIsCompact={setIsCompact} />
+        <ToolbarPlugin setIsLinkEditMode={setIsLinkEditMode} isCompact={isCompact} setIsCompact={setIsCompact} editorMode={editorMode} setEditorMode={setEditorMode} />
         <ShortcutsPlugin setIsLinkEditMode={setIsLinkEditMode} />
         <ImagesPlugin />
         <HorizontalRulePlugin />
