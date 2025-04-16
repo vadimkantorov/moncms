@@ -1196,6 +1196,7 @@ export default function ToolbarPlugin({
   return (
     <div className="toolbar" ref={toolbarRef}>
       <button
+        disabled={!isEditable}
         className="toolbar-item spaced"
         onClick={handleMarkdownToggle}
         title="Convert From Markdown"
@@ -1204,6 +1205,7 @@ export default function ToolbarPlugin({
         <i className="format markdown" />
       </button>
       <button
+        disabled={!isEditable}
         className="toolbar-item spaced"
         onClick={handleHtmlToggle}
         title="Convert From Html"
@@ -1238,21 +1240,14 @@ export default function ToolbarPlugin({
       
       <Divider />
  
-      {toolbarState.blockType in blockTypeToBlockName &&
-        activeEditor === editor && (
-          <>
+      {toolbarState.blockType in blockTypeToBlockName && activeEditor === editor && (
             <BlockFormatDropDown
               disabled={!isEditable}
               blockType={toolbarState.blockType}
               rootType={toolbarState.rootType}
               editor={activeEditor}
             />
-            
-          </>
         )}
-
-
-      
         
       <Divider />
 
@@ -1279,6 +1274,9 @@ export default function ToolbarPlugin({
         </DropDown>
       ) : (
         <>
+
+          {editorMode == "html" && (
+          <>
           <FontDropDown
             disabled={!isEditable}
             style={'font-family'}
@@ -1292,6 +1290,10 @@ export default function ToolbarPlugin({
             disabled={!isEditable}
           />
           <Divider />
+          </>
+          )}
+          
+          
 
           
           <button
@@ -1352,7 +1354,7 @@ export default function ToolbarPlugin({
               <i className="format code" />
             </button>
           )}
-          
+          {editorMode == "html" && (
           <DropdownColorPicker
             disabled={!isEditable}
             buttonClassName="toolbar-item color-picker"
@@ -1361,7 +1363,8 @@ export default function ToolbarPlugin({
             color={toolbarState.fontColor}
             onChange={onFontColorSelect}
             title="text color"
-          />
+          />)}
+          {editorMode == "html" && (
           <DropdownColorPicker
             disabled={!isEditable}
             buttonClassName="toolbar-item color-picker"
@@ -1370,7 +1373,7 @@ export default function ToolbarPlugin({
             color={toolbarState.bgColor}
             onChange={onBgColorSelect}
             title="bg color"
-          />
+          />)}
           <Divider />
           <button
             disabled={!isEditable}
@@ -1385,6 +1388,7 @@ export default function ToolbarPlugin({
           </button>
 
           <button
+            disabled={!isEditable}
             onClick={() => {
             activeEditor.dispatchCommand(
                 INSERT_HORIZONTAL_RULE_COMMAND,
@@ -1398,7 +1402,8 @@ export default function ToolbarPlugin({
             <i className="icon horizontal-rule" />
         </button>
 
-          <button
+        <button
+        disabled={!isEditable}
         onClick={() => {
             showModal('Insert Image', (onClose: () => void) => (
             <InsertImageDialog
@@ -1415,16 +1420,17 @@ export default function ToolbarPlugin({
       </button>
         <Divider />
        
-
-        <ElementFormatDropdown
+      {editorMode == "html" && (
+      <ElementFormatDropdown
         disabled={!isEditable}
         value={toolbarState.elementFormat}
         editor={activeEditor}
         isRTL={toolbarState.isRTL}
-      />
+      />)}
 
       
       <button
+        disabled={!isEditable}
         onClick={() => formatCheckList(editor, toolbarState.blockType)}
         className={'toolbar-item spaced ' + dropDownActiveClass(toolbarState.blockType === 'check')}
         aria-label="Check List"
@@ -1433,6 +1439,7 @@ export default function ToolbarPlugin({
         <i className="icon check-list" />
       </button>
       <button
+        disabled={!isEditable}
         onClick={() => formatBulletList(editor, toolbarState.blockType)}
         className={'toolbar-item spaced ' + dropDownActiveClass(toolbarState.blockType === 'bullet')}
         aria-label="Bullet List"
@@ -1441,6 +1448,7 @@ export default function ToolbarPlugin({
         <i className="icon bullet-list" />
       </button>
       <button
+        disabled={!isEditable}
         onClick={() => formatNumberedList(editor, toolbarState.blockType)}
         className={'toolbar-item spaced ' + dropDownActiveClass(toolbarState.blockType === 'number')}
         aria-label="Numbered List"
@@ -1450,6 +1458,7 @@ export default function ToolbarPlugin({
       </button>
 
       <button
+        disabled={!isEditable}
         onClick={() => {
           editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined);
         }}
@@ -1460,6 +1469,7 @@ export default function ToolbarPlugin({
           <i className={'icon ' + (toolbarState.isRTL ? 'indent' : 'outdent')} />
       </button>
       <button
+        disabled={!isEditable}
         onClick={() => {
           editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined);
         }}
@@ -1469,7 +1479,9 @@ export default function ToolbarPlugin({
         type="button">
           <i className={'icon ' + (toolbarState.isRTL ? 'outdent' : 'indent')} />
       </button>
+      {editorMode == "html" && (
       <button
+            disabled={!isEditable}
             onClick={() => clearFormatting(activeEditor)}
             className="toolbar-item spaced"
             title={`Clear Formatting (${SHORTCUTS.CLEAR_FORMATTING})`}
@@ -1478,9 +1490,11 @@ export default function ToolbarPlugin({
             <i className="icon clear" />
             
         </button>
-*
+       )}
+
         
         <DropDown
+        disabled={!isEditable}
       buttonClassName="toolbar-item"
       buttonIconClassName={'icon ' + (isEditable ? 'editing' : 'viewing') } 
       buttonLabel={isEditable ? 'Editing' : 'Viewing'}>

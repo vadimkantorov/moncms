@@ -555,7 +555,6 @@ function App() {
     const [logHistory, setLogHistory] = useState(log_value);
     const [token, setToken] = useState(token_value);
     const [url, setUrl] = useState(url_value);
-    const [urlSuccess, setUrlSuccess] = useState('');
     const [fileName, setFileName] = useState('');
     const [isCompact, setIsCompact] = useState(false);
     const [isSignedIn, setIsSignedIn] = useState(is_signed_in_value);
@@ -573,9 +572,13 @@ function App() {
     useEffect(() => 
     {
         if(url)
+        {
             open_file_or_dir(url, token).catch(moncms_log);
+        }
         else
+        {
             urlRef.current.focus();
+        }
     }, []);
 
     function moncms_log(err : string | Error)
@@ -651,6 +654,7 @@ function App() {
         const new_path = newpath_template.replaceAll('${date}', date.toString()).replaceAll('${time}', time.toString());
         clear(clear_message, false, true);
         setFileName(new_path);
+        //filetree_add(fileName, res_put, true);
         //fileNameRef.current.focus();
     }
 
@@ -719,6 +723,85 @@ function App() {
         });
         editorRef.current.setEditable(editable);
     }
+    
+      function handleMarkdownToggle(editor)
+      {
+        editor.update(() => {
+          const shouldPreserveNewLinesInMarkdown = true;
+          const root = $getRoot();
+          const firstChild = root.getFirstChild();
+          if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'markdown') {
+            $convertFromMarkdownString(
+              firstChild.getTextContent(),
+              PLAYGROUND_TRANSFORMERS,
+              undefined, // node
+              shouldPreserveNewLinesInMarkdown,
+            );
+          } else {
+            const markdown = $convertToMarkdownString(
+              PLAYGROUND_TRANSFORMERS,
+              undefined, //node
+              shouldPreserveNewLinesInMarkdown,
+            );
+            const codeNode = $createCodeNode('markdown');
+            codeNode.append($createTextNode(markdown));
+            root.clear().append(codeNode);
+            if (markdown.length === 0) {
+              codeNode.select();
+            }
+          }
+        });
+      }
+    
+      function handleHtmlToggle(editor)
+      {
+        
+          // from https://github.com/facebook/lexical/blob/main/packages/lexical-devtools-core/src/generateContent.ts
+          function prettifyHTML(node: Element, level: number) {
+            const indentBefore = new Array(level++ + 1).join('  ');
+            const indentAfter = new Array(level - 1).join('  ');
+            let textNode;
+          
+            for (let i = 0; i < node.children.length; i++) {
+              textNode = document.createTextNode('\n' + indentBefore);
+              node.insertBefore(textNode, node.children[i]);
+              prettifyHTML(node.children[i], level);
+              if (node.lastElementChild === node.children[i]) {
+                textNode = document.createTextNode('\n' + indentAfter);
+                node.appendChild(textNode);
+              }
+            }
+          
+            return node;
+          }
+    
+          function printPrettyHTML(str: string) {
+            const div = document.createElement('div');
+            div.innerHTML = str.trim();
+            return prettifyHTML(div, 0).innerHTML.trim();
+          }
+    
+        editor.update(() => {
+          const root = $getRoot();
+          const firstChild = root.getFirstChild();
+          
+          if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'html') {
+            const parser = new DOMParser();
+            const dom = parser.parseFromString(firstChild.getTextContent(), "text/html");
+            const nodes = $generateNodesFromDOM(editor, dom);
+            root.clear().select().insertNodes(nodes);
+          }
+          else {
+            const html = printPrettyHTML($generateHtmlFromNodes(editor, $selectAll()));
+            const codeNode = $createCodeNode('html');
+            codeNode.append($createTextNode(html));
+            root.clear().append(codeNode);
+            if (html.length === 0) {
+              codeNode.select();
+            }
+          }
+        });
+      }
 
     async function onclick_downloadfile(event, timeout_millisec : number = 2000)
     {
@@ -918,13 +1001,14 @@ function App() {
         const is_image = !is_dir && ext.some(e => res_file.name.endsWith(e));
         const images = res_dir.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
         const image_listing = is_image ? `# ${res_file.name}\n![${res_file.name}](${res_file.download_url})` : images.map(j => `# ${j.name}\n![${j.name}](${j.download_url})`).join('\n\n');
-            
+        
+        setEditorMode(is_image ? 'image' : (is_dir ? 'dir' : (res_file.name.endsWith('.md') ? 'markdown' : res_file.name.endsWith('.html') ? 'html' : 'text')));
+        
         setCurFile(res_file);
 
         if(is_err)
         {
             clear('', true, true);
-            setUrlSuccess('');
         }
         else if(is_dir)
         {
@@ -933,7 +1017,6 @@ function App() {
 
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, '');
             setFileName('');
-            setUrlSuccess(can_save ? url : '');
             set_editor_content(image_listing, false);
         }
         else if(is_image)
@@ -943,7 +1026,6 @@ function App() {
 
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
-            setUrlSuccess(can_save ? url : '');
             set_editor_content(image_listing, false);
         }
         else if(!is_image)
@@ -957,7 +1039,6 @@ function App() {
 
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
-            setUrlSuccess(can_save ? url : '');
             set_editor_content(text, true);
         }
     }
