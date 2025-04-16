@@ -11,7 +11,7 @@ import * as React from 'react';
 import './fontSize.css';
 
 import {
-  $isCodeNode,
+  $isCodeNode, $createCodeNode,
   CODE_LANGUAGE_FRIENDLY_NAME_MAP,
   CODE_LANGUAGE_MAP,
   getLanguageFriendlyName,
@@ -22,7 +22,6 @@ import {$isListNode, ListNode} from '@lexical/list';
 //import {EmbedConfigs} from '../AutoEmbedPlugin';
 import {INSERT_HORIZONTAL_RULE_COMMAND} from '@lexical/react/LexicalHorizontalRuleNode';
 import {$isHeadingNode} from '@lexical/rich-text';
-import {$createCodeNode} from '@lexical/code';
 import {
   INSERT_CHECK_LIST_COMMAND,
   INSERT_ORDERED_LIST_COMMAND,
@@ -71,9 +70,6 @@ import {
   UNDO_COMMAND,
   $createParagraphNode,
   $isTextNode,
-  $createTextNode,
-  $selectAll,
-  $insertNodes
 } from 'lexical';
 import {Dispatch, useCallback, useEffect, useState, useRef} from 'react';
 import useModal from '../hooks/useModal';
@@ -85,7 +81,6 @@ import {
   MAX_ALLOWED_FONT_SIZE,
   MIN_ALLOWED_FONT_SIZE,
 } from '../context/ToolbarContext';
-import { $generateHtmlFromNodes, $generateNodesFromDOM } from "@lexical/html";
 
 //import {$createStickyNode} from '../../nodes/StickyNode';
 import DropDown, {DropDownItem} from '../ui/DropDown';
@@ -825,7 +820,9 @@ export default function ToolbarPlugin({
   isCompact,
   setIsCompact,
   editorMode,
-  setEditorMode
+  setEditorMode,
+  handleMarkdownToggle,
+  handleHtmlToggle
 }: {
   //editor: LexicalEditor;
   //activeEditor: LexicalEditor;
@@ -835,6 +832,8 @@ export default function ToolbarPlugin({
   setIsCompact: Dispatch<boolean>;
   editorMode: string;
   setEditorMode: Dispatch<string>;
+  handleMarkdownToggle: (editor: LexicalEditor) => void;
+  handleHtmlToggle: (editor: LexicalEditor) => void;
 }): JSX.Element {
   const [editor] = useLexicalComposerContext(); const activeEditor = editor;
   const [selectedElementKey, setSelectedElementKey] = useState<NodeKey | null>(
@@ -852,85 +851,6 @@ export default function ToolbarPlugin({
   const [isItalic, setIsItalic] = useState(false);
   const [isUnderline, setIsUnderline] = useState(false);
   const [isStrikethrough, setIsStrikethrough] = useState(false);
-
-  const shouldPreserveNewLinesInMarkdown = true;
-
-  const handleMarkdownToggle = useCallback(() => {
-    editor.update(() => {
-      const root = $getRoot();
-      const firstChild = root.getFirstChild();
-      if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'markdown') {
-        $convertFromMarkdownString(
-          firstChild.getTextContent(),
-          PLAYGROUND_TRANSFORMERS,
-          undefined, // node
-          shouldPreserveNewLinesInMarkdown,
-        );
-      } else {
-        const markdown = $convertToMarkdownString(
-          PLAYGROUND_TRANSFORMERS,
-          undefined, //node
-          shouldPreserveNewLinesInMarkdown,
-        );
-        const codeNode = $createCodeNode('markdown');
-        codeNode.append($createTextNode(markdown));
-        root.clear().append(codeNode);
-        if (markdown.length === 0) {
-          codeNode.select();
-        }
-      }
-    });
-  }, [editor, shouldPreserveNewLinesInMarkdown]);
-
-  const handleHtmlToggle = useCallback(() => {
-    
-      // from https://github.com/facebook/lexical/blob/main/packages/lexical-devtools-core/src/generateContent.ts
-      function prettifyHTML(node: Element, level: number) {
-        const indentBefore = new Array(level++ + 1).join('  ');
-        const indentAfter = new Array(level - 1).join('  ');
-        let textNode;
-      
-        for (let i = 0; i < node.children.length; i++) {
-          textNode = document.createTextNode('\n' + indentBefore);
-          node.insertBefore(textNode, node.children[i]);
-          prettifyHTML(node.children[i], level);
-          if (node.lastElementChild === node.children[i]) {
-            textNode = document.createTextNode('\n' + indentAfter);
-            node.appendChild(textNode);
-          }
-        }
-      
-        return node;
-      }
-
-      function printPrettyHTML(str: string) {
-        const div = document.createElement('div');
-        div.innerHTML = str.trim();
-        return prettifyHTML(div, 0).innerHTML.trim();
-      }
-
-    editor.update(() => {
-      const root = $getRoot();
-      const firstChild = root.getFirstChild();
-      
-      if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'html') {
-        const parser = new DOMParser();
-        const dom = parser.parseFromString(firstChild.getTextContent(), "text/html");
-        const nodes = $generateNodesFromDOM(editor, dom);
-        root.clear().select().insertNodes(nodes);
-      }
-      else {
-        const html = printPrettyHTML($generateHtmlFromNodes(editor, $selectAll()));
-        const codeNode = $createCodeNode('html');
-        codeNode.append($createTextNode(html));
-        root.clear().append(codeNode);
-        if (html.length === 0) {
-          codeNode.select();
-        }
-      }
-    });
-  }, [editor]);
-
 
   const $updateToolbar = useCallback(() => {
     const selection = $getSelection();
@@ -1198,7 +1118,7 @@ export default function ToolbarPlugin({
       <button
         disabled={!isEditable}
         className="toolbar-item spaced"
-        onClick={handleMarkdownToggle}
+        onClick={() => handleMarkdownToggle(editor)}
         title="Convert From Markdown"
         type="button"
         aria-label="Convert from markdown">
@@ -1207,7 +1127,7 @@ export default function ToolbarPlugin({
       <button
         disabled={!isEditable}
         className="toolbar-item spaced"
-        onClick={handleHtmlToggle}
+        onClick={() => handleHtmlToggle(editor)}
         title="Convert From Html"
         type="button"
         aria-label="Convert from html">

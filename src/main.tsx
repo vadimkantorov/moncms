@@ -17,7 +17,8 @@ import '../assets/styles.css';
 import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 
-import {EditorState, $getRoot, $createParagraphNode, $createTextNode, $isTextNode, $nodesOfType, DOMConversionMap, DOMExportOutput, DOMExportOutputMap, isHTMLElement, Klass, LexicalEditor} from 'lexical';
+import {EditorState, $getRoot, $createParagraphNode, $createTextNode, $isTextNode, $selectAll, $insertNodes, $nodesOfType, DOMConversionMap, DOMExportOutput, DOMExportOutputMap, isHTMLElement, Klass, LexicalEditor} from 'lexical';
+
 import {EditorRefPlugin} from "@lexical/react/LexicalEditorRefPlugin";
 import {AutoFocusPlugin} from '@lexical/react/LexicalAutoFocusPlugin';
 import {LexicalComposer} from '@lexical/react/LexicalComposer';
@@ -28,15 +29,18 @@ import {RichTextPlugin} from '@lexical/react/LexicalRichTextPlugin';
 import {HorizontalRulePlugin} from '@lexical/react/LexicalHorizontalRulePlugin';
 import {CheckListPlugin} from '@lexical/react/LexicalCheckListPlugin';
 import {ListPlugin} from '@lexical/react/LexicalListPlugin';
-import { $convertToMarkdownString, $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
+import {OnChangePlugin} from '@lexical/react/LexicalOnChangePlugin';
 
-import {ImageCacheContext, ImageCache} from './plugins/ImagesPlugin';
 import LexicalAutoLinkPlugin from './plugins/AutoLinkPlugin';
 import ToolbarPlugin from './plugins/ToolbarPlugin';
 import ShortcutsPlugin from './plugins/ShortcutsPlugin';
 import ImagesPlugin from './plugins/ImagesPlugin';
 import LinkPlugin from './plugins/LinkPlugin';
+import {ImageCacheContext, ImageCache} from './plugins/ImagesPlugin';
 import {PLAYGROUND_TRANSFORMERS} from './plugins/MarkdownTransformers';
+import { $convertToMarkdownString, $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
+import { $generateHtmlFromNodes, $generateNodesFromDOM } from "@lexical/html";
+
 
 import {LexicalNode, ParagraphNode, TextNode} from 'lexical';
 import { HorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
@@ -45,6 +49,7 @@ import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import { LinkNode, AutoLinkNode } from "@lexical/link";
 import { HashtagNode } from "@lexical/hashtag";
 import { ListNode, ListItemNode } from "@lexical/list";
+import { $isCodeNode, $createCodeNode } from "@lexical/code";
 import { ImageNode } from './nodes/ImageNode';
 import { ToolbarContext } from "./context/ToolbarContext";
 
@@ -561,6 +566,7 @@ function App() {
     const [frontMatterRows, setFrontMatterRows] = useState([frontmatter_rows_new()]);
     const [frontMatterEmpty, setFrontMatterEmpty] = useState(true);
     const [editorMode, setEditorMode] = useState('');
+    const [isDirty, setIsDirty] = useState<boolean>(false);
 
     const [curFile, setCurFile] = useState({});
     const [fileTree, setFileTree] = useState([]);
@@ -948,6 +954,11 @@ function App() {
             setFrontMatterRows([...frontMatterRows, frontmatter_rows_new()]);
     }
 
+    function editor_onchange(event)
+    {
+        setIsDirty(true);
+    }
+
     async function open_file_or_dir(url_value : string = '', token_value : string = '', HTTP_OK : number = 200, ext : Array = ['.gif', '.jpg', '.png', '.svg'])
     {
         const is_virtual_file = url_value.startsWith('blob:');
@@ -960,6 +971,7 @@ function App() {
             curdir_url = '';
             parentdir_url = '';
             prep = {error : '', github_token : ''};
+            setIsDirty(false);
         }
         else
         {
@@ -1018,6 +1030,7 @@ function App() {
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, '');
             setFileName('');
             set_editor_content(image_listing, false);
+            setIsDirty(false);
         }
         else if(is_image)
         {
@@ -1027,6 +1040,7 @@ function App() {
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
             set_editor_content(image_listing, false);
+            setIsDirty(false);
         }
         else if(!is_image)
         {
@@ -1040,6 +1054,7 @@ function App() {
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
             set_editor_content(text, true);
+            setIsDirty(false);
         }
     }
 
@@ -1122,7 +1137,7 @@ function App() {
     <div className="editor-shell">
     <ImageCacheContext.Provider value={imageCache}><LexicalComposer initialConfig={editorConfig}><EditorRefPlugin editorRef={editorRef} /><ToolbarContext>
       <div className="editor-container">
-        <ToolbarPlugin setIsLinkEditMode={setIsLinkEditMode} isCompact={isCompact} setIsCompact={setIsCompact} editorMode={editorMode} setEditorMode={setEditorMode} />
+        <ToolbarPlugin handleMarkdownToggle={handleMarkdownToggle} handleHtmlToggle={handleHtmlToggle} setIsLinkEditMode={setIsLinkEditMode} isCompact={isCompact} setIsCompact={setIsCompact} editorMode={editorMode} setEditorMode={setEditorMode} />
         <ShortcutsPlugin setIsLinkEditMode={setIsLinkEditMode} />
         <ImagesPlugin />
         <HorizontalRulePlugin />
@@ -1139,6 +1154,7 @@ function App() {
           <ListPlugin hasStrictIndent={false} />
           <CheckListPlugin />
           {/*<AutoFocusPlugin />*/}
+          <OnChangePlugin onChange={editor_onchange} />
         </div>
       </div>
       </ToolbarContext></LexicalComposer></ImageCacheContext.Provider>
