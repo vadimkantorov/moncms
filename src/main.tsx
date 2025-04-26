@@ -486,6 +486,34 @@ function encode_string_as_base64(str:string): string
     return window.btoa(String.fromCodePoint(...( uint8array ))).replaceAll('\n', '');
 }
 
+function printPrettyHTML(str: string)
+{
+    // from https://github.com/facebook/lexical/blob/main/packages/lexical-devtools-core/src/generateContent.ts
+    const prettifyHTML = (node: Element, level: number) =>
+    {
+        const indentBefore = new Array(level++ + 1).join('  ');
+        const indentAfter = new Array(level - 1).join('  ');
+        let textNode;
+    
+        for (let i = 0; i < node.children.length; i++)
+        {
+            textNode = document.createTextNode('\n' + indentBefore);
+            node.insertBefore(textNode, node.children[i]);
+            prettifyHTML(node.children[i], level);
+            if (node.lastElementChild === node.children[i]) {
+                textNode = document.createTextNode('\n' + indentAfter);
+                node.appendChild(textNode);
+            }
+        }
+
+        return node;
+    };
+
+    const div = document.createElement('div');
+    div.innerHTML = str.trim();
+    return prettifyHTML(div, 0).innerHTML.trim();
+}
+
 async function upload_image_from_bloburl(prep, bloburl, imageCache, log)
 {
     const basename = decodeURI(new URL(bloburl).hash).substring(1);
@@ -566,13 +594,14 @@ function App() {
     const [frontMatterRows, setFrontMatterRows] = useState([frontmatter_rows_new()]);
     const [frontMatterEmpty, setFrontMatterEmpty] = useState(true);
     const [editorMode, setEditorMode] = useState('');
-    const [isDirty, setIsDirty] = useState<boolean>(false);
+    const [isDirty, setIsDirty] = useState(false);
+    const [content, setContent] = useState('');
 
     const [curFile, setCurFile] = useState({});
     const [fileTree, setFileTree] = useState([]);
     const [fileTreeValue, setFileTreeValue] = useState('');
 
-    const [isLinkEditMode, setIsLinkEditMode] = useState<boolean>(false);
+    const [isLinkEditMode, setIsLinkEditMode] = useState(false);
 
     //const url_discovered = await github_discover_url(window.location.href, meta_key);
     useEffect(() => 
@@ -690,6 +719,33 @@ function App() {
 
     async function get_editor_content_base64(upload_images: boolean = true) : [boolean, string, string]
     {
+        // TODO: implement check of dirty frontmatter
+        // TODO: check dirty, check if frontmatter is different from the loaded one
+        // TODO: if not dirty and frontmatter not dirty, then return the curFile.content base64
+        
+        if(false) // TODO: if dirty content
+        {
+            const root = $getRoot();
+            const firstChild = root.getFirstChild();
+            let content = '';
+            if (editorMode == 'markdownEditor' || editorMode == 'htmlEditor')
+            {
+                content = firstChild.getTextContent();
+            }
+            else if(editorMode == 'markdown')
+            {
+                content = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS);
+            }
+            else if(editorMode == 'html')
+            {
+                content = printPrettyHTML($generateHtmlFromNodes(editor, $selectAll()));
+            }
+        }
+        else
+        {
+            // TODO: take original content from curFile
+        }
+
         let [markdown, imageNodes] = await new Promise(resolve => editorRef.current.read(() => {
             let markdown = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS);
             const imageNodes = $nodesOfType(ImageNode);
@@ -716,17 +772,29 @@ function App() {
         return [frontmatter_empty, frontmatter_str, base64];
     }
 
-    function set_editor_content(markdown: string, editable: boolean)
+    function set_editor_content_visual(content: string, editable: boolean, mode: str = 'markdown')
     {
-        editorRef.current.update(() => 
+        if(mode == 'markdown' || mode == 'image' || mode == 'dir')
         {
-            const editorState = editorRef.current.getEditorState();
-            if (editorState != null)
+            editorRef.current.update(() => 
             {
-                $convertFromMarkdownString(markdown, PLAYGROUND_TRANSFORMERS);
-                $getRoot().selectStart();
-            }
-        });
+                const editorState = editorRef.current.getEditorState();
+                if (editorState != null)
+                {
+                    $convertFromMarkdownString(content, PLAYGROUND_TRANSFORMERS);
+                    $getRoot().selectStart();
+                }
+            });
+        }
+        elif(mode == 'html')
+        {
+            const root = $getRoot();
+            const parser = new DOMParser();
+            const dom = parser.parseFromString(content, "text/html");
+            const nodes = $generateNodesFromDOM(editor, dom);
+            root.clear().select().insertNodes(nodes);
+        }
+        setEditorMode(mode);
         editorRef.current.setEditable(editable);
     }
     
@@ -736,14 +804,18 @@ function App() {
           const shouldPreserveNewLinesInMarkdown = true;
           const root = $getRoot();
           const firstChild = root.getFirstChild();
-          if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'markdown') {
+          if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'markdown')
+          {
             $convertFromMarkdownString(
               firstChild.getTextContent(),
               PLAYGROUND_TRANSFORMERS,
               undefined, // node
               shouldPreserveNewLinesInMarkdown,
             );
-          } else {
+            setEditorMode('markdown');
+          }
+          else
+          {
             const markdown = $convertToMarkdownString(
               PLAYGROUND_TRANSFORMERS,
               undefined, //node
@@ -755,49 +827,27 @@ function App() {
             if (markdown.length === 0) {
               codeNode.select();
             }
+            setEditorMode('markdownEditor');
           }
         });
       }
     
       function handleHtmlToggle(editor)
       {
-        
-          // from https://github.com/facebook/lexical/blob/main/packages/lexical-devtools-core/src/generateContent.ts
-          function prettifyHTML(node: Element, level: number) {
-            const indentBefore = new Array(level++ + 1).join('  ');
-            const indentAfter = new Array(level - 1).join('  ');
-            let textNode;
-          
-            for (let i = 0; i < node.children.length; i++) {
-              textNode = document.createTextNode('\n' + indentBefore);
-              node.insertBefore(textNode, node.children[i]);
-              prettifyHTML(node.children[i], level);
-              if (node.lastElementChild === node.children[i]) {
-                textNode = document.createTextNode('\n' + indentAfter);
-                node.appendChild(textNode);
-              }
-            }
-          
-            return node;
-          }
-    
-          function printPrettyHTML(str: string) {
-            const div = document.createElement('div');
-            div.innerHTML = str.trim();
-            return prettifyHTML(div, 0).innerHTML.trim();
-          }
-    
         editor.update(() => {
           const root = $getRoot();
           const firstChild = root.getFirstChild();
           
-          if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'html') {
+          if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'html')
+          {
             const parser = new DOMParser();
             const dom = parser.parseFromString(firstChild.getTextContent(), "text/html");
             const nodes = $generateNodesFromDOM(editor, dom);
             root.clear().select().insertNodes(nodes);
+            setEditorMode('html');
           }
-          else {
+          else
+          {
             const html = printPrettyHTML($generateHtmlFromNodes(editor, $selectAll()));
             const codeNode = $createCodeNode('html');
             codeNode.append($createTextNode(html));
@@ -805,6 +855,7 @@ function App() {
             if (html.length === 0) {
               codeNode.select();
             }
+            setEditorMode('htmlEditor');
           }
         });
       }
@@ -1014,13 +1065,14 @@ function App() {
         const images = res_dir.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
         const image_listing = is_image ? `# ${res_file.name}\n![${res_file.name}](${res_file.download_url})` : images.map(j => `# ${j.name}\n![${j.name}](${j.download_url})`).join('\n\n');
         
-        setEditorMode(is_image ? 'image' : (is_dir ? 'dir' : (res_file.name.endsWith('.md') ? 'markdown' : res_file.name.endsWith('.html') ? 'html' : 'text')));
+        const editorModeValue = is_err ? 'error' : is_image ? 'image' : (is_dir ? 'dir' : (res_file.name.endsWith('.md') ? 'markdown' : res_file.name.endsWith('.html') ? 'html' : 'text'));
         
         setCurFile(res_file);
 
         if(is_err)
         {
             clear('', true, true);
+            setEditorMode(editorModeValue);
         }
         else if(is_dir)
         {
@@ -1029,7 +1081,7 @@ function App() {
 
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, '');
             setFileName('');
-            set_editor_content(image_listing, false);
+            set_editor_content_visual(image_listing, false, editorModeValue);
             setIsDirty(false);
         }
         else if(is_image)
@@ -1039,7 +1091,7 @@ function App() {
 
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
-            set_editor_content(image_listing, false);
+            set_editor_content_visual(image_listing, false, editorModeValue);
             setIsDirty(false);
         }
         else if(!is_image)
@@ -1053,7 +1105,7 @@ function App() {
 
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
-            set_editor_content(text, true);
+            set_editor_content_visual(text, true, editorModeValue);
             setIsDirty(false);
         }
     }
