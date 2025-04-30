@@ -602,6 +602,7 @@ function App() {
     const [fileTreeValue, setFileTreeValue] = useState('');
 
     const [isLinkEditMode, setIsLinkEditMode] = useState(false);
+    let isDirtyLatch = false;
 
     //const url_discovered = await github_discover_url(window.location.href, meta_key);
     useEffect(() => 
@@ -719,37 +720,43 @@ function App() {
 
     async function get_editor_content_base64(upload_images: boolean = true) : [boolean, string, string]
     {
-        // TODO: implement check of dirty frontmatter
-        // TODO: check dirty, check if frontmatter is different from the loaded one
-        // TODO: if not dirty and frontmatter not dirty, then return the curFile.content base64
-        
-        if(false) // TODO: if dirty content
+        console.log('get_editor_content_base64', 'isDirty', isDirty);
+        return [false, '', ''];
+
+        // TODO: if not isDirty and frontMatter is not dirty, then return the curFile.content base64
+        let [encoding, content, imageNodes] = await new Promise(resolve => editorRef.current.read(() => 
         {
             const root = $getRoot();
             const firstChild = root.getFirstChild();
-            let content = '';
-            if (editorMode == 'markdownEditor' || editorMode == 'htmlEditor')
+            const selection = $selectAll();
+            let encoding = '', content = '';
+            if(isDirty)
             {
-                content = firstChild.getTextContent();
+                encoding = 'text';
+                if (editorMode == 'markdownEditor' || editorMode == 'htmlEditor' || editorMode == 'textEditor')
+                {
+                    content = firstChild.getTextContent();
+                    upload_images = false;
+                }
+                else if(editorMode == 'markdown')
+                {
+                    content = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS, root, true);
+                }
+                else if(editorMode == 'html')
+                {
+                    content = printPrettyHTML($generateHtmlFromNodes(editor, selection));
+                    upload_images = false;
+                }
             }
-            else if(editorMode == 'markdown')
+            else
             {
-                content = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS);
+                // TODO: take original content from curFile (with frontmatter splitted out)
+                encoding = curFile.encoding;
+                content = curFile.content;
             }
-            else if(editorMode == 'html')
-            {
-                content = printPrettyHTML($generateHtmlFromNodes(editor, $selectAll()));
-            }
-        }
-        else
-        {
-            // TODO: take original content from curFile
-        }
 
-        let [markdown, imageNodes] = await new Promise(resolve => editorRef.current.read(() => {
-            let markdown = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS);
             const imageNodes = $nodesOfType(ImageNode);
-            resolve([markdown, upload_images ? imageNodes : []]);
+            resolve([encoding, content, upload_images ? imageNodes : []]);
         }));
 
         let replace_map = {};
@@ -764,11 +771,11 @@ function App() {
             }
         }
         for(const [src, src_new] of Object.entries(replace_map))
-            markdown = markdown.replaceAll(src, src_new);
+            content = content.replaceAll(src, src_new);
         
         const frontmatter_empty = frontMatterEmpty == true;
         const frontmatter_str = frontmatter_rows_format(frontMatterRows, frontmatter_empty);
-        const base64 = encode_string_as_base64(frontmatter_str + markdown);
+        const base64 = encode_string_as_base64(frontmatter_str + content);
         return [frontmatter_empty, frontmatter_str, base64];
     }
 
@@ -786,7 +793,7 @@ function App() {
                 }
             });
         }
-        elif(mode == 'html')
+        else if(mode == 'html')
         {
             const root = $getRoot();
             const parser = new DOMParser();
@@ -914,6 +921,7 @@ function App() {
             return moncms_log(prep.error);
 
         const [frontmatter_empty, frontmatter_str, base64] = await get_editor_content_base64(true);
+        if(base64 == '') return;
 
         if(curFile.encoding == 'base64'
             && curFile.content.replaceAll('\n', '') == base64.replaceAll('\n', '')
@@ -1005,8 +1013,14 @@ function App() {
             setFrontMatterRows([...frontMatterRows, frontmatter_rows_new()]);
     }
 
-    function editor_onchange(event)
+    function editor_onchange(editorState, editor, tags)
     {
+        if(isDirtyLatch)
+        {
+            isDirtyLatch = false;
+            return;
+        }
+        console.log('isDirty before onchange:', isDirty, 'after:', !isDirty);
         setIsDirty(true);
     }
 
@@ -1065,7 +1079,7 @@ function App() {
         const images = res_dir.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
         const image_listing = is_image ? `# ${res_file.name}\n![${res_file.name}](${res_file.download_url})` : images.map(j => `# ${j.name}\n![${j.name}](${j.download_url})`).join('\n\n');
         
-        const editorModeValue = is_err ? 'error' : is_image ? 'image' : (is_dir ? 'dir' : (res_file.name.endsWith('.md') ? 'markdown' : res_file.name.endsWith('.html') ? 'html' : 'text'));
+        const editorModeValue = is_err ? 'error' : is_image ? 'image' : (is_dir ? 'dir' : (res_file.name.endsWith('.md') ? 'markdown' : res_file.name.endsWith('.html') ? 'html' : 'textEditor'));
         
         setCurFile(res_file);
 
@@ -1105,6 +1119,7 @@ function App() {
 
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
+            isDirtyLatch = true;
             set_editor_content_visual(text, true, editorModeValue);
             setIsDirty(false);
         }
@@ -1206,7 +1221,7 @@ function App() {
           <ListPlugin hasStrictIndent={false} />
           <CheckListPlugin />
           {/*<AutoFocusPlugin />*/}
-          <OnChangePlugin onChange={editor_onchange} />
+          <OnChangePlugin onChange={editor_onchange} ignoreSelectionChange={true} />
         </div>
       </div>
       </ToolbarContext></LexicalComposer></ImageCacheContext.Provider>
