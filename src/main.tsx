@@ -1020,8 +1020,8 @@ function App() {
             isDirtyLatch = false;
             return;
         }
-        console.log('isDirty before onchange:', isDirty, 'after:', !isDirty);
-        setIsDirty(true);
+        if(!isDirty)
+            setIsDirty(true);
     }
 
     async function open_file_or_dir(url_value : string = '', token_value : string = '', HTTP_OK : number = 200, ext : Array = ['.gif', '.jpg', '.png', '.svg'])
