@@ -602,7 +602,7 @@ function App() {
     const [fileTreeValue, setFileTreeValue] = useState('');
 
     const [isLinkEditMode, setIsLinkEditMode] = useState(false);
-    let isDirtyLatch = false;
+    let isDirtyLatch = 0;
 
     //const url_discovered = await github_discover_url(window.location.href, meta_key);
     useEffect(() => 
@@ -807,6 +807,8 @@ function App() {
     
       function handleMarkdownToggle(editor)
       {
+        //setEditorMode(editorMode == 'markdown' ? 'markdownEditor' : 'markdownEditor');
+        isDirtyLatch++;
         editor.update(() => {
           const shouldPreserveNewLinesInMarkdown = true;
           const root = $getRoot();
@@ -819,7 +821,7 @@ function App() {
               undefined, // node
               shouldPreserveNewLinesInMarkdown,
             );
-            setEditorMode('markdown');
+            //setEditorMode('markdown');
           }
           else
           {
@@ -830,11 +832,12 @@ function App() {
             );
             const codeNode = $createCodeNode('markdown');
             codeNode.append($createTextNode(markdown));
-            root.clear().append(codeNode);
+            const newRoot = root.clear();
+            newRoot.append(codeNode);
             if (markdown.length === 0) {
               codeNode.select();
             }
-            setEditorMode('markdownEditor');
+            //setEditorMode('markdownEditor');
           }
         });
       }
@@ -847,6 +850,7 @@ function App() {
           
           if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'html')
           {
+            isDirtyLatch = 1;
             const parser = new DOMParser();
             const dom = parser.parseFromString(firstChild.getTextContent(), "text/html");
             const nodes = $generateNodesFromDOM(editor, dom);
@@ -855,6 +859,7 @@ function App() {
           }
           else
           {
+            isDirtyLatch = 1;
             const html = printPrettyHTML($generateHtmlFromNodes(editor, $selectAll()));
             const codeNode = $createCodeNode('html');
             codeNode.append($createTextNode(html));
@@ -1015,13 +1020,22 @@ function App() {
 
     function editor_onchange(editorState, editor, tags)
     {
-        if(isDirtyLatch)
+        console.log('editor_onchange:', 'latch:', isDirtyLatch);
+        if(isDirtyLatch > 0)
         {
-            isDirtyLatch = false;
+            isDirtyLatch--;
+            console.log('editor_onchange:', 'latching to', isDirty);
             return;
         }
         if(!isDirty)
+        {
             setIsDirty(true);
+            console.log('editor_onchange:', 'changing to', true);
+        }
+        else
+        {
+            console.log('editor_onchange:', 'keeping', isDirty);
+        }
     }
 
     async function open_file_or_dir(url_value : string = '', token_value : string = '', HTTP_OK : number = 200, ext : Array = ['.gif', '.jpg', '.png', '.svg'])
@@ -1085,8 +1099,10 @@ function App() {
 
         if(is_err)
         {
+            isDirtyLatch = 1;
             clear('', true, true);
             setEditorMode(editorModeValue);
+            setIsDirty(false);
         }
         else if(is_dir)
         {
@@ -1095,6 +1111,7 @@ function App() {
 
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, '');
             setFileName('');
+            isDirtyLatch = 1;
             set_editor_content_visual(image_listing, false, editorModeValue);
             setIsDirty(false);
         }
@@ -1105,6 +1122,7 @@ function App() {
 
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
+            isDirtyLatch = 1;
             set_editor_content_visual(image_listing, false, editorModeValue);
             setIsDirty(false);
         }
@@ -1119,7 +1137,7 @@ function App() {
 
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
-            isDirtyLatch = true;
+            isDirtyLatch = 1;
             set_editor_content_visual(text, true, editorModeValue);
             setIsDirty(false);
         }
