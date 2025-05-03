@@ -602,7 +602,7 @@ function App() {
     const [fileTreeValue, setFileTreeValue] = useState('');
 
     const [isLinkEditMode, setIsLinkEditMode] = useState(false);
-    let isDirtyLatch = 0;
+    const [isDirtyTracking, setIsDirtyTracking] = useState(false);
 
     //const url_discovered = await github_discover_url(window.location.href, meta_key);
     useEffect(() => 
@@ -779,9 +779,9 @@ function App() {
         return [frontmatter_empty, frontmatter_str, base64];
     }
 
-    function set_editor_content_visual(content: string, editable: boolean, mode: str = 'markdown')
+    function set_editor_content_visual(content: string, editable: boolean, editorModeValue: str = 'markdown')
     {
-        if(mode == 'markdown' || mode == 'image' || mode == 'dir')
+        if(editorModeValue == 'markdown' || editorModeValue == 'image' || editorModeValue == 'dir')
         {
             editorRef.current.update(() => 
             {
@@ -793,7 +793,7 @@ function App() {
                 }
             });
         }
-        else if(mode == 'html')
+        else if(editorModeValue == 'html')
         {
             const root = $getRoot();
             const parser = new DOMParser();
@@ -801,76 +801,75 @@ function App() {
             const nodes = $generateNodesFromDOM(editor, dom);
             root.clear().select().insertNodes(nodes);
         }
-        setEditorMode(mode);
+        setEditorMode(editorModeValue);
         editorRef.current.setEditable(editable);
     }
     
-      function handleMarkdownToggle(editor)
-      {
-        //setEditorMode(editorMode == 'markdown' ? 'markdownEditor' : 'markdownEditor');
-        isDirtyLatch++;
-        editor.update(() => {
-          const shouldPreserveNewLinesInMarkdown = true;
-          const root = $getRoot();
-          const firstChild = root.getFirstChild();
-          if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'markdown')
-          {
-            $convertFromMarkdownString(
-              firstChild.getTextContent(),
-              PLAYGROUND_TRANSFORMERS,
-              undefined, // node
-              shouldPreserveNewLinesInMarkdown,
-            );
-            //setEditorMode('markdown');
-          }
-          else
-          {
-            const markdown = $convertToMarkdownString(
-              PLAYGROUND_TRANSFORMERS,
-              undefined, //node
-              shouldPreserveNewLinesInMarkdown,
-            );
-            const codeNode = $createCodeNode('markdown');
-            codeNode.append($createTextNode(markdown));
-            const newRoot = root.clear();
-            newRoot.append(codeNode);
-            if (markdown.length === 0) {
-              codeNode.select();
+    function handleMarkdownToggle(editor)
+    {
+        setIsDirtyTracking(false);
+        editor.update(() => 
+        {
+            const shouldPreserveNewLinesInMarkdown = true;
+            const root = $getRoot();
+            const firstChild = root.getFirstChild();
+            //if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'markdown')
+            if(editorMode == 'markdownEditor')
+            {
+                $convertFromMarkdownString(
+                    firstChild.getTextContent(),
+                    PLAYGROUND_TRANSFORMERS,
+                    undefined, // node
+                    shouldPreserveNewLinesInMarkdown,
+                );
+                setEditorMode('markdown');
             }
-            //setEditorMode('markdownEditor');
-          }
+            else
+            {
+                const markdown = $convertToMarkdownString(
+                    PLAYGROUND_TRANSFORMERS,
+                    undefined, //node
+                    shouldPreserveNewLinesInMarkdown,
+                );
+                const codeNode = $createCodeNode('markdown');
+                codeNode.append($createTextNode(markdown));
+                const newRoot = root.clear();
+                newRoot.append(codeNode);
+                if (markdown.length === 0) codeNode.select(); 
+                setEditorMode('markdownEditor');
+            }
         });
-      }
+    }
     
-      function handleHtmlToggle(editor)
-      {
-        editor.update(() => {
-          const root = $getRoot();
-          const firstChild = root.getFirstChild();
+    function handleHtmlToggle(editor)
+    {
+        setIsDirtyTracking(false);
+        editor.update(() => 
+        {
+            const root = $getRoot();
+            const firstChild = root.getFirstChild();
           
-          if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'html')
-          {
-            isDirtyLatch = 1;
-            const parser = new DOMParser();
-            const dom = parser.parseFromString(firstChild.getTextContent(), "text/html");
-            const nodes = $generateNodesFromDOM(editor, dom);
-            root.clear().select().insertNodes(nodes);
-            setEditorMode('html');
-          }
-          else
-          {
-            isDirtyLatch = 1;
-            const html = printPrettyHTML($generateHtmlFromNodes(editor, $selectAll()));
-            const codeNode = $createCodeNode('html');
-            codeNode.append($createTextNode(html));
-            root.clear().append(codeNode);
-            if (html.length === 0) {
-              codeNode.select();
+            //if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'html')
+            if(editorMode == 'htmlEditor')
+            {
+                const parser = new DOMParser();
+                const dom = parser.parseFromString(firstChild.getTextContent(), "text/html");
+                const nodes = $generateNodesFromDOM(editor, dom);
+                root.clear().select().insertNodes(nodes);
+                setEditorMode('html');
             }
-            setEditorMode('htmlEditor');
-          }
+            else
+            {
+                const html = printPrettyHTML($generateHtmlFromNodes(editor, $selectAll()));
+                const codeNode = $createCodeNode('html');
+                codeNode.append($createTextNode(html));
+                root.clear().append(codeNode);
+                if (html.length === 0) codeNode.select();
+            
+                setEditorMode('htmlEditor');
+            }
         });
-      }
+    }
 
     async function onclick_downloadfile(event, timeout_millisec : number = 2000)
     {
@@ -1020,21 +1019,21 @@ function App() {
 
     function editor_onchange(editorState, editor, tags)
     {
-        console.log('editor_onchange:', 'latch:', isDirtyLatch);
-        if(isDirtyLatch > 0)
+        if(isDirtyTracking)
         {
-            isDirtyLatch--;
-            console.log('editor_onchange:', 'latching to', isDirty);
-            return;
-        }
-        if(!isDirty)
-        {
-            setIsDirty(true);
-            console.log('editor_onchange:', 'changing to', true);
+            if(!isDirty)
+            {
+                setIsDirty(true);
+                //console.log('editor_onchange:', 'changing to', true);
+            }
+            else
+            {
+                //console.log('editor_onchange:', 'keeping', isDirty);
+            }
         }
         else
         {
-            console.log('editor_onchange:', 'keeping', isDirty);
+            setIsDirtyTracking(true);
         }
     }
 
@@ -1099,10 +1098,11 @@ function App() {
 
         if(is_err)
         {
-            isDirtyLatch = 1;
+            setIsDirtyTracking(false);
             clear('', true, true);
             setEditorMode(editorModeValue);
             setIsDirty(false);
+            setIsDirtyTracking(true);
         }
         else if(is_dir)
         {
@@ -1111,9 +1111,10 @@ function App() {
 
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, '');
             setFileName('');
-            isDirtyLatch = 1;
+            setIsDirtyTracking(false);
             set_editor_content_visual(image_listing, false, editorModeValue);
             setIsDirty(false);
+            setIsDirtyTracking(true);
         }
         else if(is_image)
         {
@@ -1122,9 +1123,10 @@ function App() {
 
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
-            isDirtyLatch = 1;
+            setIsDirtyTracking(false);
             set_editor_content_visual(image_listing, false, editorModeValue);
             setIsDirty(false);
+            setIsDirtyTracking(true);
         }
         else if(!is_image)
         {
@@ -1137,9 +1139,10 @@ function App() {
 
             if(!is_virtual_file) filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             setFileName(res_file.name);
-            isDirtyLatch = 1;
+            setIsDirtyTracking(false);
             set_editor_content_visual(text, true, editorModeValue);
             setIsDirty(false);
+            setIsDirtyTracking(true);
         }
     }
 
