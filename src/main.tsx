@@ -8,6 +8,23 @@
  *
  */
 
+// TODO: do not re-load from cache token if deleted the token manually? what to do if outdated token is there and changed the url? what to do with signed-in status when changing url? (set after get on onclick_load?)
+// TODO: simplify op checks, use sha only if for the same url
+// TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README.md instead of API by default (need to somehow fix for cache and maybe important for help button)
+// TODO: when closing with changes from the initial state, prevent?
+// TODO: handle all fetch errors (resp.ok and TypeError - check handling of CrossDomain error)
+// TODO: query string actions: new, edit/delete
+// TODO: when navigating, update html_url in search. what to do with password: make some url with all creds? reload after onclick_del at the opened file?
+// TODO: support some sort of frontmatter scheme: https://jekyllrb.com/docs/front-matter/
+// TODO: discover settings from a json file moncms.json (assets dir?) next to the index.html
+// TODO: check on save if github url was opened
+// https://stackoverflow.com/questions/31563444/rename-a-file-with-github-api
+// https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
+// https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
+// https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28
+// https://raw.githubusercontent.com/vadimkantorov/moncmsblog/refs/heads/master/moncms-content/uploads/2025/03/r%C3%A9sistance%20et%20libert%C3%A9.png    
+// https://stackoverflow.com/questions/2494213/changing-window-location-without-triggering-refresh
+
 import { Octokit } from "@octokit/rest";
 import { parse, stringify, YAMLError } from "yaml";
 import Prism from "prismjs"; if (typeof globalThis.Prism === 'undefined') { globalThis.Prism = Prism;}
@@ -515,20 +532,32 @@ function printPrettyHTML(str: string)
 }
 
 
-function get_markdown_from_visual_editor(editor)
+function get_markdown_from_visual_editor(editor, root)
 {
-    const markdown = $convertToMarkdownString(
-        PLAYGROUND_TRANSFORMERS,
-        $getRoot(),
-        true,
-    );
-    return markdown;
+    return $convertToMarkdownString(PLAYGROUND_TRANSFORMERS, root, true);
 }
 
-function get_html_from_visual_editor(editor)
+function convert_markdown_to_visual_editor(editor, root, content: string)
 {
-    const html = printPrettyHTML($generateHtmlFromNodes(editor, $selectAll()));
-    return html;
+    $convertFromMarkdownString(content, PLAYGROUND_TRANSFORMERS, root, true);
+}
+
+function get_html_from_visual_editor(editor, root)
+{
+    return printPrettyHTML($generateHtmlFromNodes(editor, $selectAll()));
+}
+
+function convert_html_to_visual_editor(editor, root, content: string)
+{
+    const parser = new DOMParser();
+    const dom = parser.parseFromString(content, "text/html");
+    const nodes = $generateNodesFromDOM(editor, dom);
+    root.clear().select().insertNodes(nodes);
+}
+
+function get_content_from_code_editor(editor, root)
+{
+    return root.getFirstChild().getTextContent();
 }
 
 function convert_visual_to_code_editor(editor, root, content : string, language: string)
@@ -538,24 +567,6 @@ function convert_visual_to_code_editor(editor, root, content : string, language:
     root.clear().append(codeNode);
     //if (html.length === 0)
     codeNode.select();
-}
-
-function convert_markdown_to_visual_editor(editor, root, content: string)
-{
-    $convertFromMarkdownString(
-        content,
-        PLAYGROUND_TRANSFORMERS,
-        undefined, // node
-        true,
-    );
-}
-
-function convert_html_to_visual_editor(editor, root, content: string)
-{
-    const parser = new DOMParser();
-    const dom = parser.parseFromString(content, "text/html");
-    const nodes = $generateNodesFromDOM(editor, dom);
-    root.clear().select().insertNodes(nodes);
 }
 
 async function upload_image_from_bloburl(prep, bloburl, imageCache, log)
@@ -607,19 +618,6 @@ function init_fields(window_location)
     return [url_value, token_value, is_signed_in_value, log_value];
 }
 
-function try_catch(log, fn)
-{
-    try
-    {
-        return fn();
-    }
-    catch(exc)
-    {
-        log(fmt_exc(exc));
-        return null;
-    }
-}
-
 function App() {    
     const [url_value, token_value, is_signed_in_value, log_value] = init_fields(window.location);
 
@@ -638,6 +636,7 @@ function App() {
     const [frontMatterRows, setFrontMatterRows] = useState([frontmatter_rows_new()]);
     const [frontMatterEmpty, setFrontMatterEmpty] = useState(true);
     const [editorMode, setEditorMode] = useState('');
+    const [initialEditorMode, setInitialEditorMode] = useState('');
     const [isDirty, setIsDirty] = useState(false);
     const [content, setContent] = useState('');
 
@@ -764,31 +763,29 @@ function App() {
 
     async function get_editor_content_base64(upload_images: boolean = true) : [boolean, string, string]
     {
-        console.log('get_editor_content_base64', 'isDirty', isDirty);
-        return [false, '', ''];
+        const frontmatter_empty = frontMatterEmpty == true;
+        const frontmatter_str = frontmatter_rows_format(frontMatterRows, frontmatter_empty);
+        const has_trivial_frontmatter = frontmatter_empty && !frontmatter_str;
 
-        // TODO: if not isDirty and frontMatter is not dirty, then return the curFile.content base64
         let [encoding, content, imageNodes] = await new Promise(resolve => editorRef.current.read(() => 
         {
             const root = $getRoot();
-            const firstChild = root.getFirstChild();
-            const selection = $selectAll();
             let encoding = '', content = '';
-            if(isDirty)
+            if(isDirty || (!has_trivial_frontmatter))
             {
                 encoding = 'text';
                 if (editorMode == 'markdownEditor' || editorMode == 'htmlEditor' || editorMode == 'textEditor')
                 {
-                    content = firstChild.getTextContent();
+                    content = get_content_from_code_editor(editor, root);
                     upload_images = false;
                 }
                 else if(editorMode == 'markdown')
                 {
-                    content = get_markdown_from_visual_editor();
+                    content = get_markdown_from_visual_editor(editor, root);
                 }
                 else if(editorMode == 'html')
                 {
-                    content = get_html_from_visual_editor(editor);
+                    content = get_html_from_visual_editor(editor, root);
                     upload_images = false;
                 }
             }
@@ -817,35 +814,20 @@ function App() {
         for(const [src, src_new] of Object.entries(replace_map))
             content = content.replaceAll(src, src_new);
         
-        const frontmatter_empty = frontMatterEmpty == true;
-        const frontmatter_str = frontmatter_rows_format(frontMatterRows, frontmatter_empty);
         const base64 = encode_string_as_base64(frontmatter_str + content);
         return [frontmatter_empty, frontmatter_str, base64];
     }
 
     function set_editor_content_visual(content: string, editable: boolean, editorModeValue: str = 'markdown')
     {
-        if(editorModeValue == 'markdown' || editorModeValue == 'image' || editorModeValue == 'dir')
+        const root = $getRoot();
+        editorRef.current.update(() =>
         {
-            editorRef.current.update(() => 
-            {
-                const editorState = editorRef.current.getEditorState();
-                if (editorState != null)
-                {
-                    $convertFromMarkdownString(content, PLAYGROUND_TRANSFORMERS);
-                    $getRoot().selectStart();
-                }
-            });
-        }
-        else if(editorModeValue == 'html')
-        {
-            const root = $getRoot();
-            const parser = new DOMParser();
-            const dom = parser.parseFromString(content, "text/html");
-            const nodes = $generateNodesFromDOM(editor, dom);
-            root.clear().select().insertNodes(nodes);
-        }
-        setEditorMode(editorModeValue);
+            if(editorModeValue == 'markdown' || editorModeValue == 'image' || editorModeValue == 'dir')
+                convert_markdown_to_visual_editor(editor, root, content); // if (editorRef.current.getEditorState() != null) { $convertFromMarkdownString(content, PLAYGROUND_TRANSFORMERS); $getRoot().selectStart(); }
+            else if(editorModeValue == 'html')
+                convert_html_to_visual_editor(editor, root, content);
+        });
         editorRef.current.setEditable(editable);
     }
     
@@ -857,13 +839,13 @@ function App() {
             const root = $getRoot();
             if(editorMode == 'markdownEditor')
             {
-                const content = root.getFirstChild().getTextContent();
+                const content = get_content_from_code_editor(editor, root);
                 convert_markdown_to_visual_editor(editor, root, content);
-                setEditorMode('markdown');
+                setEditorMode(initialEditorMode);
             }
             else
             {
-                const content = get_markdown_from_visual_editor(editor);
+                const content = get_markdown_from_visual_editor(editor, root);
                 convert_visual_to_code_editor(editor, root, content, 'markdown');
                 setEditorMode('markdownEditor');
             }
@@ -878,9 +860,9 @@ function App() {
             const root = $getRoot();
             if(editorMode == 'htmlEditor')
             {
-                const content = root.getFirstChild().getTextContent();
+                const content = get_content_from_code_editor(editor, root);
                 convert_html_to_visual_editor(editor, root, content);
-                setEditorMode('html');
+                setEditorMode(initialEditorMode);
             }
             else
             {
@@ -945,13 +927,13 @@ function App() {
             return moncms_log(prep.error);
 
         const [frontmatter_empty, frontmatter_str, base64] = await get_editor_content_base64(true);
+        const has_trivial_frontmatter = frontmatter_empty && !frontmatter_str;
         if(base64 == '') return;
 
         if(curFile.encoding == 'base64'
             && curFile.content.replaceAll('\n', '') == base64.replaceAll('\n', '')
             && fileName == curFile.name
-            && frontmatter_empty
-            && !frontmatter_str
+            && has_trivial_frontmatter
         )
             return moncms_log('no changes');
 
@@ -1121,6 +1103,7 @@ function App() {
             setIsDirtyTracking(false);
             clear('', true, true);
             setEditorMode(editorModeValue);
+            setInitialEditorMode(editorModeValue);
             setIsDirty(false);
             setIsDirtyTracking(true);
         }
@@ -1133,6 +1116,8 @@ function App() {
             setFileName('');
             setIsDirtyTracking(false);
             set_editor_content_visual(image_listing, false, editorModeValue);
+            setInitialEditorMode(editorModeValue);
+            setEditorMode(editorModeValue);
             setIsDirty(false);
             setIsDirtyTracking(true);
         }
@@ -1145,6 +1130,8 @@ function App() {
             setFileName(res_file.name);
             setIsDirtyTracking(false);
             set_editor_content_visual(image_listing, false, editorModeValue);
+            setInitialEditorMode(editorModeValue);
+            setEditorMode(editorModeValue);
             setIsDirty(false);
             setIsDirtyTracking(true);
         }
@@ -1161,6 +1148,8 @@ function App() {
             setFileName(res_file.name);
             setIsDirtyTracking(false);
             set_editor_content_visual(text, true, editorModeValue);
+            setInitialEditorMode(editorModeValue);
+            setEditorMode(editorModeValue);
             setIsDirty(false);
             setIsDirtyTracking(true);
         }
