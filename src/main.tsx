@@ -514,6 +514,50 @@ function printPrettyHTML(str: string)
     return prettifyHTML(div, 0).innerHTML.trim();
 }
 
+
+function get_markdown_from_visual_editor(editor)
+{
+    const markdown = $convertToMarkdownString(
+        PLAYGROUND_TRANSFORMERS,
+        $getRoot(),
+        true,
+    );
+    return markdown;
+}
+
+function get_html_from_visual_editor(editor)
+{
+    const html = printPrettyHTML($generateHtmlFromNodes(editor, $selectAll()));
+    return html;
+}
+
+function convert_visual_to_code_editor(editor, root, content : string, language: string)
+{
+    const codeNode = $createCodeNode(language);
+    codeNode.append($createTextNode(content));
+    root.clear().append(codeNode);
+    //if (html.length === 0)
+    codeNode.select();
+}
+
+function convert_markdown_to_visual_editor(editor, root, content: string)
+{
+    $convertFromMarkdownString(
+        content,
+        PLAYGROUND_TRANSFORMERS,
+        undefined, // node
+        true,
+    );
+}
+
+function convert_html_to_visual_editor(editor, root, content: string)
+{
+    const parser = new DOMParser();
+    const dom = parser.parseFromString(content, "text/html");
+    const nodes = $generateNodesFromDOM(editor, dom);
+    root.clear().select().insertNodes(nodes);
+}
+
 async function upload_image_from_bloburl(prep, bloburl, imageCache, log)
 {
     const basename = decodeURI(new URL(bloburl).hash).substring(1);
@@ -740,11 +784,11 @@ function App() {
                 }
                 else if(editorMode == 'markdown')
                 {
-                    content = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS, root, true);
+                    content = get_markdown_from_visual_editor();
                 }
                 else if(editorMode == 'html')
                 {
-                    content = printPrettyHTML($generateHtmlFromNodes(editor, selection));
+                    content = get_html_from_visual_editor(editor);
                     upload_images = false;
                 }
             }
@@ -810,32 +854,17 @@ function App() {
         setIsDirtyTracking(false);
         editor.update(() => 
         {
-            const shouldPreserveNewLinesInMarkdown = true;
             const root = $getRoot();
-            const firstChild = root.getFirstChild();
-            //if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'markdown')
             if(editorMode == 'markdownEditor')
             {
-                $convertFromMarkdownString(
-                    firstChild.getTextContent(),
-                    PLAYGROUND_TRANSFORMERS,
-                    undefined, // node
-                    shouldPreserveNewLinesInMarkdown,
-                );
+                const content = root.getFirstChild().getTextContent();
+                convert_markdown_to_visual_editor(editor, root, content);
                 setEditorMode('markdown');
             }
             else
             {
-                const markdown = $convertToMarkdownString(
-                    PLAYGROUND_TRANSFORMERS,
-                    undefined, //node
-                    shouldPreserveNewLinesInMarkdown,
-                );
-                const codeNode = $createCodeNode('markdown');
-                codeNode.append($createTextNode(markdown));
-                const newRoot = root.clear();
-                newRoot.append(codeNode);
-                if (markdown.length === 0) codeNode.select(); 
+                const content = get_markdown_from_visual_editor(editor);
+                convert_visual_to_code_editor(editor, root, content, 'markdown');
                 setEditorMode('markdownEditor');
             }
         });
@@ -847,25 +876,16 @@ function App() {
         editor.update(() => 
         {
             const root = $getRoot();
-            const firstChild = root.getFirstChild();
-          
-            //if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'html')
             if(editorMode == 'htmlEditor')
             {
-                const parser = new DOMParser();
-                const dom = parser.parseFromString(firstChild.getTextContent(), "text/html");
-                const nodes = $generateNodesFromDOM(editor, dom);
-                root.clear().select().insertNodes(nodes);
+                const content = root.getFirstChild().getTextContent();
+                convert_html_to_visual_editor(editor, root, content);
                 setEditorMode('html');
             }
             else
             {
-                const html = printPrettyHTML($generateHtmlFromNodes(editor, $selectAll()));
-                const codeNode = $createCodeNode('html');
-                codeNode.append($createTextNode(html));
-                root.clear().append(codeNode);
-                if (html.length === 0) codeNode.select();
-            
+                const content = get_html_from_visual_editor(editor);
+                convert_visual_to_code_editor(editor, root, content, 'html');
                 setEditorMode('htmlEditor');
             }
         });
