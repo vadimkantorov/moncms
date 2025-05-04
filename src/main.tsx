@@ -779,7 +779,6 @@ function App() {
             let encoding = 'text', content = '';
             if(isDirty)
             {
-                encoding = 'text';
                 if (editorMode == 'markdownEditor' || editorMode == 'htmlEditor' || editorMode == 'textEditor')
                 {
                     content = get_content_from_code_editor(editor, root);
@@ -792,7 +791,7 @@ function App() {
                 else if(editorMode == 'html')
                 {
                     content = get_html_from_visual_editor(editor, root);
-                    upload_images = false; // TODO: remove this line
+                    upload_images = false; // TODO: fix up image urls import in html
                 }
             }
             else
