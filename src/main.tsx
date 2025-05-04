@@ -798,9 +798,17 @@ function App() {
             else
             {
                 content = frontmatter_parse(decode_file_content(curFile.encoding, curFile.content)).shift();
-                // TODO: if not dirty, do not need to update any images
-                // TODO: if trivial frontmatter, do not need to replace frontmatter - and can fully use original base64
-                // TODO: if not trivial frontmatter, need to replace frontmatter - and cannot use original base64
+                upload_images = false;
+
+                if(has_trivial_frontmatter)
+                {
+                    // encoding = 'base64';
+                    // TODO: if trivial frontmatter, do not need to replace frontmatter - and can fully use original base64
+                }
+                else
+                {
+                    // TODO: if not trivial frontmatter, need to replace frontmatter - and cannot use original base64
+                }
             }
 
             const imageNodes = upload_images ? $nodesOfType(ImageNode) : [];
