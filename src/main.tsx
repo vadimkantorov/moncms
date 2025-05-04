@@ -73,6 +73,7 @@ import { ToolbarContext } from "./context/ToolbarContext";
 const imageCache = new ImageCache();
 
 const moncms_prefix = 'moncms';
+const file_too_large = '<file too large>';
 
 const theme = {
     code: 'editor-code',
@@ -618,6 +619,11 @@ function init_fields(window_location)
     return [url_value, token_value, is_signed_in_value, log_value];
 }
 
+function decode_file_content(encoding : string, content : string)
+{
+    return encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(content), m => m.codePointAt(0))) : encoding == 'none' ? file_too_large : (content || '')
+}
+
 function App() {    
     const [url_value, token_value, is_signed_in_value, log_value] = init_fields(window.location);
 
@@ -770,14 +776,14 @@ function App() {
         let [encoding, content, imageNodes] = await new Promise(resolve => editorRef.current.read(() => 
         {
             const root = $getRoot();
-            let encoding = '', content = '';
-            if(isDirty || (!has_trivial_frontmatter))
+            let encoding = 'text', content = '';
+            if(isDirty)
             {
                 encoding = 'text';
                 if (editorMode == 'markdownEditor' || editorMode == 'htmlEditor' || editorMode == 'textEditor')
                 {
                     content = get_content_from_code_editor(editor, root);
-                    upload_images = false;
+                    upload_images = false; // TODO: replace this line -> need new way of replacing image urls without image nodes, need to do regexp search for blob urls
                 }
                 else if(editorMode == 'markdown')
                 {
@@ -786,35 +792,39 @@ function App() {
                 else if(editorMode == 'html')
                 {
                     content = get_html_from_visual_editor(editor, root);
-                    upload_images = false;
+                    upload_images = false; // TODO: remove this line
                 }
             }
             else
             {
-                // TODO: take original content from curFile (with frontmatter splitted out)
-                encoding = curFile.encoding;
-                content = curFile.content;
+                content = frontmatter_parse(decode_file_content(curFile.encoding, curFile.content)).shift();
+                // TODO: if not dirty, do not need to update any images
+                // TODO: if trivial frontmatter, do not need to replace frontmatter - and can fully use original base64
+                // TODO: if not trivial frontmatter, need to replace frontmatter - and cannot use original base64
             }
 
-            const imageNodes = $nodesOfType(ImageNode);
-            resolve([encoding, content, upload_images ? imageNodes : []]);
+            const imageNodes = upload_images ? $nodesOfType(ImageNode) : [];
+            resolve([encoding, content, imageNodes]);
         }));
 
-        let replace_map = {};
-        for(const node of imageNodes)
+        if(upload_images && imageNodes.length > 0)
         {
-            const src = node.getSrc();
-            if(src.startsWith('blob:'))
+            let replace_map = {};
+            for(const node of imageNodes)
             {
-                const src_new = await upload_image_from_bloburl(prep, src, imageCache, moncms_log);
-                editorRef.current.update(() => node.getWritable().setSrc(src_new));
-                replace_map[src] = src_new;
+                const src = node.getSrc();
+                if(src.startsWith('blob:'))
+                {
+                    const src_new = await upload_image_from_bloburl(prep, src, imageCache, moncms_log);
+                    editorRef.current.update(() => node.getWritable().setSrc(src_new));
+                    replace_map[src] = src_new;
+                }
             }
+            for(const [src, src_new] of Object.entries(replace_map))
+                content = content.replaceAll(src, src_new);
         }
-        for(const [src, src_new] of Object.entries(replace_map))
-            content = content.replaceAll(src, src_new);
-        
-        const base64 = encode_string_as_base64(frontmatter_str + content);
+
+        const base64 = encoding == 'base64' ? content : encode_string_as_base64(frontmatter_str + content);
         return [frontmatter_empty, frontmatter_str, base64];
     }
 
@@ -833,6 +843,9 @@ function App() {
     
     function handleMarkdownToggle(editor)
     {
+        if(editorMode == 'textEditor')
+            return;
+
         setIsDirtyTracking(false);
         editor.update(() => 
         {
@@ -854,6 +867,9 @@ function App() {
     
     function handleHtmlToggle(editor)
     {
+        if(editorMode == 'textEditor')
+            return;
+
         setIsDirtyTracking(false);
         editor.update(() => 
         {
@@ -1137,7 +1153,7 @@ function App() {
         }
         else if(!is_image)
         {
-            let [text, frontmatter] = [res_file.encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(res_file.content), m => m.codePointAt(0))) : res_file.encoding == 'none' ? ('<file too large>') : (res_file.content || ''), {}];
+            let [text, frontmatter] = [decode_file_content(res_file.encoding, res_file.content), {}];
             [text, frontmatter] = frontmatter_parse(text);
             
             const frontmatter_rows = Object.entries(frontmatter || {}).map(([k, v]) => ({...frontmatter_rows_new(), frontmatter_key : k, frontmatter_val : v}));
