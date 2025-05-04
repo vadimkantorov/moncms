@@ -73,7 +73,6 @@ import { ToolbarContext } from "./context/ToolbarContext";
 const imageCache = new ImageCache();
 
 const moncms_prefix = 'moncms';
-const file_too_large = '<file too large>';
 
 const theme = {
     code: 'editor-code',
@@ -619,7 +618,7 @@ function init_fields(window_location)
     return [url_value, token_value, is_signed_in_value, log_value];
 }
 
-function decode_file_content(encoding : string, content : string)
+function decode_file_content(encoding : string, content : string, file_too_large : string = '<file too large>';)
 {
     return encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(content), m => m.codePointAt(0))) : encoding == 'none' ? file_too_large : (content || '')
 }
@@ -798,9 +797,10 @@ function App() {
             {
                 upload_images = false;
 
-                if(false)//has_trivial_frontmatter) // or frontmatter not dirty
+                if(has_trivial_frontmatter && curFile.encoding == 'base64') // or frontmatter not dirty
                 {
-                    // [encoding, content] = [curFile.encoding, curFile.content]; // TODO: check that encoding is set and is base64
+                    encoding = curFile.encoding;
+                    content = curFile.content;
                 }
                 else
                 {
@@ -1109,7 +1109,7 @@ function App() {
 
         const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
         const is_dir = res_file.content === undefined;
-        const is_err = Object.entries(res_file).length == 0 && res_dir.length == 0;
+        const is_err = (Object.entries(res_file).length == 0 && res_dir.length == 0) || res_file.encoding == 'none';
         const can_save = prep.error == '' && prep.github_token != '';
         const is_image = !is_dir && ext.some(e => res_file.name.endsWith(e));
         const images = res_dir.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
