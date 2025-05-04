@@ -797,17 +797,15 @@ function App() {
             }
             else
             {
-                content = frontmatter_parse(decode_file_content(curFile.encoding, curFile.content)).shift();
                 upload_images = false;
 
-                if(has_trivial_frontmatter)
+                if(false)//has_trivial_frontmatter) // or frontmatter not dirty
                 {
-                    // encoding = 'base64';
-                    // TODO: if trivial frontmatter, do not need to replace frontmatter - and can fully use original base64
+                    // [encoding, content] = [curFile.encoding, curFile.content]; // TODO: check that encoding is set and is base64
                 }
                 else
                 {
-                    // TODO: if not trivial frontmatter, need to replace frontmatter - and cannot use original base64
+                    content = frontmatter_parse(decode_file_content(curFile.encoding, curFile.content)).shift();
                 }
             }
 
