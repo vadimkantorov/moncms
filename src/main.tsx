@@ -70,45 +70,11 @@ import { $isCodeNode, $createCodeNode } from "@lexical/code";
 import { ImageNode } from './nodes/ImageNode';
 import { ToolbarContext } from "./context/ToolbarContext";
 
-const imageCache = new ImageCache();
+import theme from './theme.json';
 
 const moncms_prefix = 'moncms';
 
-const theme = {
-    code: 'editor-code',
-    heading: {
-        h1: 'editor-heading-h1',
-        h2: 'editor-heading-h2',
-        h3: 'editor-heading-h3',
-        h4: 'editor-heading-h4',
-        h5: 'editor-heading-h5',
-    },
-    image: 'editor-image',
-    link: 'editor-link',
-    list: {
-        listitem: 'editor-listitem',
-        nested: {
-        listitem: 'editor-nested-listitem',
-        },
-        ol: 'editor-list-ol',
-        ul: 'editor-list-ul',
-    },
-    ltr: 'ltr',
-    paragraph: 'editor-paragraph',
-    placeholder: 'editor-placeholder',
-    quote: 'editor-quote',
-    rtl: 'rtl',
-    text: {
-        bold: 'editor-text-bold',
-        code: 'editor-text-code',
-        hashtag: 'editor-text-hashtag',
-        italic: 'editor-text-italic',
-        overflowed: 'editor-text-overflowed',
-        strikethrough: 'editor-text-strikethrough',
-        underline: 'editor-text-underline',
-        underlineStrikethrough: 'editor-text-underlineStrikethrough',
-    },
-};
+const imageCache = new ImageCache();
 
 const editorConfig = {
     theme: theme,
@@ -539,7 +505,9 @@ function get_markdown_from_visual_editor(editor, root)
 
 function convert_markdown_to_visual_editor(editor, root, content: string)
 {
+    //const editorState = editorRef.current?.getEditorState(); if (editorState != null) {
     $convertFromMarkdownString(content, PLAYGROUND_TRANSFORMERS, root, true);
+    //$getRoot().selectStart(); }
 }
 
 function get_html_from_visual_editor(editor, root)
@@ -583,7 +551,7 @@ async function upload_image_from_bloburl(prep, bloburl, imageCache, log)
 
 function init_fields(window_location)
 {
-    let url_value = '', token_value = '', is_signed_in_value = false, log_value = '';
+    let url_value = '', token_value = '', is_signed_in_value = false, log_value = '', action_value = '';
     if(window_location.search)
     {
         const query_string = new URLSearchParams(window_location.search);
@@ -591,6 +559,8 @@ function init_fields(window_location)
             url_value = query_string.get('github_url');
         if(query_string.has('github_token'))
             token_value = query_string.get('github_token');
+        if(query_string.has('moncms_action'))
+            action_value = query_string.get('moncms_action');
         //if(!url_value) url_value = find_meta(document, moncms_prefix);
         if(url_value && !token_value)
         {
@@ -618,9 +588,9 @@ function init_fields(window_location)
     return [url_value, token_value, is_signed_in_value, log_value];
 }
 
-function decode_file_content(encoding : string, content : string, file_too_large : string = '<file too large>';)
+function decode_file_content(encoding : string, content : string, file_too_large : string = '<file too large>')
 {
-    return encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(content), m => m.codePointAt(0))) : encoding == 'none' ? file_too_large : (content || '')
+    return encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(content), m => m.codePointAt(0))) : encoding == 'none' ? file_too_large : (content || '');
 }
 
 function App() {    
@@ -672,7 +642,7 @@ function App() {
         setLogHistory(prev => fmt_log(text) + '\n' + prev);
     }
 
-    function clear(markdown = '', file_tree : boolean = true, front_matter : boolean = true)
+    function clear(markdown : string = '', file_tree : boolean = true, front_matter : boolean = true)
     {
         setCurFile({});
         setFileName('');
@@ -681,13 +651,9 @@ function App() {
         if(front_matter)
             setFrontMatterRows([frontmatter_rows_new()]);
         
-        editorRef.current?.update(() => {
-            const editorState = editorRef.current?.getEditorState();
-            if (editorState != null) {
-                $convertFromMarkdownString(markdown, PLAYGROUND_TRANSFORMERS);
-                $getRoot().selectStart();
-            }
-        });
+        const editor = editorRef.current;
+        editor?.update(() => convert_markdown_to_visual_editor(edtitor, $getRoot(), markdown));
+        setEditorMode('markdown');
     }
 
     function onchange_files(event)
@@ -729,7 +695,7 @@ function App() {
         event.target.value = '';
     }
 
-    async function onclick_createfiledir(newpath_template : string, clear_message : string, iso_date_fmt : string = '0000-00-00', iso_time_fmt : string = 'T00:00:00')
+    function onclick_createfiledir(newpath_template : string, clear_message : string, iso_date_fmt : string = '0000-00-00', iso_time_fmt : string = 'T00:00:00')
     {
         const now = new Date().toISOString();
         const time = now.slice(iso_date_fmt.length, iso_date_fmt.length + iso_time_fmt.length).replace('T', '').toLowerCase().replaceAll(':', '');
@@ -835,15 +801,16 @@ function App() {
 
     function set_editor_content_visual(content: string, editable: boolean, editorModeValue: str = 'markdown')
     {
-        const root = $getRoot();
-        editorRef.current.update(() =>
+        const editor = editorRef.current;
+        editor?.update(() =>
         {
+            const root = $getRoot();
             if(editorModeValue == 'markdown' || editorModeValue == 'image' || editorModeValue == 'dir')
                 convert_markdown_to_visual_editor(editor, root, content); // if (editorRef.current.getEditorState() != null) { $convertFromMarkdownString(content, PLAYGROUND_TRANSFORMERS); $getRoot().selectStart(); }
             else if(editorModeValue == 'html')
                 convert_html_to_visual_editor(editor, root, content);
         });
-        editorRef.current.setEditable(editable);
+        editor?.setEditable(editable);
     }
     
     function handleMarkdownToggle(editor)
