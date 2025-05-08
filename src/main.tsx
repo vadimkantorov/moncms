@@ -74,8 +74,8 @@ import theme from './theme.json';
 
 const moncms_prefix = 'moncms';
 const help_url = "https://github.com/vadimkantorov/moncms/blob/master/README.md";
-const new_file_template = "${date}-new-post-draft-at-${time}.md";
-const new_dir_template = "new-dir-at-${time}/.gitignore";
+const new_file_template_default = "${date}-new-post-draft-at-${time}.md";
+const new_dir_template_default = "new-dir-at-${time}/.gitignore";
 const new_file_message = "### modify the file name, modify this content and click Save File to actually create and save the file";
 const new_dir_message = "### modify the directory name, and then click Save File to create the file and the directory";
 const del_file_message = "Do you really want to delete this file?";
@@ -557,7 +557,7 @@ async function upload_image_from_bloburl(prep, bloburl, imageCache, log)
 
 function init_fields(window_location)
 {
-    let url_value = '', token_value = '', is_signed_in_value = false, log_value = '', action_value = '';
+    let url_value = '', token_value = '', is_signed_in_value = false, log_value = '', action = '', new_file_template = '';
     if(window_location.search)
     {
         const query_string = new URLSearchParams(window_location.search);
@@ -566,7 +566,9 @@ function init_fields(window_location)
         if(query_string.has('github_token'))
             token_value = query_string.get('github_token');
         if(query_string.has('moncms_action'))
-            action_value = query_string.get('moncms_action');
+            action = query_string.get('moncms_action');
+        if(query_string.has('moncms_new_file_template'))
+            new_file_template = query_string.get('moncms_new_file_template');
         //if(!url_value) url_value = find_meta(document, moncms_prefix);
         if(url_value && !token_value)
         {
@@ -591,7 +593,7 @@ function init_fields(window_location)
         is_signed_in_value = cache_has(url_value);
     }
 
-    return [url_value, token_value, is_signed_in_value, log_value, action_value];
+    return [url_value, token_value, is_signed_in_value, log_value, action];
 }
 
 function decode_file_content(encoding : string, content : string, file_too_large : string = '<file too large>')
@@ -702,7 +704,7 @@ function App()
         event.target.value = '';
     }
 
-    async function onclick_delfile(confirmation_message : string)
+    async function delfile(confirmation_message : string)
     {
         if(!fileName)
             return moncms_log('cannot delete current directory');
@@ -1034,10 +1036,8 @@ function App()
         }
     }
 
-    async function open_file_or_dir(url_value : string = '', token_value : string = '', action_value : string = '', HTTP_OK : number = 200, ext : Array = ['.gif', '.jpg', '.png', '.svg'])
+    async function open_file_or_dir(url_value : string = '', token_value : string = '', action : string = '', HTTP_OK : number = 200, ext : Array = ['.gif', '.jpg', '.png', '.svg'])
     {
-        //if(action_value == 'new') // 'delete'
-        //    createfileRef.current.click();
         const is_virtual_file = url_value.startsWith('blob:');
         let res_file = {}, res_dir = [], curdir_url = '', parentdir_url = '', prep = {};
 
@@ -1094,8 +1094,18 @@ function App()
         const editorModeValue = is_err ? 'error' : is_image ? 'image' : (is_dir ? 'dir' : (res_file.name.endsWith('.md') ? 'markdown' : res_file.name.endsWith('.html') ? 'html' : 'textEditor'));
         
         setCurFile(res_file);
-
-        if(is_err)
+        if(action == 'new')
+        {
+            filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
+            createfiledir(new_file_template_default, new_file_message);
+        }
+        else if(action == 'delete')
+        {
+            filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
+            setFileName(res_file.name);
+            delfile(del_file_message);
+        }
+        else if(is_err)
         {
             setIsDirtyTracking(false);
             clear('', true, true);
@@ -1216,9 +1226,9 @@ function App()
     <div id="moncms_toolbar">
         <button onClick={() => open_file_or_dir(url, token)}>Open</button>
         <button onClick={onclick_savefile}>Save File</button>
-        <button onClick={() => onclick_delfile(del_file_message).catch(moncms_log)} id="html_delfile">Delete File</button>
-        <button onClick={() => createfiledir(new_file_template, new_file_message)} id="html_createfile">New File</button>
-        <button onClick={() => createfiledir(new_dir_template, new_dir_message)} id="html_createdir">New Folder</button>
+        <button onClick={() => delfile(del_file_message).catch(moncms_log)} id="html_delfile">Delete File</button>
+        <button onClick={() => createfiledir(new_file_template_default, new_file_message)} id="html_createfile">New File</button>
+        <button onClick={() => createfiledir(new_dir_template_default, new_dir_message)} id="html_createdir">New Folder</button>
         
         <button onClick={() => filesRef.current.click()}>Upload Files</button>
         <input onChange={onchange_files} ref={filesRef} multiple hidden id="html_files" type="file" />
