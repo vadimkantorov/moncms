@@ -73,6 +73,12 @@ import { ToolbarContext } from "./context/ToolbarContext";
 import theme from './theme.json';
 
 const moncms_prefix = 'moncms';
+const help_url = "https://github.com/vadimkantorov/moncms/blob/master/README.md";
+const new_file_template = "${date}-new-post-draft-at-${time}.md";
+const new_dir_template = "new-dir-at-${time}/.gitignore";
+const new_file_message = "### modify the file name, modify this content and click Save File to actually create and save the file";
+const new_dir_message = "### modify the directory name, and then click Save File to create the file and the directory";
+const del_file_message = "Do you really want to delete this file?";
 
 const imageCache = new ImageCache();
 
@@ -585,7 +591,7 @@ function init_fields(window_location)
         is_signed_in_value = cache_has(url_value);
     }
 
-    return [url_value, token_value, is_signed_in_value, log_value];
+    return [url_value, token_value, is_signed_in_value, log_value, action_value];
 }
 
 function decode_file_content(encoding : string, content : string, file_too_large : string = '<file too large>')
@@ -593,8 +599,9 @@ function decode_file_content(encoding : string, content : string, file_too_large
     return encoding == 'base64' ? new TextDecoder().decode(Uint8Array.from(window.atob(content), m => m.codePointAt(0))) : encoding == 'none' ? file_too_large : (content || '');
 }
 
-function App() {    
-    const [url_value, token_value, is_signed_in_value, log_value] = init_fields(window.location);
+function App()
+{
+    const [url_value, token_value, is_signed_in_value, log_value, action_value] = init_fields(window.location);
 
     const editorRef = useRef(null);
     const fileNameRef = useRef(null);
@@ -627,7 +634,7 @@ function App() {
     {
         if(url)
         {
-            open_file_or_dir(url, token).catch(moncms_log);
+            open_file_or_dir(url, token, action_value).catch(moncms_log);
         }
         else
         {
@@ -652,7 +659,7 @@ function App() {
             setFrontMatterRows([frontmatter_rows_new()]);
         
         const editor = editorRef.current;
-        editor?.update(() => convert_markdown_to_visual_editor(edtitor, $getRoot(), markdown));
+        editor?.update(() => convert_markdown_to_visual_editor(editor, $getRoot(), markdown));
         setEditorMode('markdown');
     }
 
@@ -693,19 +700,6 @@ function App() {
             reader.readAsDataURL(file);
         }
         event.target.value = '';
-    }
-
-    function onclick_createfiledir(newpath_template : string, clear_message : string, iso_date_fmt : string = '0000-00-00', iso_time_fmt : string = 'T00:00:00')
-    {
-        const now = new Date().toISOString();
-        const time = now.slice(iso_date_fmt.length, iso_date_fmt.length + iso_time_fmt.length).replace('T', '').toLowerCase().replaceAll(':', '');
-        const date = now.slice(0, iso_date_fmt.length).replace('T', '');
-        
-        const new_path = newpath_template.replaceAll('${date}', date.toString()).replaceAll('${time}', time.toString());
-        clear(clear_message, false, true);
-        setFileName(new_path);
-        //filetree_add(fileName, res_put, true);
-        //fileNameRef.current.focus();
     }
 
     async function onclick_delfile(confirmation_message : string)
@@ -949,6 +943,19 @@ function App() {
         }
     }
 
+    function createfiledir(newpath_template : string, clear_message : string, iso_date_fmt : string = '0000-00-00', iso_time_fmt : string = 'T00:00:00')
+    {
+        const now = new Date().toISOString();
+        const time = now.slice(iso_date_fmt.length, iso_date_fmt.length + iso_time_fmt.length).replace('T', '').toLowerCase().replaceAll(':', '');
+        const date = now.slice(0, iso_date_fmt.length).replace('T', '');
+        
+        const new_path = newpath_template.replaceAll('${date}', date.toString()).replaceAll('${time}', time.toString());
+        clear(clear_message, false, true);
+        setFileName(new_path);
+        //filetree_add(fileName, res_put, true);
+        //fileNameRef.current.focus();
+    }
+
     function filetree_update(files_and_dirs, curdir_url, parentdir_url, selected_file_name, ext = ['.gif', '.jpg', '.png', '.svg'])
     {
         const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
@@ -1027,8 +1034,10 @@ function App() {
         }
     }
 
-    async function open_file_or_dir(url_value : string = '', token_value : string = '', HTTP_OK : number = 200, ext : Array = ['.gif', '.jpg', '.png', '.svg'])
+    async function open_file_or_dir(url_value : string = '', token_value : string = '', action_value : string = '', HTTP_OK : number = 200, ext : Array = ['.gif', '.jpg', '.png', '.svg'])
     {
+        //if(action_value == 'new') // 'delete'
+        //    createfileRef.current.click();
         const is_virtual_file = url_value.startsWith('blob:');
         let res_file = {}, res_dir = [], curdir_url = '', parentdir_url = '', prep = {};
 
@@ -1076,9 +1085,9 @@ function App() {
 
         const key_by_name = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
         const is_dir = res_file.content === undefined;
-        const is_err = (Object.entries(res_file).length == 0 && res_dir.length == 0) || res_file.encoding == 'none';
-        const can_save = prep.error == '' && prep.github_token != '';
         const is_image = !is_dir && ext.some(e => res_file.name.endsWith(e));
+        const is_err = (Object.entries(res_file).length == 0 && res_dir.length == 0) || (res_file.encoding == 'none' && !is_image);
+        const can_save = prep.error == '' && prep.github_token != '';
         const images = res_dir.filter(j =>j.type == 'file' && ext.some(e => j.name.endsWith(e))).sort(key_by_name);
         const image_listing = is_image ? `# ${res_file.name}\n![${res_file.name}](${res_file.download_url})` : images.map(j => `# ${j.name}\n![${j.name}](${j.download_url})`).join('\n\n');
         
@@ -1207,16 +1216,16 @@ function App() {
     <div id="moncms_toolbar">
         <button onClick={() => open_file_or_dir(url, token)}>Open</button>
         <button onClick={onclick_savefile}>Save File</button>
-        <button onClick={event => onclick_delfile(event.target.dataset.message).catch(moncms_log)} id="html_delfile" data-message="Do you really want to delete this file?">Delete File</button>
-        <button onClick={event => onclick_createfiledir(event.target.dataset.newpath, event.target.dataset.message)} id="html_createfile" data-newpath="${date}-new-post-draft-at-${time}.md" data-message="### modify the file name, modify this content and click Save File to actually create and save the file">New File</button>
-        <button onClick={event => onclick_createfiledir(event.target.dataset.newpath, event.target.dataset.message)} id="html_createdir"  data-newpath="new-dir-at-${time}/.gitignore"        data-message="### modify the directory name, and then click Save File to create the file and the directory">New Folder</button>
+        <button onClick={() => onclick_delfile(del_file_message).catch(moncms_log)} id="html_delfile">Delete File</button>
+        <button onClick={() => createfiledir(new_file_template, new_file_message)} id="html_createfile">New File</button>
+        <button onClick={() => createfiledir(new_dir_template, new_dir_message)} id="html_createdir">New Folder</button>
         
         <button onClick={() => filesRef.current.click()}>Upload Files</button>
         <input onChange={onchange_files} ref={filesRef} multiple hidden id="html_files" type="file" />
         <button onClick={onclick_downloadfile}>Download File</button>
         
         <button onClick={() => onclick_signinout().catch(moncms_log)} className={isSignedIn ? "signout" : "signin"} ></button>
-        <button onClick={event => {setUrl(event.target.dataset.message); setToken(''); open_file_or_dir(event.target.dataset.message, '');}} data-message="https://github.com/vadimkantorov/moncms/blob/master/README.md">Help</button>
+        <button onClick={() => {setUrl(help_url); setToken(''); open_file_or_dir(help_url, '');}}>Help</button>
         {/*<button onClick={() => setIsCompact(!isCompact)}>Compact View</button>*/}
     </div>
     <div className="editor-shell">
