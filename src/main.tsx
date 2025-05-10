@@ -31,7 +31,7 @@ import Prism from "prismjs"; if (typeof globalThis.Prism === 'undefined') { glob
 
 import '../assets/styles.css';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 
 import {EditorState, $getRoot, $createParagraphNode, $createTextNode, $isTextNode, $selectAll, $insertNodes, $nodesOfType, DOMConversionMap, DOMExportOutput, DOMExportOutputMap, isHTMLElement, Klass, LexicalEditor} from 'lexical';
@@ -643,6 +643,8 @@ function App()
             urlRef.current.focus();
         }
     }, []);
+    //useEffect(() => {window.confirm("hello?")}, [fileName]);
+    
 
     function moncms_log(err : string | Error)
     {
@@ -704,25 +706,25 @@ function App()
         event.target.value = '';
     }
 
-    async function delfile(confirmation_message : string)
+    async function delfile(confirmation_message : string, newFileName : string, curFile_name : string, curFile_sha: string)
     {
-        if(!fileName)
+        if(!newFileName)
             return moncms_log('cannot delete current directory');
 
-        if(Object.entries(curFile).length == 0)
+        if(!curFile_sha)
             return clear('', false, true);
 
         const prep = github_api_prepare_params(url, token, true);
         if(prep.error)
             return moncms_log(prep.error);
 
-        if(!window.confirm(confirmation_message + ` [${curFile.name}]`))
+        if(!window.confirm(confirmation_message + ` [${curFile_name}]`))
             return;
 
-        const res_del = await github_api_delete_file(prep, curFile.sha, moncms_log);
+        const res_del = await github_api_delete_file(prep, curFile_sha, moncms_log);
         if(res_del)
         {
-            filetree_del(fileName);
+            filetree_del(newFileName);
             setUrl(prep.curdir_url());
             clear('', false, true);
         }
@@ -1038,6 +1040,8 @@ function App()
 
     async function open_file_or_dir(url_value : string = '', token_value : string = '', action : string = '', HTTP_OK : number = 200, ext : Array = ['.gif', '.jpg', '.png', '.svg'])
     {
+        // TODO: move after rendering, but try-catch any loading
+        // TODO: catch 500 error at get - maybe no internet?
         const is_virtual_file = url_value.startsWith('blob:');
         let res_file = {}, res_dir = [], curdir_url = '', parentdir_url = '', prep = {};
 
@@ -1099,12 +1103,6 @@ function App()
             filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
             createfiledir(new_file_template_default, new_file_message);
         }
-        else if(action == 'delete')
-        {
-            filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
-            setFileName(res_file.name);
-            delfile(del_file_message);
-        }
         else if(is_err)
         {
             setIsDirtyTracking(false);
@@ -1159,6 +1157,11 @@ function App()
             setEditorMode(editorModeValue);
             setIsDirty(false);
             setIsDirtyTracking(true);
+        }
+
+        if(action == 'delete' && (!is_err && !is_dir))
+        {
+            setTimeout(() => delfile(del_file_message, res_file.name || "", res_file.name || "", res_file.sha || ""));
         }
     }
 
@@ -1226,7 +1229,7 @@ function App()
     <div id="moncms_toolbar">
         <button onClick={() => open_file_or_dir(url, token)}>Open</button>
         <button onClick={onclick_savefile}>Save File</button>
-        <button onClick={() => delfile(del_file_message).catch(moncms_log)} id="html_delfile">Delete File</button>
+        <button onClick={() => delfile(del_file_message, fileName, curFile.name, curFile.sha || "").catch(moncms_log)} id="html_delfile">Delete File</button>
         <button onClick={() => createfiledir(new_file_template_default, new_file_message)} id="html_createfile">New File</button>
         <button onClick={() => createfiledir(new_dir_template_default, new_dir_message)} id="html_createdir">New Folder</button>
         
