@@ -11,14 +11,15 @@
 // TODO: do not re-load from cache token if deleted the token manually? what to do if outdated token is there and changed the url? what to do with signed-in status when changing url? (set after get on onclick_load?)
 // TODO: simplify op checks, use sha only if for the same url
 // TODO: get https://raw.githubusercontent.com/vadimkantorov/moncms/gh-pages/README.md instead of API by default (need to somehow fix for cache and maybe important for help button)
+// TODO: help should not clear token if on the same domain, should allow custom help urls?
 // TODO: when closing with changes from the initial state, prevent?
 // TODO: handle all fetch errors (resp.ok and TypeError - check handling of CrossDomain error)
-// TODO: query string actions: new, edit/delete
-// TODO: when navigating, update html_url in search. what to do with password: make some url with all creds? reload after onclick_del at the opened file?
+// TODO: query string actions: allow specifying frontmatter schema
 // TODO: support some sort of frontmatter scheme: https://jekyllrb.com/docs/front-matter/
+// TODO: when navigating, update html_url in search. what to do with password: make some url with all creds? reload after onclick_del at the opened file?
 // TODO: discover settings from a json file moncms.json (assets dir?) next to the index.html
 // TODO: check on save if github url was opened
-// TODO: help should not clear token if on the same domain, should allow custom help urls?
+
 // https://stackoverflow.com/questions/31563444/rename-a-file-with-github-api
 // https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
 // https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
