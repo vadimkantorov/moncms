@@ -588,6 +588,11 @@ function init_fields(window_location)
                 log_value = fmt_log('got from cache for ' + prep.github_repo_url);
         }
     }
+    if(action == 'new' && url_value)
+    {
+        const prep = github_api_prepare_params(url_value);
+        url_value = prep.curdir_url();
+    }
     if(url_value)
     {
         is_signed_in_value = cache_has(url_value);
