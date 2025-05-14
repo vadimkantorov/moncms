@@ -399,9 +399,11 @@ function frontmatter_parse(text : string) : [string, Object]
     return [text, frontmatter];
 }
 
-function update_location(path : string)
+function update_github_url(github_url : string)
 {
-    window.history.replaceState({}, document.title, path );
+    const search_params = new URLSearchParams(window.location.search);
+    search_params.delete('github_url');
+    window.history.replaceState({}, document.title, window.location.pathname + `?github_url=${github_url}&` + search_params.toString());
 }
 
 function cache_has(key : string) : boolean
@@ -1221,7 +1223,7 @@ function App()
     <input  hidden={isCompact} id="html_token" placeholder="GitHub token:"  type="text" value={token} onChange={event => setToken(event.target.value)} onKeyPress={(event) => event.code == 'Enter' && open_file_or_dir(url, token).catch(moncms_log)} />
     <input  hidden={isCompact} id="html_file_name" placeholder="File name:" type="text" ref={fileNameRef} value={fileName} onChange={event => setFileName(event.target.value)}  onKeyPress={event => event.code == 'Enter' && onclick_savefile().catch(moncms_log)} />
     <input  hidden={isCompact} id="html_log" placeholder="Log:" title={logHistory} value={log} readOnly />
-    <select hidden={isCompact} id="html_file_tree" size="10" value={fileTreeValue} onChange={(event) => setFileTreeValue(event.target.value)} onKeyPress={event => (event.code == 'Space' || event.code == 'Enter') ? [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)] : []} onDoubleClick={(event) => [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)]}>
+    <select hidden={isCompact} id="html_file_tree" size="10" value={fileTreeValue} onChange={(event) => setFileTreeValue(event.target.value)} onKeyPress={event => (event.code == 'Space' || event.code == 'Enter') ? [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token)] : []} onDoubleClick={(event) => [setUrl(fileTreeValue), open_file_or_dir(fileTreeValue, token), update_github_url(fileTreeValue)]}>
         {fileTree.map((f, i) => (<option key={f.name + ':' + f.url} value={f.url} title={f.url}>{f.name + (f.type == 'dir' ? '/' : '')}</option>))}
     </select>
     <table  hidden={isCompact} id="html_frontmatter">
