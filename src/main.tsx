@@ -18,6 +18,7 @@
 // TODO: support some sort of frontmatter scheme: https://jekyllrb.com/docs/front-matter/
 // TODO: discover settings from a json file moncms.json (assets dir?) next to the index.html
 // TODO: check on save if github url was opened
+// TODO: help should not clear token if on the same domain, should allow custom help urls?
 // https://stackoverflow.com/questions/31563444/rename-a-file-with-github-api
 // https://medium.com/@obodley/renaming-a-file-using-the-git-api-fed1e6f04188
 // https://www.levibotelho.com/development/commit-a-file-with-the-github-api/
@@ -71,18 +72,21 @@ import { ImageNode } from './nodes/ImageNode';
 import { ToolbarContext } from "./context/ToolbarContext";
 
 import theme from './theme.json';
+const help_url = "https://github.com/vadimkantorov/moncms/blob/master/README.md";
 
 const moncms_prefix = 'moncms';
-const help_url = "https://github.com/vadimkantorov/moncms/blob/master/README.md";
+
 const new_file_template_default = "${date}-new-post-draft-at-${time}.md";
 const new_dir_template_default = "new-dir-at-${time}/.gitignore";
+
 const new_file_message = "### modify the file name, modify this content and click Save File to actually create and save the file";
 const new_dir_message = "### modify the directory name, and then click Save File to create the file and the directory";
 const del_file_message = "Do you really want to delete this file?";
 
 const imageCache = new ImageCache();
 
-const editorConfig = {
+const editorConfig = 
+{
     theme: theme,
     namespace: moncms_prefix,
     nodes: [ParagraphNode, TextNode, HeadingNode, ListNode, ListItemNode, CodeNode, ImageNode, HorizontalRuleNode, LinkNode, AutoLinkNode],
@@ -156,7 +160,8 @@ function github_api_prepare_params(github_url : String, github_token : String = 
     else if (m6)
         [github_owner, github_repo] = m6[1], (m6[1] + '.github.io');
 
-    else {
+    else
+    {
         prep.error = 'github_url could not be matched';
         return prep;
     }
@@ -1105,7 +1110,7 @@ function App()
         setCurFile(res_file);
         if(action == 'new')
         {
-            filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
+            filetree_update(res_dir, curdir_url, parentdir_url, '');
             createfiledir(new_file_template, new_file_message);
         }
         else if(is_err)
