@@ -1161,6 +1161,7 @@ function App()
 
         if(action == 'delete' && (!is_err && !is_dir))
         {
+            // setTimeout to allow rendering of the loaded file, maybe need to be deplaced by <dialog>
             setTimeout(() => delfile(del_file_message, res_file.name || "", res_file.name || "", res_file.sha || ""));
         }
     }
