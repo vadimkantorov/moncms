@@ -557,7 +557,7 @@ async function upload_image_from_bloburl(prep, bloburl, imageCache, log)
 
 function init_fields(window_location)
 {
-    let url_value = '', token_value = '', is_signed_in_value = false, log_value = '', action = '', new_file_template = '';
+    let url_value = '', token_value = '', is_signed_in_value = false, log_value = '', action = '', new_file_template = new_file_template_default;
     if(window_location.search)
     {
         const query_string = new URLSearchParams(window_location.search);
@@ -593,7 +593,7 @@ function init_fields(window_location)
         is_signed_in_value = cache_has(url_value);
     }
 
-    return [url_value, token_value, is_signed_in_value, log_value, action];
+    return [url_value, token_value, is_signed_in_value, log_value, action, new_file_template];
 }
 
 function decode_file_content(encoding : string, content : string, file_too_large : string = '<file too large>')
@@ -603,7 +603,7 @@ function decode_file_content(encoding : string, content : string, file_too_large
 
 function App()
 {
-    const [url_value, token_value, is_signed_in_value, log_value, action_value] = init_fields(window.location);
+    const [url_value, token_value, is_signed_in_value, log_value, action_value, new_file_template] = init_fields(window.location);
 
     const editorRef = useRef(null);
     const fileNameRef = useRef(null);
@@ -1101,7 +1101,7 @@ function App()
         if(action == 'new')
         {
             filetree_update(res_dir, curdir_url, parentdir_url, res_file.name);
-            createfiledir(new_file_template_default, new_file_message);
+            createfiledir(new_file_template, new_file_message);
         }
         else if(is_err)
         {
@@ -1231,7 +1231,7 @@ function App()
         <button onClick={() => open_file_or_dir(url, token)}>Open</button>
         <button onClick={onclick_savefile}>Save File</button>
         <button onClick={() => delfile(del_file_message, fileName, curFile.name, curFile.sha || "").catch(moncms_log)} id="html_delfile">Delete File</button>
-        <button onClick={() => createfiledir(new_file_template_default, new_file_message)} id="html_createfile">New File</button>
+        <button onClick={() => createfiledir(new_file_template, new_file_message)} id="html_createfile">New File</button>
         <button onClick={() => createfiledir(new_dir_template_default, new_dir_message)} id="html_createdir">New Folder</button>
         
         <button onClick={() => filesRef.current.click()}>Upload Files</button>
